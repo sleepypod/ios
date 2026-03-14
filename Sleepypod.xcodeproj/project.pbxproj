@@ -24,6 +24,7 @@
 		4B76AE90EF4105BC911F5102 /* ScheduleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */; };
 		5D54502CCA3F2067F5AF8FE2 /* DataScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23DE6DD1986CBAD98C55A406 /* DataScreen.swift */; };
 		5D6566441668D7E70CE84F29 /* FreeSleepClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */; };
+		5F58632442748EC2A7862CB1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9E902CB9201C2AE527A6C49F /* Assets.xcassets */; };
 		650EC4F1527BA82FBF187755 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */; };
 		6C5D7826E1BC087A04338FF2 /* TemperatureDialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA55E7C1AA8D071C2D7FACA9 /* TemperatureDialView.swift */; };
 		75C07CF3E25E008754ECA924 /* MovementCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 452905BE65E698AC3C3419A6 /* MovementCardView.swift */; };
@@ -82,6 +83,7 @@
 		83EF454801FB06154522C928 /* StatusScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusScreen.swift; sourceTree = "<group>"; };
 		9604F6662B2AB6363AECF42A /* MovementRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementRecord.swift; sourceTree = "<group>"; };
 		970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeSleepClient.swift; sourceTree = "<group>"; };
+		9E902CB9201C2AE527A6C49F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleManager.swift; sourceTree = "<group>"; };
 		A42ACA637081CABD4502D011 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
 		A9FF9D7BA24408A31A5A650C /* DaySelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaySelectorView.swift; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 		F06D1ECEA61B274469CE703A /* Sleepypod */ = {
 			isa = PBXGroup;
 			children = (
+				9E902CB9201C2AE527A6C49F /* Assets.xcassets */,
 				54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */,
 				B59E5A73B7775D671213BDBD /* Models */,
 				791A521FE16A196430F60B8B /* Networking */,
@@ -249,6 +252,7 @@
 			buildConfigurationList = A2A47AAF19E41D49124C342B /* Build configuration list for PBXNativeTarget "Sleepypod" */;
 			buildPhases = (
 				9114BFFE24BA7F166D5D7F99 /* Sources */,
+				4948B4B486767F9346B69D79 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -293,6 +297,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4948B4B486767F9346B69D79 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F58632442748EC2A7862CB1 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		9114BFFE24BA7F166D5D7F99 /* Sources */ = {

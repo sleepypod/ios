@@ -34,19 +34,14 @@ struct TempControlsView: View {
                 Haptics.medium()
                 deviceManager.togglePower()
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "power")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text(isOn ? "ON" : "OFF")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .foregroundColor(isOn ? Theme.healthy : .white.opacity(0.7))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+                Image(systemName: "power")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(isOn ? Theme.healthy : .white.opacity(0.7))
+                    .frame(width: 56, height: 56)
                 .background(.ultraThinMaterial)
-                .clipShape(Capsule())
+                .clipShape(Circle())
                 .overlay(
-                    Capsule()
+                    Circle()
                         .stroke(isOn ? Theme.healthy.opacity(0.4) : .white.opacity(0.1), lineWidth: 1)
                 )
             }

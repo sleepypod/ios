@@ -78,25 +78,7 @@ struct TempScreen: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(wifiColor)
             }
-
             Spacer()
-
-            Button {
-                Haptics.medium()
-                deviceManager.togglePower()
-            } label: {
-                Image(systemName: "power")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(deviceManager.isOn ? Theme.healthy : .white.opacity(0.6))
-                    .frame(width: 36, height: 36)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(deviceManager.isOn ? Theme.healthy.opacity(0.4) : .white.opacity(0.1), lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
         }
         .padding(.top, 4)
     }

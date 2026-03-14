@@ -5,19 +5,17 @@ struct SideSelectorView: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     var body: some View {
-        ZStack {
-            // Two side buttons as background layer
-            HStack(spacing: 44) {  // gap for the floating link
-                sideButton(side: .left)
-                sideButton(side: .right)
-            }
-            .padding(6)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-
-            // Link button floating on top (higher z)
+        HStack(spacing: 0) {
+            sideButton(side: .left)
+            Color.clear.frame(width: 48) // reserve space under the link
+            sideButton(side: .right)
+        }
+        .padding(6)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay {
+            // Link button rendered ON TOP of the bar
             linkButton
-                .zIndex(1)
         }
     }
 

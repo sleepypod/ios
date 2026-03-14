@@ -155,6 +155,7 @@ private struct AlarmBanner: View {
             }
             Spacer()
             Button("Stop") {
+                Haptics.heavy()
                 onStop()
             }
             .font(.subheadline.weight(.semibold))

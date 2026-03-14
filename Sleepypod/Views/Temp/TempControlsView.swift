@@ -15,6 +15,7 @@ struct TempControlsView: View {
         HStack(spacing: 24) {
             // Minus button
             Button {
+                Haptics.light()
                 deviceManager.adjustOffset(by: -1)
             } label: {
                 Image(systemName: "minus")
@@ -34,6 +35,7 @@ struct TempControlsView: View {
 
             // Power / OFF button
             Button {
+                Haptics.medium()
                 deviceManager.togglePower()
             } label: {
                 Text(isOn ? "ON" : "OFF")
@@ -54,6 +56,7 @@ struct TempControlsView: View {
 
             // Plus button
             Button {
+                Haptics.light()
                 deviceManager.adjustOffset(by: 1)
             } label: {
                 Image(systemName: "plus")

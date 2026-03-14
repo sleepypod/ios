@@ -27,7 +27,7 @@ struct SideSelectorView: View {
         let isSelected = deviceManager.selectedSide == (side == .left ? .left : .right) ||
                          deviceManager.selectedSide == .both
 
-        return Button(action: action) {
+        return Button { Haptics.tap(); action() } label: {
             HStack(spacing: 8) {
                 Text(side.displayName)
                     .font(.subheadline.weight(.medium))
@@ -58,6 +58,7 @@ struct SideSelectorView: View {
 
     private var linkButton: some View {
         Button {
+            Haptics.medium()
             deviceManager.toggleLink()
         } label: {
             Image(systemName: deviceManager.isLinked ? "link" : "link.badge.plus")

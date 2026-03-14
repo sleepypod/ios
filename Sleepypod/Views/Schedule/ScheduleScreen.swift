@@ -77,6 +77,7 @@ private struct ScheduleSideSelectorView: View {
             ForEach([SideSelection.left, .right, .both], id: \.self) { selection in
                 let isSelected = scheduleManager.selectedSide == selection
                 Button {
+                    Haptics.tap()
                     scheduleManager.selectedSide = selection
                 } label: {
                     Text(label(for: selection))

@@ -6,6 +6,7 @@ struct WeekNavigatorView: View {
     var body: some View {
         HStack {
             Button {
+                Haptics.light()
                 metricsManager.previousWeek()
             } label: {
                 Image(systemName: "chevron.left")
@@ -26,6 +27,7 @@ struct WeekNavigatorView: View {
             Spacer()
 
             Button {
+                Haptics.light()
                 metricsManager.nextWeek()
             } label: {
                 Image(systemName: "chevron.right")

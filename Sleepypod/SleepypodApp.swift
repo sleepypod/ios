@@ -37,23 +37,28 @@ struct SleepypodApp: App {
 }
 
 struct ContentView: View {
+    @State private var selectedTab = "temp"
+
     var body: some View {
-        TabView {
-            Tab("Temp", systemImage: "thermometer.medium") {
+        TabView(selection: $selectedTab) {
+            Tab("Temp", systemImage: "thermometer.medium", value: "temp") {
                 TempScreen()
             }
-            Tab("Schedule", systemImage: "calendar") {
+            Tab("Schedule", systemImage: "calendar", value: "schedule") {
                 ScheduleScreen()
             }
-            Tab("Data", systemImage: "chart.bar.fill") {
+            Tab("Data", systemImage: "chart.bar.fill", value: "data") {
                 DataScreen()
             }
-            Tab("Status", systemImage: "heart.text.clipboard") {
+            Tab("Status", systemImage: "heart.text.clipboard", value: "status") {
                 StatusScreen()
             }
-            Tab("Settings", systemImage: "gearshape.fill") {
+            Tab("Settings", systemImage: "gearshape.fill", value: "settings") {
                 SettingsScreen()
             }
+        }
+        .onChange(of: selectedTab) {
+            Haptics.tap()
         }
     }
 }

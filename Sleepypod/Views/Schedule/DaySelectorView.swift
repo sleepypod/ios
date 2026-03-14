@@ -8,6 +8,7 @@ struct DaySelectorView: View {
             ForEach(DayOfWeek.weekdays) { day in
                 let isSelected = scheduleManager.selectedDay == day
                 Button {
+                    Haptics.tap()
                     scheduleManager.selectedDay = day
                 } label: {
                     Text(day.shortLabel)

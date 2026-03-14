@@ -37,6 +37,8 @@ struct SettingsScreen: View {
             .padding(.bottom, 20)
         }
         .background(Theme.background)
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture { isIPFieldFocused = false }
         .task {
             await settingsManager.fetchSettings()
         }
@@ -63,17 +65,12 @@ struct SettingsScreen: View {
                 .font(.subheadline)
                 .foregroundColor(.white)
                 .textFieldStyle(.plain)
-                .keyboardType(.decimalPad)
+                .keyboardType(.numbersAndPunctuation)
                 .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
                 .focused($isIPFieldFocused)
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") {
-                            isIPFieldFocused = false
-                        }
-                    }
-                }
+                .submitLabel(.done)
+                .onSubmit { isIPFieldFocused = false }
 
                 // Connection status
                 Circle()
@@ -122,6 +119,7 @@ struct SettingsScreen: View {
     private var actionsCard: some View {
         HStack(spacing: 12) {
             Button {
+                Haptics.heavy()
                 Task { await settingsManager.reboot() }
             } label: {
                 HStack(spacing: 6) {

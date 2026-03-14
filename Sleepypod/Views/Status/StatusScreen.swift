@@ -64,7 +64,7 @@ struct StatusScreen: View {
                     .foregroundColor(Theme.textSecondary)
             }
             Spacer()
-            Toggle("", isOn: Binding(get: { isOn }, set: { _ in action() }))
+            Toggle("", isOn: Binding(get: { isOn }, set: { _ in Haptics.medium(); action() }))
                 .tint(Theme.cooling)
                 .labelsHidden()
         }

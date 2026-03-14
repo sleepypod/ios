@@ -57,6 +57,7 @@ private struct DataSideSelectorView: View {
             ForEach(Side.allCases) { side in
                 let isSelected = metricsManager.selectedSide == side
                 Button {
+                    Haptics.tap()
                     metricsManager.selectedSide = side
                     Task { await metricsManager.fetchAll() }
                 } label: {

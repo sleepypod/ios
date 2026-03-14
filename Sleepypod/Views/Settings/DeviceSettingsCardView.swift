@@ -57,7 +57,7 @@ struct DeviceSettingsCardView: View {
                 Spacer()
                 Toggle("", isOn: Binding(
                     get: { settingsManager.settings?.rebootDaily ?? false },
-                    set: { _ in Task { await settingsManager.toggleRebootDaily() } }
+                    set: { _ in Haptics.medium(); Task { await settingsManager.toggleRebootDaily() } }
                 ))
                 .tint(Theme.cooling)
                 .labelsHidden()
@@ -88,6 +88,7 @@ struct DeviceSettingsCardView: View {
     private func formatButton(title: String, format: TemperatureFormat) -> some View {
         let isSelected = settingsManager.temperatureFormat == format
         return Button {
+            Haptics.tap()
             Task { await settingsManager.updateTemperatureFormat(format) }
         } label: {
             Text(title)

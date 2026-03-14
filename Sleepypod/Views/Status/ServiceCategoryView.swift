@@ -8,6 +8,7 @@ struct ServiceCategoryView: View {
         VStack(spacing: 0) {
             // Header
             Button {
+                Haptics.light()
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded.toggle()
                 }

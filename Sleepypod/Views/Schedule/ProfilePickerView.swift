@@ -9,6 +9,7 @@ struct ProfilePickerView: View {
             ForEach(SleepProfile.allCases) { profile in
                 let isSelected = selectedProfile == profile
                 Button {
+                    Haptics.medium()
                     selectedProfile = profile
                     Task {
                         await scheduleManager.applyProfile(profile)

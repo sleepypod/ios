@@ -37,6 +37,7 @@ struct PhaseBlockView: View {
             // Temperature controls
             HStack(spacing: 12) {
                 Button {
+                    Haptics.light()
                     Task {
                         await scheduleManager.updatePhaseTemperature(time: phase.time, delta: -1)
                     }
@@ -57,6 +58,7 @@ struct PhaseBlockView: View {
                     .contentTransition(.numericText())
 
                 Button {
+                    Haptics.light()
                     Task {
                         await scheduleManager.updatePhaseTemperature(time: phase.time, delta: 1)
                     }

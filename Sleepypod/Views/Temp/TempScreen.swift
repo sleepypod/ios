@@ -7,6 +7,9 @@ struct TempScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // Header bar: WiFi + power
+                headerBar
+
                 // Connection banner
                 if !deviceManager.isConnected {
                     ConnectionBanner()
@@ -49,6 +52,61 @@ struct TempScreen: View {
             deviceManager.startPolling()
             await deviceManager.fetchStatus()
         }
+    }
+
+    // MARK: - Header Bar
+
+    private var headerBar: some View {
+        HStack {
+            // WiFi strength (left)
+            HStack(spacing: 6) {
+                Image(systemName: wifiIcon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(wifiColor)
+
+                Text("\(deviceManager.deviceStatus?.wifiStrength ?? 0)%")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(wifiColor)
+            }
+
+            Spacer()
+
+            // Power button (right)
+            Button {
+                Haptics.medium()
+                deviceManager.togglePower()
+            } label: {
+                Image(systemName: "power")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(deviceManager.isOn ? Theme.healthy : Theme.textTertiary)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        deviceManager.isOn ? Theme.healthy.opacity(0.15) : Theme.cardElevated
+                    )
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(deviceManager.isOn ? Theme.healthy.opacity(0.4) : Theme.cardBorder, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 4)
+    }
+
+    private var wifiIcon: String {
+        let strength = deviceManager.deviceStatus?.wifiStrength ?? 0
+        if strength >= 66 { return "wifi" }
+        if strength >= 33 { return "wifi" }
+        if strength > 0 { return "wifi" }
+        return "wifi.slash"
+    }
+
+    private var wifiColor: Color {
+        let strength = deviceManager.deviceStatus?.wifiStrength ?? 0
+        if strength >= 50 { return Theme.healthy }
+        if strength >= 25 { return Theme.amber }
+        return Theme.error
     }
 }
 
@@ -183,16 +241,44 @@ private struct AlarmBanner: View {
 private struct EnvironmentInfoView: View {
     @Environment(DeviceManager.self) private var deviceManager
 
+    private var waterLevelLabel: String {
+        guard let level = deviceManager.deviceStatus?.waterLevel else { return "---" }
+        // Display water level with a readable label
+        switch level.lowercased() {
+        case "true", "ok", "full", "good":
+            return "Water OK"
+        case "false", "low", "empty":
+            return "Water Low"
+        default:
+            return "Water: \(level)"
+        }
+    }
+
+    private var waterLevelColor: Color {
+        guard let level = deviceManager.deviceStatus?.waterLevel else { return Theme.textMuted }
+        switch level.lowercased() {
+        case "true", "ok", "full", "good":
+            return Theme.healthy
+        case "false", "low", "empty":
+            return Theme.amber
+        default:
+            return Theme.textSecondary
+        }
+    }
+
     var body: some View {
         HStack(spacing: 24) {
+            // Water level
             HStack(spacing: 6) {
-                Image(systemName: "house.fill")
+                Image(systemName: "drop.fill")
                     .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-                Text(deviceManager.deviceStatus?.waterLevel ?? "—")
+                    .foregroundColor(waterLevelColor)
+                Text(waterLevelLabel)
                     .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(waterLevelColor)
             }
+
+            // WiFi strength
             HStack(spacing: 6) {
                 Image(systemName: "wifi")
                     .font(.caption)

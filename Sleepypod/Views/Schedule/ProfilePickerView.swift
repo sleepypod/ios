@@ -15,17 +15,23 @@ struct ProfilePickerView: View {
                         await scheduleManager.applyProfile(profile)
                     }
                 } label: {
-                    Text(profile.rawValue)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(isSelected ? .white : Theme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(isSelected ? Theme.accent : Color(hex: "2a2a3a"))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(isSelected ? Theme.accent : Color.clear, lineWidth: 1)
-                        )
+                    VStack(spacing: 4) {
+                        Text(profile.rawValue)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(isSelected ? .white : Theme.textSecondary)
+                        Text(profile.subtitle)
+                            .font(.caption2)
+                            .foregroundColor(isSelected ? .white.opacity(0.7) : Theme.textMuted)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(isSelected ? Theme.accent : Color(hex: "2a2a3a"))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(isSelected ? Theme.accent : Color.clear, lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
             }

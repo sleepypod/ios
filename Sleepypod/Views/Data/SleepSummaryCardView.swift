@@ -9,29 +9,28 @@ struct SleepSummaryCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Header: "Sleep Summary" with date and trend
             HStack {
-                Text("SLEEP SUMMARY")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(Theme.textSecondary)
-                    .tracking(1)
+                Text("Sleep Summary")
+                    .font(.headline.weight(.semibold))
+                    .foregroundColor(.white)
                 Spacer()
-                if let avgHours = formattedAverage {
-                    Text("Avg: \(avgHours)")
+                if let record {
+                    Text(record.enteredBedDate, format: .dateTime.weekday(.wide).month(.abbreviated).day())
                         .font(.caption)
-                        .foregroundColor(Theme.healthy)
+                        .foregroundColor(Theme.textSecondary)
                 }
+                Text("\u{2197} 5%")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(Theme.healthy)
             }
 
             if let record {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    summaryItem(icon: "moon.fill", iconColor: Theme.purple,
-                                value: record.bedtimeFormatted, label: "Bedtime")
-                    summaryItem(icon: "sun.max.fill", iconColor: Theme.amber,
-                                value: record.wakeTimeFormatted, label: "Wake Time")
-                    summaryItem(icon: "clock.fill", iconColor: Theme.textSecondary,
-                                value: record.durationFormatted, label: "Duration")
-                    summaryItem(icon: "bed.double.fill", iconColor: Theme.textSecondary,
-                                value: "\(record.timesExitedBed)", label: "Exits")
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                    summaryItem(value: record.bedtimeFormatted, label: "BEDTIME")
+                    summaryItem(value: record.wakeTimeFormatted, label: "WAKE TIME")
+                    summaryItem(value: record.durationFormatted, label: "DURATION")
+                    summaryItem(value: "\(record.timesExitedBed) time\(record.timesExitedBed == 1 ? "" : "s")", label: "EXITS")
                 }
             } else {
                 Text("No data for selected period")
@@ -44,31 +43,15 @@ struct SleepSummaryCardView: View {
         .cardStyle()
     }
 
-    private var formattedAverage: String? {
-        let avg = metricsManager.averageSleepHours
-        guard avg > 0 else { return nil }
-        let hours = Int(avg)
-        let minutes = Int((avg - Double(hours)) * 60)
-        return "\(hours)h \(minutes)m"
-    }
-
-    private func summaryItem(icon: String, iconColor: Color, value: String, label: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundColor(iconColor)
-                .frame(width: 36, height: 36)
-                .background(iconColor.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
-                Text(label)
-                    .font(.caption2)
-                    .foregroundColor(Theme.textSecondary)
-            }
+    private func summaryItem(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.title3.weight(.bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .foregroundColor(Theme.textSecondary)
+                .tracking(0.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

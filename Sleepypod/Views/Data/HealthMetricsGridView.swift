@@ -9,23 +9,33 @@ struct HealthMetricsGridView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("HEALTH METRICS")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(Theme.textSecondary)
-                .tracking(1)
+            // Header with heart icon
+            HStack(spacing: 6) {
+                Image(systemName: "heart.fill")
+                    .font(.caption)
+                    .foregroundColor(Theme.error)
+                Text("HEALTH METRICS")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(Theme.textSecondary)
+                    .tracking(1)
+            }
 
             if let summary {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    metricItem(icon: "heart.fill", iconColor: Theme.error,
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10),
+                                    GridItem(.flexible(), spacing: 10),
+                                    GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    metricCard(icon: "heart.fill", iconColor: Theme.error,
                                value: formatValue(summary.avgHeartRate), unit: "bpm", label: "Avg HR")
-                    metricItem(icon: "waveform.path.ecg", iconColor: Color(hex: "50b4dc"),
+                    metricCard(icon: "waveform.path.ecg", iconColor: Theme.healthy,
                                value: formatValue(summary.avgHRV), unit: "ms", label: "HRV")
-                    metricItem(icon: "wind", iconColor: Theme.cyan,
+                    metricCard(icon: "wind", iconColor: Theme.cyan,
                                value: formatValue(summary.avgBreathingRate), unit: "brpm", label: "Breath")
-                    metricItem(icon: "arrow.down.heart.fill", iconColor: Theme.cooling,
+                    metricCard(icon: "arrow.down.heart.fill", iconColor: Theme.cooling,
                                value: formatValue(summary.minHeartRate), unit: "bpm", label: "Min HR")
-                    metricItem(icon: "arrow.up.heart.fill", iconColor: Theme.warming,
+                    metricCard(icon: "arrow.up.heart.fill", iconColor: Theme.warming,
                                value: formatValue(summary.maxHeartRate), unit: "bpm", label: "Max HR")
+                    metricCard(icon: "o2.circle.fill", iconColor: Theme.purple,
+                               value: "—", unit: "%", label: "SpO2")
                 }
             } else {
                 Text("No vitals data available")
@@ -38,18 +48,18 @@ struct HealthMetricsGridView: View {
         .cardStyle()
     }
 
-    private func metricItem(icon: String, iconColor: Color, value: String, unit: String, label: String) -> some View {
+    private func metricCard(icon: String, iconColor: Color, value: String, unit: String, label: String) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 14))
                 .foregroundColor(iconColor)
-                .frame(width: 36, height: 36)
+                .frame(width: 32, height: 32)
                 .background(iconColor.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(Circle())
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.subheadline.weight(.bold))
                     .foregroundColor(.white)
                 Text(unit)
                     .font(.caption2)
@@ -60,6 +70,10 @@ struct HealthMetricsGridView: View {
                 .font(.caption2)
                 .foregroundColor(Theme.textSecondary)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Theme.cardElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func formatValue(_ value: Double?) -> String {

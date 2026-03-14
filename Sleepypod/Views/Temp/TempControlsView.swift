@@ -13,61 +13,61 @@ struct TempControlsView: View {
 
     var body: some View {
         HStack(spacing: 24) {
-            // Minus button
+            // Minus button — filled gray circle
             Button {
                 Haptics.light()
                 deviceManager.adjustOffset(by: -1)
             } label: {
                 Image(systemName: "minus")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(.white)
                     .frame(width: 56, height: 56)
-                    .background(Theme.cardElevated)
+                    .background(Color(hex: "2a2a2a"))
                     .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Theme.cardBorder, lineWidth: 1)
-                    )
             }
             .buttonStyle(.plain)
             .disabled(!isOn || offset <= TemperatureConversion.minOffset)
             .opacity(!isOn || offset <= TemperatureConversion.minOffset ? 0.4 : 1)
 
-            // Power / OFF button
+            // Center OFF/power toggle
             Button {
                 Haptics.medium()
                 deviceManager.togglePower()
             } label: {
-                Text(isOn ? "ON" : "OFF")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(isOn ? Theme.healthy : Theme.textSecondary)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(
-                        isOn ? Theme.healthy.opacity(0.15) : Theme.cardElevated
-                    )
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(isOn ? Theme.healthy : Theme.cardBorder, lineWidth: 1)
-                    )
+                HStack(spacing: 6) {
+                    Image(systemName: "power")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("OFF")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundColor(isOn ? Theme.healthy : Theme.textSecondary)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(
+                    isOn ? Theme.healthy.opacity(0.15) : Theme.cardElevated
+                )
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(isOn ? Theme.healthy.opacity(0.4) : Theme.cardBorder, lineWidth: 1)
+                )
             }
             .buttonStyle(.plain)
 
-            // Plus button
+            // Plus button — white outline circle
             Button {
                 Haptics.light()
                 deviceManager.adjustOffset(by: 1)
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(.white)
                     .frame(width: 56, height: 56)
-                    .background(Theme.cardElevated)
+                    .background(Color.clear)
                     .clipShape(Circle())
                     .overlay(
                         Circle()
-                            .stroke(Theme.cardBorder, lineWidth: 1)
+                            .stroke(Color(hex: "444444"), lineWidth: 1.5)
                     )
             }
             .buttonStyle(.plain)

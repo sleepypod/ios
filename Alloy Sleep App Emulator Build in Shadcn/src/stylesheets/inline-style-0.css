@@ -1,0 +1,4 @@
+:root { --isMainDark: -1; --l: 100; --c: 2.25; --h: 273; --isFrameDark: -1; --frameL: 98.5; --frameC: 2.25; --frameH: 273; }
+html, body { margin: 0px; padding: 0px; height: 100%; }
+html.dark, html.dark body { background: lch(var(--frameL) var(--frameC) var(--frameH)); color-scheme: dark; }
+#index { height: 100%; }

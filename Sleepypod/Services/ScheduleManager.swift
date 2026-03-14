@@ -117,11 +117,19 @@ final class ScheduleManager {
 // MARK: - Sleep Profiles
 
 enum SleepProfile: String, CaseIterable, Identifiable, Sendable {
-    case cool = "Cool"
+    case cool = "Cool Sleeper"
     case balanced = "Balanced"
-    case warm = "Warm"
+    case warm = "Warm Sleeper"
 
     var id: String { rawValue }
+
+    var subtitle: String {
+        switch self {
+        case .cool: return "Extra cool all night"
+        case .balanced: return "Science-backed curve"
+        case .warm: return "Warmer temperatures"
+        }
+    }
 
     func temperatures(for count: Int) -> [Int] {
         switch self {

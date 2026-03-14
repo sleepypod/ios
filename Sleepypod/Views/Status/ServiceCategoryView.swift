@@ -40,9 +40,13 @@ struct ServiceCategoryView: View {
                             .font(.caption2)
                             .foregroundColor(category.healthyCount == category.services.count ? Theme.healthy : Theme.amber)
                         Text("\(category.healthyCount)/\(category.services.count)")
-                            .font(.caption)
+                            .font(.caption.weight(.medium))
                             .foregroundColor(Theme.textSecondary)
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "222222"))
+                    .clipShape(Capsule())
 
                     // Chevron
                     Image(systemName: "chevron.right")

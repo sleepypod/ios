@@ -40,8 +40,8 @@ struct HealthCircleView: View {
 
             // Legend
             HStack(spacing: 20) {
-                legendItem(color: Theme.healthy, label: "Running")
-                legendItem(color: Theme.textMuted, label: "Stopped")
+                legendItem(color: Theme.healthy, label: "\(statusManager.healthyCount) Running")
+                legendItem(color: Theme.textMuted, label: "\(statusManager.totalCount - statusManager.healthyCount) Stopped")
             }
         }
         .cardStyle()

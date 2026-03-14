@@ -51,10 +51,11 @@ struct TempScreen: View {
                 .padding(.bottom, 16)
             }
 
-            // Side selector pinned between env info and tab bar
+            // Side selector pinned between content and tab bar
             SideSelectorView()
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
         }
         .background(Theme.background)
         .task {

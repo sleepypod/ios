@@ -6,20 +6,18 @@ struct SideSelectorView: View {
 
     var body: some View {
         ZStack {
-            // Two side buttons
-            HStack(spacing: 0) {
+            // Two side buttons as background layer
+            HStack(spacing: 44) {  // gap for the floating link
                 sideButton(side: .left)
-                    .padding(.trailing, 20) // make room for floating link
-
                 sideButton(side: .right)
-                    .padding(.leading, 20)
             }
             .padding(6)
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 16))
 
-            // Link button floating on top at center
+            // Link button floating on top (higher z)
             linkButton
+                .zIndex(1)
         }
     }
 
@@ -94,7 +92,7 @@ struct SideSelectorView: View {
             Image(systemName: deviceManager.isLinked ? "link" : "link.badge.plus")
                 .font(.system(size: 14))
                 .foregroundColor(deviceManager.isLinked ? .white : Theme.textTertiary)
-                .frame(width: 40, height: 40)
+                .frame(width: 42, height: 42)
                 .background(
                     deviceManager.isLinked ?
                         AnyShapeStyle(Theme.cooling) : AnyShapeStyle(.thickMaterial)
@@ -104,7 +102,7 @@ struct SideSelectorView: View {
                     Circle()
                         .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : .white.opacity(0.15), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
         }
         .buttonStyle(.plain)
     }

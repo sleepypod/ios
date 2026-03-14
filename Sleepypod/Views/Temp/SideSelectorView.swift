@@ -4,22 +4,25 @@ struct SideSelectorView: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(SettingsManager.self) private var settingsManager
 
+    private let linkSize: CGFloat = 46
+
     var body: some View {
+        // Left and Right fill the full width edge-to-edge
         HStack(spacing: 0) {
-            sideButton(side: .left)
-            Spacer().frame(width: 48) // reserve space under the floating link
-            sideButton(side: .right)
+            sideButton(side: .left, trailingPad: true)
+            sideButton(side: .right, leadingPad: true)
         }
         .fixedSize(horizontal: false, vertical: true)
         .padding(6)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        // Link floats on top — out of layout flow entirely
         .overlay {
             linkButton
         }
     }
 
-    private func sideButton(side: Side) -> some View {
+    private func sideButton(side: Side, trailingPad: Bool = false, leadingPad: Bool = false) -> some View {
         let isSelected = deviceManager.selectedSide == (side == .left ? .left : .right) ||
                          deviceManager.selectedSide == .both
         let status = deviceManager.deviceStatus?.status(for: side)
@@ -70,6 +73,8 @@ struct SideSelectorView: View {
             .foregroundColor(isSelected ? Theme.accent : Theme.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
+            // Extra padding on the side facing the link so text doesn't go under it
+            .padding(trailingPad ? .trailing : .leading, linkSize / 2 + 4)
             .background(
                 isSelected ? Color(hex: "1e2a3a").opacity(0.8) : Color.clear
             )
@@ -90,19 +95,19 @@ struct SideSelectorView: View {
             Image(systemName: deviceManager.isLinked ? "link" : "link.badge.plus")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(deviceManager.isLinked ? .white : Theme.textTertiary)
-                .frame(width: 46, height: 46)
+                .frame(width: linkSize, height: linkSize)
                 .background(
                     deviceManager.isLinked ? Theme.cooling : Color(hex: "1a1a1a")
                 )
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(Color(hex: "0a0a0a"), lineWidth: 3) // dark ring to separate from bar
+                        .stroke(Color(hex: "0a0a0a"), lineWidth: 3)
                 )
                 .overlay(
                     Circle()
                         .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : Color(hex: "333333"), lineWidth: 1)
-                        .padding(3) // inside the dark ring
+                        .padding(3)
                 )
                 .shadow(color: .black.opacity(0.5), radius: 8, y: 2)
         }

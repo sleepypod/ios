@@ -5,14 +5,22 @@ struct SideSelectorView: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     var body: some View {
-        HStack(spacing: 0) {
-            sideButton(side: .left)
+        ZStack {
+            // Two side buttons
+            HStack(spacing: 0) {
+                sideButton(side: .left)
+                    .padding(.trailing, 20) // make room for floating link
+
+                sideButton(side: .right)
+                    .padding(.leading, 20)
+            }
+            .padding(6)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+
+            // Link button floating on top at center
             linkButton
-            sideButton(side: .right)
         }
-        .padding(6)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func sideButton(side: Side) -> some View {
@@ -67,8 +75,7 @@ struct SideSelectorView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(
-                isSelected ?
-                    Color(hex: "1e2a3a").opacity(0.8) : Color.clear
+                isSelected ? Color(hex: "1e2a3a").opacity(0.8) : Color.clear
             )
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
@@ -87,16 +94,17 @@ struct SideSelectorView: View {
             Image(systemName: deviceManager.isLinked ? "link" : "link.badge.plus")
                 .font(.system(size: 14))
                 .foregroundColor(deviceManager.isLinked ? .white : Theme.textTertiary)
-                .frame(width: 36, height: 36)
+                .frame(width: 40, height: 40)
                 .background(
                     deviceManager.isLinked ?
-                        AnyShapeStyle(Theme.cooling) : AnyShapeStyle(.ultraThinMaterial)
+                        AnyShapeStyle(Theme.cooling) : AnyShapeStyle(.thickMaterial)
                 )
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : .white.opacity(0.1), lineWidth: 1)
+                        .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : .white.opacity(0.15), lineWidth: 1)
                 )
+                .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
     }

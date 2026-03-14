@@ -5,52 +5,56 @@ struct TempScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // Header bar: WiFi + power
-                headerBar
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header bar: WiFi + power
+                    headerBar
 
-                // Connection banner
-                if !deviceManager.isConnected {
-                    ConnectionBanner()
-                }
-
-                // Priming alert
-                if deviceManager.deviceStatus?.isPriming == true {
-                    AlertBanner(
-                        icon: "drop.fill",
-                        title: "Pod is Priming",
-                        message: "Water is being circulated through the system",
-                        style: .info
-                    )
-                }
-
-                // Alarm banner
-                if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
-                    AlarmBanner(side: side) {
-                        deviceManager.stopAlarm()
-                    }
-                }
-
-                // Temperature dial (tap to toggle power)
-                TemperatureDialView()
-                    .onTapGesture {
-                        Haptics.medium()
-                        deviceManager.togglePower()
+                    // Connection banner
+                    if !deviceManager.isConnected {
+                        ConnectionBanner()
                     }
 
-                // Controls (+/- and OFF)
-                TempControlsView()
+                    // Priming alert
+                    if deviceManager.deviceStatus?.isPriming == true {
+                        AlertBanner(
+                            icon: "drop.fill",
+                            title: "Pod is Priming",
+                            message: "Water is being circulated through the system",
+                            style: .info
+                        )
+                    }
 
-                // Environment info (water + ambient temp)
-                EnvironmentInfoView()
-                    .padding(.top, 4)
+                    // Alarm banner
+                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
+                        AlarmBanner(side: side) {
+                            deviceManager.stopAlarm()
+                        }
+                    }
 
-                // Side selector (between env info and bottom)
-                SideSelectorView()
+                    // Temperature dial (tap to toggle power)
+                    TemperatureDialView()
+                        .onTapGesture {
+                            Haptics.medium()
+                            deviceManager.togglePower()
+                        }
+
+                    // Controls (+/- and OFF)
+                    TempControlsView()
+
+                    // Environment info (water + ambient temp)
+                    EnvironmentInfoView()
+                        .padding(.top, 4)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 20)
+
+            // Side selector pinned between env info and tab bar
+            SideSelectorView()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
         }
         .background(Theme.background)
         .task {

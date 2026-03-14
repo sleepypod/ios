@@ -5,11 +5,14 @@ struct UpdateCardView: View {
     let currentVersion: String
     let currentBranch: String
 
-    private let fakeNewVersion = "2.2.0"
+    // TODO: Wire to sleepypod-core repo releases
+    private let fakeCurrentVersion = "0.1.0"
+    private let fakeNewVersion = "1.0.0"
     private let changelog = [
-        "Improved temperature control accuracy",
-        "Fixed scheduling bug for recurring alarms",
-        "Added new biometrics dashboard"
+        "Separate biometrics DB and add plugin module system",
+        "Correct HRV buffer and sleep interval edge cases",
+        "Add UNIQUE constraint on system_health.component",
+        "Squash migrations into single initial schema"
     ]
 
     var body: some View {
@@ -35,7 +38,7 @@ struct UpdateCardView: View {
 
             // Version transition
             HStack(spacing: 8) {
-                versionTag("v\(currentVersion)", color: Theme.textSecondary, bg: Color(hex: "2a2a3a"))
+                versionTag("v\(fakeCurrentVersion)", color: Theme.textSecondary, bg: Color(hex: "2a2a3a"))
                 Image(systemName: "arrow.right")
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)

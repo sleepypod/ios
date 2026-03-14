@@ -43,8 +43,8 @@ struct SideSelectorView: View {
                     }
                 }
 
-                if sideIsOn {
-                    HStack(spacing: 4) {
+                HStack(spacing: 4) {
+                    if sideIsOn {
                         Image(systemName: trendIcon(warming: isWarming, cooling: isCooling))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(TempColor.forOffset(sideOffset))
@@ -52,6 +52,14 @@ struct SideSelectorView: View {
                         Text("\(TemperatureConversion.offsetDisplay(sideOffset)) \u{00B7} \(TemperatureConversion.displayTemp(currentTempF, format: settingsManager.temperatureFormat))")
                             .font(.system(size: 12))
                             .foregroundColor(Theme.textTertiary)
+                    } else {
+                        Image(systemName: "poweroff")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(Theme.textMuted)
+
+                        Text("Off")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.textMuted)
                     }
                 }
             }

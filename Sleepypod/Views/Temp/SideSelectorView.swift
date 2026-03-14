@@ -11,7 +11,7 @@ struct SideSelectorView: View {
             sideButton(side: .right)
         }
         .padding(6)
-        .background(Theme.card)
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
@@ -31,7 +31,6 @@ struct SideSelectorView: View {
             deviceManager.selectSide(side == .left ? .left : .right)
         } label: {
             VStack(spacing: 4) {
-                // Name + presence pulse
                 HStack(spacing: 6) {
                     Text("\(side.displayName) Side")
                         .font(.subheadline.weight(.medium))
@@ -44,7 +43,6 @@ struct SideSelectorView: View {
                     }
                 }
 
-                // Trend + offset · temp
                 if sideIsOn {
                     HStack(spacing: 4) {
                         Image(systemName: trendIcon(warming: isWarming, cooling: isCooling))
@@ -60,7 +58,10 @@ struct SideSelectorView: View {
             .foregroundColor(isSelected ? Theme.accent : Theme.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(isSelected ? Color(hex: "1e2a3a") : Color.clear)
+            .background(
+                isSelected ?
+                    Color(hex: "1e2a3a").opacity(0.8) : Color.clear
+            )
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -79,11 +80,14 @@ struct SideSelectorView: View {
                 .font(.system(size: 14))
                 .foregroundColor(deviceManager.isLinked ? .white : Theme.textTertiary)
                 .frame(width: 36, height: 36)
-                .background(deviceManager.isLinked ? Theme.cooling : Theme.cardElevated)
+                .background(
+                    deviceManager.isLinked ?
+                        AnyShapeStyle(Theme.cooling) : AnyShapeStyle(.ultraThinMaterial)
+                )
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(deviceManager.isLinked ? Theme.accent : Theme.cardBorder, lineWidth: 1)
+                        .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : .white.opacity(0.1), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -95,8 +99,6 @@ struct SideSelectorView: View {
         return "equal"
     }
 }
-
-// MARK: - Pulse Animation
 
 private struct PulseModifier: ViewModifier {
     @State private var isPulsing = false

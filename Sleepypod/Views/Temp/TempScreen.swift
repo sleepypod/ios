@@ -5,57 +5,52 @@ struct TempScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Scrollable content
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header bar: WiFi + power
-                    headerBar
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header bar: WiFi + power
+                headerBar
 
-                    // Connection banner
-                    if !deviceManager.isConnected {
-                        ConnectionBanner()
-                    }
-
-                    // Priming alert
-                    if deviceManager.deviceStatus?.isPriming == true {
-                        AlertBanner(
-                            icon: "drop.fill",
-                            title: "Pod is Priming",
-                            message: "Water is being circulated through the system",
-                            style: .info
-                        )
-                    }
-
-                    // Alarm banner
-                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
-                        AlarmBanner(side: side) {
-                            deviceManager.stopAlarm()
-                        }
-                    }
-
-                    // Temperature dial (tap to toggle power)
-                    TemperatureDialView()
-                        .onTapGesture {
-                            Haptics.medium()
-                            deviceManager.togglePower()
-                        }
-
-                    // Controls (+/- and OFF)
-                    TempControlsView()
-
-                    // Environment info (water + ambient temp)
-                    EnvironmentInfoView()
-                        .padding(.top, 4)
+                // Connection banner
+                if !deviceManager.isConnected {
+                    ConnectionBanner()
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
-            }
 
-            // Side selector pinned above tab bar
-            SideSelectorView()
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                // Priming alert
+                if deviceManager.deviceStatus?.isPriming == true {
+                    AlertBanner(
+                        icon: "drop.fill",
+                        title: "Pod is Priming",
+                        message: "Water is being circulated through the system",
+                        style: .info
+                    )
+                }
+
+                // Alarm banner
+                if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
+                    AlarmBanner(side: side) {
+                        deviceManager.stopAlarm()
+                    }
+                }
+
+                // Temperature dial (tap to toggle power)
+                TemperatureDialView()
+                    .onTapGesture {
+                        Haptics.medium()
+                        deviceManager.togglePower()
+                    }
+
+                // Controls (+/- and OFF)
+                TempControlsView()
+
+                // Environment info (water + ambient temp)
+                EnvironmentInfoView()
+                    .padding(.top, 4)
+
+                // Side selector (between env info and bottom)
+                SideSelectorView()
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
         }
         .background(Theme.background)
         .task {
@@ -85,15 +80,13 @@ struct TempScreen: View {
             } label: {
                 Image(systemName: "power")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(deviceManager.isOn ? Theme.healthy : Theme.textTertiary)
+                    .foregroundColor(deviceManager.isOn ? Theme.healthy : .white.opacity(0.6))
                     .frame(width: 36, height: 36)
-                    .background(
-                        deviceManager.isOn ? Theme.healthy.opacity(0.15) : Theme.cardElevated
-                    )
+                    .background(.ultraThinMaterial)
                     .clipShape(Circle())
                     .overlay(
                         Circle()
-                            .stroke(deviceManager.isOn ? Theme.healthy.opacity(0.4) : Theme.cardBorder, lineWidth: 1)
+                            .stroke(deviceManager.isOn ? Theme.healthy.opacity(0.4) : .white.opacity(0.1), lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)

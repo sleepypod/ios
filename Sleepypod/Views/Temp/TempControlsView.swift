@@ -13,23 +13,23 @@ struct TempControlsView: View {
 
     var body: some View {
         HStack(spacing: 24) {
-            // Minus button — filled gray circle
+            // Minus button — glass
             Button {
                 Haptics.light()
                 deviceManager.adjustOffset(by: -1)
             } label: {
                 Image(systemName: "minus")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(.white.opacity(0.8))
                     .frame(width: 56, height: 56)
-                    .background(Color(hex: "2a2a2a"))
+                    .background(.ultraThinMaterial)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
             .disabled(!isOn || offset <= TemperatureConversion.minOffset)
             .opacity(!isOn || offset <= TemperatureConversion.minOffset ? 0.4 : 1)
 
-            // Center OFF/power toggle
+            // Center OFF/power toggle — glass
             Button {
                 Haptics.medium()
                 deviceManager.togglePower()
@@ -37,38 +37,32 @@ struct TempControlsView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "power")
                         .font(.system(size: 14, weight: .semibold))
-                    Text("OFF")
+                    Text(isOn ? "ON" : "OFF")
                         .font(.subheadline.weight(.semibold))
                 }
-                .foregroundColor(isOn ? Theme.healthy : Theme.textSecondary)
+                .foregroundColor(isOn ? Theme.healthy : .white.opacity(0.7))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
-                .background(
-                    isOn ? Theme.healthy.opacity(0.15) : Theme.cardElevated
-                )
+                .background(.ultraThinMaterial)
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
-                        .stroke(isOn ? Theme.healthy.opacity(0.4) : Theme.cardBorder, lineWidth: 1)
+                        .stroke(isOn ? Theme.healthy.opacity(0.4) : .white.opacity(0.1), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
 
-            // Plus button — white outline circle
+            // Plus button — glass
             Button {
                 Haptics.light()
                 deviceManager.adjustOffset(by: 1)
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(.white.opacity(0.8))
                     .frame(width: 56, height: 56)
-                    .background(Color.clear)
+                    .background(.ultraThinMaterial)
                     .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Color(hex: "444444"), lineWidth: 1.5)
-                    )
             }
             .buttonStyle(.plain)
             .disabled(!isOn || offset >= TemperatureConversion.maxOffset)

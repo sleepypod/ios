@@ -11,12 +11,8 @@ struct TempScreen: View {
                     // Connection state
                     if !deviceManager.hasPodIP {
                         NoPodConfiguredView()
-                    } else if deviceManager.isConnecting {
-                        ConnectingView()
                     } else if !deviceManager.isConnected {
-                        ConnectionFailedView {
-                            Task { await deviceManager.fetchStatus() }
-                        }
+                        ConnectingView(error: deviceManager.error)
                     }
 
                     // Priming alert
@@ -92,67 +88,32 @@ private struct NoPodConfiguredView: View {
     }
 }
 
-// MARK: - Connecting
+// MARK: - Connecting / Reconnecting
 
 private struct ConnectingView: View {
+    let error: String?
+
     var body: some View {
         HStack(spacing: 12) {
             ProgressView()
                 .tint(Theme.accent)
-            Text("Connecting to pod…")
-                .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Connection Failed
-
-private struct ConnectionFailedView: View {
-    let onRetry: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 18))
-                .foregroundColor(Theme.error)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Not connected to pod")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(Theme.error)
-                Text("Check that your pod is on and reachable")
-                    .font(.caption)
-                    .foregroundColor(Theme.error.opacity(0.7))
-            }
+                Text(error == nil ? "Connecting to pod…" : "Reconnecting…")
+                    .font(.subheadline)
+                    .foregroundColor(Theme.textSecondary)
 
-            Spacer()
-
-            Button {
-                Haptics.light()
-                onRetry()
-            } label: {
-                Text("Retry")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
+                if error != nil {
+                    Text("Check that your pod is on and reachable")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                }
             }
-            .buttonStyle(.plain)
         }
-        .padding(12)
-        .background(Theme.error.opacity(0.12))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Theme.error.opacity(0.25), lineWidth: 1)
-        )
     }
 }
 

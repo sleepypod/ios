@@ -62,7 +62,9 @@ final class DeviceManager {
                 if pendingUpdate == nil {
                     await fetchStatus()
                 }
-                try? await Task.sleep(for: .seconds(30))
+                // Retry faster when disconnected, normal interval when connected
+                let interval: Duration = isConnected ? .seconds(30) : .seconds(5)
+                try? await Task.sleep(for: interval)
             }
         }
     }

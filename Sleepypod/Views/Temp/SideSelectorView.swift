@@ -7,14 +7,14 @@ struct SideSelectorView: View {
     var body: some View {
         HStack(spacing: 0) {
             sideButton(side: .left)
-            Color.clear.frame(width: 48) // reserve space under the link
+            Spacer().frame(width: 48) // reserve space under the floating link
             sideButton(side: .right)
         }
+        .fixedSize(horizontal: false, vertical: true)
         .padding(6)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay {
-            // Link button rendered ON TOP of the bar
             linkButton
         }
     }
@@ -88,19 +88,23 @@ struct SideSelectorView: View {
             deviceManager.toggleLink()
         } label: {
             Image(systemName: deviceManager.isLinked ? "link" : "link.badge.plus")
-                .font(.system(size: 14))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundColor(deviceManager.isLinked ? .white : Theme.textTertiary)
-                .frame(width: 42, height: 42)
+                .frame(width: 46, height: 46)
                 .background(
-                    deviceManager.isLinked ?
-                        AnyShapeStyle(Theme.cooling) : AnyShapeStyle(.thickMaterial)
+                    deviceManager.isLinked ? Theme.cooling : Color(hex: "1a1a1a")
                 )
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : .white.opacity(0.15), lineWidth: 1)
+                        .stroke(Color(hex: "0a0a0a"), lineWidth: 3) // dark ring to separate from bar
                 )
-                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+                .overlay(
+                    Circle()
+                        .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : Color(hex: "333333"), lineWidth: 1)
+                        .padding(3) // inside the dark ring
+                )
+                .shadow(color: .black.opacity(0.5), radius: 8, y: 2)
         }
         .buttonStyle(.plain)
     }

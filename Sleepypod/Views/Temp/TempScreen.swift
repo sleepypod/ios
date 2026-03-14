@@ -51,6 +51,8 @@ struct TempScreen: View {
                 .padding(.bottom, 16)
             }
 
+            Spacer(minLength: 0)
+
             // Side selector pinned between content and tab bar
             SideSelectorView()
                 .padding(.horizontal, 16)

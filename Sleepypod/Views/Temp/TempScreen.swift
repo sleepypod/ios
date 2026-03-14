@@ -5,47 +5,57 @@ struct TempScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // Header bar: WiFi + power
-                headerBar
+        VStack(spacing: 0) {
+            // Scrollable content
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header bar: WiFi + power
+                    headerBar
 
-                // Connection banner
-                if !deviceManager.isConnected {
-                    ConnectionBanner()
-                }
-
-                // Priming alert
-                if deviceManager.deviceStatus?.isPriming == true {
-                    AlertBanner(
-                        icon: "drop.fill",
-                        title: "Pod is Priming",
-                        message: "Water is being circulated through the system",
-                        style: .info
-                    )
-                }
-
-                // Alarm banner
-                if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
-                    AlarmBanner(side: side) {
-                        deviceManager.stopAlarm()
+                    // Connection banner
+                    if !deviceManager.isConnected {
+                        ConnectionBanner()
                     }
+
+                    // Priming alert
+                    if deviceManager.deviceStatus?.isPriming == true {
+                        AlertBanner(
+                            icon: "drop.fill",
+                            title: "Pod is Priming",
+                            message: "Water is being circulated through the system",
+                            style: .info
+                        )
+                    }
+
+                    // Alarm banner
+                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
+                        AlarmBanner(side: side) {
+                            deviceManager.stopAlarm()
+                        }
+                    }
+
+                    // Temperature dial (tap to toggle power)
+                    TemperatureDialView()
+                        .onTapGesture {
+                            Haptics.medium()
+                            deviceManager.togglePower()
+                        }
+
+                    // Controls (+/- and OFF)
+                    TempControlsView()
+
+                    // Environment info (water + ambient temp)
+                    EnvironmentInfoView()
+                        .padding(.top, 4)
                 }
-
-                // Temperature dial
-                TemperatureDialView()
-
-                // Controls (+/- and OFF)
-                TempControlsView()
-
-                // Environment info
-                EnvironmentInfoView()
-
-                // Side selector
-                SideSelectorView()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 20)
+
+            // Side selector pinned above tab bar
+            SideSelectorView()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
         }
         .background(Theme.background)
         .task {
@@ -58,12 +68,10 @@ struct TempScreen: View {
 
     private var headerBar: some View {
         HStack {
-            // WiFi strength (left)
             HStack(spacing: 6) {
                 Image(systemName: wifiIcon)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(wifiColor)
-
                 Text("\(deviceManager.deviceStatus?.wifiStrength ?? 0)%")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(wifiColor)
@@ -71,7 +79,6 @@ struct TempScreen: View {
 
             Spacer()
 
-            // Power button (right)
             Button {
                 Haptics.medium()
                 deviceManager.togglePower()
@@ -96,8 +103,6 @@ struct TempScreen: View {
 
     private var wifiIcon: String {
         let strength = deviceManager.deviceStatus?.wifiStrength ?? 0
-        if strength >= 66 { return "wifi" }
-        if strength >= 33 { return "wifi" }
         if strength > 0 { return "wifi" }
         return "wifi.slash"
     }
@@ -240,34 +245,32 @@ private struct AlarmBanner: View {
 
 private struct EnvironmentInfoView: View {
     @Environment(DeviceManager.self) private var deviceManager
+    @Environment(SettingsManager.self) private var settingsManager
 
     private var waterLevelLabel: String {
         guard let level = deviceManager.deviceStatus?.waterLevel else { return "---" }
-        // Display water level with a readable label
         switch level.lowercased() {
-        case "true", "ok", "full", "good":
-            return "Water OK"
-        case "false", "low", "empty":
-            return "Water Low"
-        default:
-            return "Water: \(level)"
+        case "true", "ok", "full", "good": return "Water OK"
+        case "false", "low", "empty": return "Water Low"
+        default: return "Water: \(level)"
         }
     }
 
     private var waterLevelColor: Color {
         guard let level = deviceManager.deviceStatus?.waterLevel else { return Theme.textMuted }
         switch level.lowercased() {
-        case "true", "ok", "full", "good":
-            return Theme.healthy
-        case "false", "low", "empty":
-            return Theme.amber
-        default:
-            return Theme.textSecondary
+        case "true", "ok", "full", "good": return Theme.healthy
+        case "false", "low", "empty": return Theme.amber
+        default: return Theme.textSecondary
         }
     }
 
+    private var ambientTempF: Int {
+        deviceManager.currentSideStatus?.currentTemperatureF ?? 0
+    }
+
     var body: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 28) {
             // Water level
             HStack(spacing: 6) {
                 Image(systemName: "drop.fill")
@@ -278,14 +281,16 @@ private struct EnvironmentInfoView: View {
                     .foregroundColor(waterLevelColor)
             }
 
-            // WiFi strength
-            HStack(spacing: 6) {
-                Image(systemName: "wifi")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-                Text("\(deviceManager.deviceStatus?.wifiStrength ?? 0)%")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+            // Ambient / current temp (inside)
+            if ambientTempF > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "house.fill")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                    Text("\(TemperatureConversion.displayTemp(ambientTempF, format: settingsManager.temperatureFormat))  Inside")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
             }
         }
     }

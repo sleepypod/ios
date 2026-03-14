@@ -6,35 +6,32 @@ struct SideSelectorView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left button
-            sideButton(side: .left) {
-                deviceManager.selectSide(.left)
-            }
-
-            // Link button (center between sides)
+            sideButton(side: .left)
             linkButton
-
-            // Right button
-            sideButton(side: .right) {
-                deviceManager.selectSide(.right)
-            }
+            sideButton(side: .right)
         }
         .padding(6)
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    private func sideButton(side: Side, action: @escaping () -> Void) -> some View {
+    private func sideButton(side: Side) -> some View {
         let isSelected = deviceManager.selectedSide == (side == .left ? .left : .right) ||
                          deviceManager.selectedSide == .both
         let status = deviceManager.deviceStatus?.status(for: side)
-        let sideOffset = status.map { TemperatureConversion.tempFToOffset($0.targetTemperatureF) } ?? 0
-        let sideTempF = status?.currentTemperatureF ?? 80
         let sideIsOn = status?.isOn ?? false
+        let targetTempF = status?.targetTemperatureF ?? 80
+        let currentTempF = status?.currentTemperatureF ?? 80
+        let sideOffset = TemperatureConversion.tempFToOffset(targetTempF)
+        let isWarming = targetTempF > currentTempF
+        let isCooling = targetTempF < currentTempF
 
-        return Button { Haptics.tap(); action() } label: {
+        return Button {
+            Haptics.tap()
+            deviceManager.selectSide(side == .left ? .left : .right)
+        } label: {
             VStack(spacing: 4) {
-                // Top row: name + presence dot
+                // Name + presence pulse
                 HStack(spacing: 6) {
                     Text("\(side.displayName) Side")
                         .font(.subheadline.weight(.medium))
@@ -43,19 +40,19 @@ struct SideSelectorView: View {
                         Circle()
                             .fill(Theme.healthy)
                             .frame(width: 6, height: 6)
+                            .modifier(PulseModifier())
                     }
                 }
 
-                // Detail row: trend icon + offset + temp
+                // Trend + offset · temp
                 if sideIsOn {
                     HStack(spacing: 4) {
-                        // Trend icon
-                        Image(systemName: trendIcon(for: sideOffset))
+                        Image(systemName: trendIcon(warming: isWarming, cooling: isCooling))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(TempColor.forOffset(sideOffset))
 
-                        Text("\(TemperatureConversion.offsetDisplay(sideOffset)) \u{00B7} \(TemperatureConversion.displayTemp(sideTempF, format: settingsManager.temperatureFormat))")
-                            .font(.system(size: 12, weight: .regular))
+                        Text("\(TemperatureConversion.offsetDisplay(sideOffset)) \u{00B7} \(TemperatureConversion.displayTemp(currentTempF, format: settingsManager.temperatureFormat))")
+                            .font(.system(size: 12))
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
@@ -63,9 +60,7 @@ struct SideSelectorView: View {
             .foregroundColor(isSelected ? Theme.accent : Theme.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(
-                isSelected ? Color(hex: "1e2a3a") : Color.clear
-            )
+            .background(isSelected ? Color(hex: "1e2a3a") : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -84,9 +79,7 @@ struct SideSelectorView: View {
                 .font(.system(size: 14))
                 .foregroundColor(deviceManager.isLinked ? .white : Theme.textTertiary)
                 .frame(width: 36, height: 36)
-                .background(
-                    deviceManager.isLinked ? Theme.cooling : Theme.cardElevated
-                )
+                .background(deviceManager.isLinked ? Theme.cooling : Theme.cardElevated)
                 .clipShape(Circle())
                 .overlay(
                     Circle()
@@ -96,10 +89,22 @@ struct SideSelectorView: View {
         .buttonStyle(.plain)
     }
 
-    /// Returns SF Symbol name for trend direction
-    private func trendIcon(for offset: Int) -> String {
-        if offset > 0 { return "arrow.upper.right" }
-        if offset < 0 { return "arrow.lower.right" }
+    private func trendIcon(warming: Bool, cooling: Bool) -> String {
+        if warming { return "arrow.upper.right" }
+        if cooling { return "arrow.lower.right" }
         return "equal"
+    }
+}
+
+// MARK: - Pulse Animation
+
+private struct PulseModifier: ViewModifier {
+    @State private var isPulsing = false
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: Theme.healthy.opacity(isPulsing ? 0.6 : 0), radius: isPulsing ? 4 : 0)
+            .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isPulsing)
+            .onAppear { isPulsing = true }
     }
 }

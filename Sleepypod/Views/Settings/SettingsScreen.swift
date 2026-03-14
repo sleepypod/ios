@@ -8,8 +8,14 @@ struct SettingsScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Pod IP configuration
+                // Pod IP + reboot
                 podIPCard
+
+                // Update card (right under connection)
+                UpdateCardView(
+                    currentVersion: deviceManager.deviceStatus?.freeSleep.version ?? "1.0.0",
+                    currentBranch: deviceManager.deviceStatus?.freeSleep.branch ?? "main"
+                )
 
                 // Device settings
                 if settingsManager.settings != nil {
@@ -24,14 +30,6 @@ struct SettingsScreen: View {
                 if let status = deviceManager.deviceStatus {
                     deviceInfoCard(status: status)
                 }
-
-                // Update card
-                if let status = deviceManager.deviceStatus {
-                    UpdateCardView(freeSleep: status.freeSleep)
-                }
-
-                // Actions
-                actionsCard
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 20)
@@ -72,10 +70,8 @@ struct SettingsScreen: View {
                 .submitLabel(.done)
                 .onSubmit { isIPFieldFocused = false }
 
-                // Connection status
-                Circle()
-                    .fill(deviceManager.isConnected ? Theme.healthy : Theme.error)
-                    .frame(width: 8, height: 8)
+                // WiFi signal indicator
+                wifiIndicator
             }
             .padding(12)
             .background(Theme.cardElevated)
@@ -84,8 +80,59 @@ struct SettingsScreen: View {
             Text("Enter the IP address of your pod (e.g., 192.168.1.88)")
                 .font(.caption)
                 .foregroundColor(Theme.textMuted)
+
+            // Reboot button right below IP
+            Button {
+                Haptics.heavy()
+                Task { await settingsManager.reboot() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("REBOOT POD")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Theme.cooling)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
         }
         .cardStyle()
+    }
+
+    @ViewBuilder
+    private var wifiIndicator: some View {
+        let strength = deviceManager.deviceStatus?.wifiStrength ?? 0
+        let connected = deviceManager.isConnected
+
+        if connected {
+            HStack(spacing: 4) {
+                Image(systemName: wifiIcon(strength))
+                    .font(.system(size: 12))
+                    .foregroundColor(wifiColor(strength))
+                Text("\(strength)%")
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(wifiColor(strength))
+            }
+        } else {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 12))
+                .foregroundColor(Theme.error)
+        }
+    }
+
+    private func wifiIcon(_ strength: Int) -> String {
+        if strength >= 60 { return "wifi" }
+        if strength >= 30 { return "wifi" }
+        return "wifi.weak"
+    }
+
+    private func wifiColor(_ strength: Int) -> Color {
+        if strength >= 50 { return Theme.healthy }
+        if strength >= 25 { return Theme.amber }
+        return Theme.error
     }
 
     // MARK: - Device Info
@@ -112,40 +159,5 @@ struct SettingsScreen: View {
             .padding(.vertical, 6)
             .background(Color(hex: "2a2a3a"))
             .clipShape(RoundedRectangle(cornerRadius: 6))
-    }
-
-    // MARK: - Actions
-
-    private var actionsCard: some View {
-        HStack(spacing: 12) {
-            Button {
-                Haptics.heavy()
-                Task { await settingsManager.reboot() }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.clockwise")
-                    Text("REBOOT POD")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Theme.cooling)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-            .buttonStyle(.plain)
-
-            HStack(spacing: 6) {
-                Image(systemName: "wifi")
-                Text("\(deviceManager.deviceStatus?.wifiStrength ?? 0)%")
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(Theme.cooling)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-        }
-        .cardStyle()
     }
 }

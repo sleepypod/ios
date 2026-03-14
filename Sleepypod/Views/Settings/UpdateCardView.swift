@@ -1,69 +1,105 @@
 import SwiftUI
 
+// TODO: Version and changelog are hardcoded. Wire up to sleepypod-core repo releases.
 struct UpdateCardView: View {
-    let freeSleep: FreeSleepInfo
+    let currentVersion: String
+    let currentBranch: String
+
+    private let fakeNewVersion = "2.2.0"
+    private let changelog = [
+        "Improved temperature control accuracy",
+        "Fixed scheduling bug for recurring alarms",
+        "Added new biometrics dashboard"
+    ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(Theme.healthy)
-                Text("Software Up to Date")
-                    .font(.subheadline.weight(.medium))
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "bolt.fill")
+                        .foregroundColor(Color(hex: "ffd700"))
+                    Text("Update Available")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(Theme.healthy)
+                }
+                Spacer()
+                Text("NEW")
+                    .font(.caption2.weight(.bold))
                     .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Theme.error)
+                    .clipShape(Capsule())
             }
 
-            // Version info
+            // Version transition
             HStack(spacing: 8) {
-                versionTag(freeSleep.version)
-                Text("on")
+                versionTag("v\(currentVersion)", color: Theme.textSecondary, bg: Color(hex: "2a2a3a"))
+                Image(systemName: "arrow.right")
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
-                branchTag(freeSleep.branch)
+                versionTag("v\(fakeNewVersion)", color: Theme.healthy, bg: Theme.healthy.opacity(0.15))
             }
 
-            // Check button
+            // Changelog
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "tag.fill")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textSecondary)
+                    Text("WHAT'S NEW")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(Theme.textSecondary)
+                        .tracking(0.5)
+                }
+
+                ForEach(changelog, id: \.self) { item in
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•")
+                            .foregroundColor(Theme.textMuted)
+                        Text(item)
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                    }
+                }
+            }
+
+            // Update button
             Button {
-                // Future: check for updates
+                Haptics.medium()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "arrow.clockwise")
-                    Text("Check for Updates")
+                    Image(systemName: "arrow.down.circle.fill")
+                    Text("Update to v\(fakeNewVersion)")
                 }
-                .font(.caption.weight(.medium))
-                .foregroundColor(Theme.accent)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Theme.cardElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Theme.cardBorder, lineWidth: 1)
-                )
+                .padding(.vertical, 12)
+                .background(Theme.healthy)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
         }
-        .cardStyle()
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Theme.card)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Theme.healthy.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
 
-    private func versionTag(_ version: String) -> some View {
-        Text("v\(version)")
+    private func versionTag(_ text: String, color: Color, bg: Color) -> some View {
+        Text(text)
             .font(.caption.weight(.medium))
-            .foregroundColor(Theme.healthy)
+            .foregroundColor(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Theme.healthy.opacity(0.15))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-    }
-
-    private func branchTag(_ branch: String) -> some View {
-        Text(branch)
-            .font(.caption)
-            .foregroundColor(Theme.textSecondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color(hex: "2a2a3a"))
+            .background(bg)
             .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }

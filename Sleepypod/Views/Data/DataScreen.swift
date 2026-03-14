@@ -3,14 +3,9 @@ import SwiftUI
 struct DataScreen: View {
     @Environment(MetricsManager.self) private var metricsManager
     @Environment(SettingsManager.self) private var settingsManager
-    @Environment(DeviceManager.self) private var deviceManager
-
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // WiFi / power header bar
-                DataHeaderBar()
-
                 // Week navigator
                 WeekNavigatorView()
 
@@ -48,33 +43,6 @@ struct DataScreen: View {
         .task {
             await metricsManager.fetchAll()
         }
-    }
-}
-
-// MARK: - Data Header Bar
-
-private struct DataHeaderBar: View {
-    @Environment(DeviceManager.self) private var deviceManager
-
-    var body: some View {
-        HStack {
-            // WiFi strength
-            HStack(spacing: 4) {
-                Image(systemName: "wifi")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-                Text("\(deviceManager.deviceStatus?.wifiStrength ?? 0)%")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-            }
-            Spacer()
-            // Power indicator
-            Image(systemName: "power")
-                .font(.caption)
-                .foregroundColor(deviceManager.isConnected ? Theme.healthy : Theme.textMuted)
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 6)
     }
 }
 

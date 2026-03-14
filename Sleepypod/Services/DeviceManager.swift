@@ -6,9 +6,15 @@ import Observation
 final class DeviceManager {
     var deviceStatus: DeviceStatus?
     var isConnected = false
+    var isConnecting = false
     var selectedSide: SideSelection = .left
     var isLinked = false
     var error: String?
+
+    var hasPodIP: Bool {
+        guard let ip = UserDefaults.standard.string(forKey: "podIPAddress") else { return false }
+        return !ip.isEmpty
+    }
 
     private let api: FreeSleepAPIProtocol
     private var debounceTask: Task<Void, Never>?
@@ -67,13 +73,16 @@ final class DeviceManager {
     }
 
     func fetchStatus() async {
+        if !isConnected { isConnecting = true }
         do {
             let status = try await api.getDeviceStatus()
             deviceStatus = status
             isConnected = true
+            isConnecting = false
             error = nil
         } catch {
             isConnected = false
+            isConnecting = false
             self.error = error.localizedDescription
         }
     }

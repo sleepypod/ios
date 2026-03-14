@@ -8,12 +8,15 @@ struct TempScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Header bar: WiFi + power
-                    headerBar
-
-                    // Connection banner
-                    if !deviceManager.isConnected {
-                        ConnectionBanner()
+                    // Connection state
+                    if !deviceManager.hasPodIP {
+                        NoPodConfiguredView()
+                    } else if deviceManager.isConnecting {
+                        ConnectingView()
+                    } else if !deviceManager.isConnected {
+                        ConnectionFailedView {
+                            Task { await deviceManager.fetchStatus() }
+                        }
                     }
 
                     // Priming alert
@@ -65,56 +68,90 @@ struct TempScreen: View {
             await deviceManager.fetchStatus()
         }
     }
+}
 
-    // MARK: - Header Bar
+// MARK: - No Pod Configured
 
-    private var headerBar: some View {
-        HStack {
-            HStack(spacing: 6) {
-                Image(systemName: wifiIcon)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(wifiColor)
-                Text("\(deviceManager.deviceStatus?.wifiStrength ?? 0)%")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(wifiColor)
-            }
-            Spacer()
+private struct NoPodConfiguredView: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "network.slash")
+                .font(.title2)
+                .foregroundColor(Theme.textMuted)
+            Text("No Pod Configured")
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(Theme.textSecondary)
+            Text("Enter your pod's IP address in Settings")
+                .font(.caption)
+                .foregroundColor(Theme.textMuted)
         }
-        .padding(.top, 4)
-    }
-
-    private var wifiIcon: String {
-        let strength = deviceManager.deviceStatus?.wifiStrength ?? 0
-        if strength > 0 { return "wifi" }
-        return "wifi.slash"
-    }
-
-    private var wifiColor: Color {
-        let strength = deviceManager.deviceStatus?.wifiStrength ?? 0
-        if strength >= 50 { return Theme.healthy }
-        if strength >= 25 { return Theme.amber }
-        return Theme.error
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
-// MARK: - Connection Banner
+// MARK: - Connecting
 
-private struct ConnectionBanner: View {
+private struct ConnectingView: View {
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "wifi.slash")
-                .foregroundColor(Theme.error)
-            Text("Not connected to pod")
+        HStack(spacing: 12) {
+            ProgressView()
+                .tint(Theme.accent)
+            Text("Connecting to pod…")
                 .font(.subheadline)
+                .foregroundColor(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Connection Failed
+
+private struct ConnectionFailedView: View {
+    let onRetry: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 18))
                 .foregroundColor(Theme.error)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Not connected to pod")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(Theme.error)
+                Text("Check that your pod is on and reachable")
+                    .font(.caption)
+                    .foregroundColor(Theme.error.opacity(0.7))
+            }
+
             Spacer()
+
+            Button {
+                Haptics.light()
+                onRetry()
+            } label: {
+                Text("Retry")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
         }
         .padding(12)
-        .background(Theme.error.opacity(0.15))
+        .background(Theme.error.opacity(0.12))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Theme.error.opacity(0.3), lineWidth: 1)
+                .stroke(Theme.error.opacity(0.25), lineWidth: 1)
         )
     }
 }
@@ -253,7 +290,6 @@ private struct EnvironmentInfoView: View {
 
     var body: some View {
         HStack(spacing: 28) {
-            // Water level
             HStack(spacing: 6) {
                 Image(systemName: "drop.fill")
                     .font(.caption)
@@ -263,7 +299,6 @@ private struct EnvironmentInfoView: View {
                     .foregroundColor(waterLevelColor)
             }
 
-            // Ambient / current temp (inside)
             if ambientTempF > 0 {
                 HStack(spacing: 6) {
                     Image(systemName: "house.fill")

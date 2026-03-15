@@ -37,7 +37,12 @@ struct SleepypodApp: App {
 }
 
 struct ContentView: View {
+    @Environment(DeviceManager.self) private var deviceManager
     @State private var selectedTab = "temp"
+
+    private var isConnected: Bool {
+        deviceManager.isConnected
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -45,13 +50,25 @@ struct ContentView: View {
                 TempScreen()
             }
             Tab("Schedule", systemImage: "calendar", value: "schedule") {
-                ScheduleScreen()
+                if isConnected {
+                    ScheduleScreen()
+                } else {
+                    DisconnectedTabView(tab: "Schedule")
+                }
             }
             Tab("Data", systemImage: "chart.bar.fill", value: "data") {
-                DataScreen()
+                if isConnected {
+                    DataScreen()
+                } else {
+                    DisconnectedTabView(tab: "Data")
+                }
             }
             Tab("Status", systemImage: "heart.text.clipboard", value: "status") {
-                StatusScreen()
+                if isConnected {
+                    StatusScreen()
+                } else {
+                    DisconnectedTabView(tab: "Status")
+                }
             }
             Tab("Settings", systemImage: "gearshape.fill", value: "settings") {
                 SettingsScreen()
@@ -60,5 +77,26 @@ struct ContentView: View {
         .onChange(of: selectedTab) {
             Haptics.tap()
         }
+    }
+}
+
+private struct DisconnectedTabView: View {
+    let tab: String
+    @Environment(DeviceManager.self) private var deviceManager
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 32))
+                .foregroundColor(Theme.textMuted)
+            Text("Connect to your pod to view \(tab)")
+                .font(.subheadline)
+                .foregroundColor(Theme.textSecondary)
+            Text("Configure your pod IP in Settings")
+                .font(.caption)
+                .foregroundColor(Theme.textMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.background)
     }
 }

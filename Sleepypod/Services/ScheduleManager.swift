@@ -117,9 +117,9 @@ final class ScheduleManager {
 // MARK: - Sleep Profiles
 
 enum SleepProfile: String, CaseIterable, Identifiable, Sendable {
-    case cool = "Cool Sleeper"
+    case cool = "Cool"
     case balanced = "Balanced"
-    case warm = "Warm Sleeper"
+    case warm = "Warm"
 
     var id: String { rawValue }
 

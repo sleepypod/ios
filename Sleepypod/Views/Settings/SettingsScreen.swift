@@ -4,10 +4,14 @@ struct SettingsScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
     @Environment(DeviceManager.self) private var deviceManager
     @FocusState private var isIPFieldFocused: Bool
+    @State private var selectedBackend = APIBackend.current
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                // Backend selector
+                backendCard
+
                 // Pod IP + reboot
                 podIPCard
 
@@ -42,6 +46,50 @@ struct SettingsScreen: View {
         }
     }
 
+    // MARK: - Backend Selector
+
+    @ViewBuilder
+    private var backendCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Backend")
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.white)
+
+            ForEach(APIBackend.allCases, id: \.rawValue) { backend in
+                Button {
+                    Haptics.tap()
+                    selectedBackend = backend
+                    APIBackend.current = backend
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: selectedBackend == backend ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(selectedBackend == backend ? Theme.accent : Theme.textMuted)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(backend.displayName)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                            Text(backend.description)
+                                .font(.caption)
+                                .foregroundColor(Theme.textMuted)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(selectedBackend == backend ? Theme.cardElevated : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text("Changing backend requires restarting the app.")
+                .font(.caption)
+                .foregroundColor(Theme.amber)
+        }
+        .cardStyle()
+    }
+
     // MARK: - Pod IP Card
 
     @ViewBuilder
@@ -58,12 +106,12 @@ struct SettingsScreen: View {
 
                 TextField("Pod IP Address", text: Binding(
                     get: { settingsManager.podIP },
-                    set: { settingsManager.podIP = $0 }
+                    set: { settingsManager.podIP = $0.trimmingCharacters(in: .whitespaces) }
                 ))
                 .font(.subheadline)
                 .foregroundColor(.white)
                 .textFieldStyle(.plain)
-                .keyboardType(.numbersAndPunctuation)
+                .keyboardType(.decimalPad)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .focused($isIPFieldFocused)

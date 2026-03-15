@@ -9,7 +9,7 @@ struct SleepypodApp: App {
     @State private var settingsManager: SettingsManager
 
     init() {
-        let client = FreeSleepClient()
+        let client = APIBackend.current.createClient()
         let device = DeviceManager(api: client)
         let schedule = ScheduleManager(api: client)
         let metrics = MetricsManager(api: client)

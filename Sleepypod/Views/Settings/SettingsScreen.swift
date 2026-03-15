@@ -119,8 +119,20 @@ struct SettingsScreen: View {
                 .submitLabel(.done)
                 .onSubmit { isIPFieldFocused = false }
 
-                // WiFi signal indicator
-                wifiIndicator
+                // Done / WiFi indicator
+                if isIPFieldFocused {
+                    Button {
+                        Haptics.light()
+                        isIPFieldFocused = false
+                    } label: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(Theme.healthy)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    wifiIndicator
+                }
             }
             .padding(12)
             .background(Theme.cardElevated)

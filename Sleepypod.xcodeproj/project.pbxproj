@@ -11,6 +11,7 @@
 		010B13E2ABA8EE69249B8E9A /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62E924A9B264056469B99997 /* SettingsScreen.swift */; };
 		041D6F2AA0D299253FFA1B27 /* Services.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8F3BFDBBA72B77A16C8606 /* Services.swift */; };
 		0B484FB88EA2286B4B2B83EB /* ScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00032A1688C27E11B0BF64CC /* ScheduleScreen.swift */; };
+		1201459B0B50A7E1250D248B /* openapi.json in Resources */ = {isa = PBXBuildFile; fileRef = B881147C7D2F0ADEBAD1AD02 /* openapi.json */; };
 		1558A064C84FC3F65897D129 /* TemperatureConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */; };
 		178824588D3CC952F0517CAC /* SleepRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0AFD07A8CB0082733ACB36 /* SleepRecord.swift */; };
 		1F1DB7FE924C1EC257BE8FE1 /* VitalsRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C94AEB5A7EF2FE53231869 /* VitalsRecord.swift */; };
@@ -29,6 +30,7 @@
 		650EC4F1527BA82FBF187755 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */; };
 		6C2843125C47D323DAB695BC /* APIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 295C867DF528905A55668F52 /* APIBackend.swift */; };
 		6C5D7826E1BC087A04338FF2 /* TemperatureDialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA55E7C1AA8D071C2D7FACA9 /* TemperatureDialView.swift */; };
+		7225E391367AFFDAA7450354 /* SleepypodProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0144EC2C3B96839B69D7A14A /* SleepypodProtocol.swift */; };
 		75C07CF3E25E008754ECA924 /* MovementCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 452905BE65E698AC3C3419A6 /* MovementCardView.swift */; };
 		76BE44719ADE65F1F800F35D /* SleepypodApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */; };
 		7B18A3F8BC4258895EBEE279 /* ServiceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE210E5A8FC6945D3DE384C /* ServiceRowView.swift */; };
@@ -44,7 +46,6 @@
 		9D7F9E63ABF049359432DF0F /* DeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2941CA088FC1C77B69F36D60 /* DeviceManager.swift */; };
 		A0711D54FE9EF5E664D13E9C /* SleepypodCoreClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87060AD52798647A518FA8BE /* SleepypodCoreClient.swift */; };
 		A0F4BEF942158DB8DFA4A5BA /* LogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4849B345B1C029B80DB86F /* LogsView.swift */; };
-		A510F6C3ACD796739DB48BEC /* FreeSleepAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8330503AC6FDE01A58EF90 /* FreeSleepAPI.swift */; };
 		A723A40EBCB30E4352F9D4B1 /* ProfilePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */; };
 		AF368CE52344A599C020EA68 /* PodDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C803665AE72E33B8B50730E9 /* PodDiscovery.swift */; };
 		B19E23F89C20C6BCB36E6787 /* UpdateCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */; };
@@ -64,6 +65,7 @@
 
 /* Begin PBXFileReference section */
 		00032A1688C27E11B0BF64CC /* ScheduleScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleScreen.swift; sourceTree = "<group>"; };
+		0144EC2C3B96839B69D7A14A /* SleepypodProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodProtocol.swift; sourceTree = "<group>"; };
 		021A79157277D6B7C8DF4639 /* SleepSummaryCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSummaryCardView.swift; sourceTree = "<group>"; };
 		04710A8ABCD6BE865AA7E37E /* HealthMetricsGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMetricsGridView.swift; sourceTree = "<group>"; };
 		060906F2618180E4E45E29F3 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
@@ -100,10 +102,10 @@
 		A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleManager.swift; sourceTree = "<group>"; };
 		A42ACA637081CABD4502D011 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
 		A9FF9D7BA24408A31A5A650C /* DaySelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaySelectorView.swift; sourceTree = "<group>"; };
-		AC8330503AC6FDE01A58EF90 /* FreeSleepAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeSleepAPI.swift; sourceTree = "<group>"; };
 		AD6E2D8EB06314CC264F24D1 /* ServiceCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceCategoryView.swift; sourceTree = "<group>"; };
 		B15950D49CE8BFE7FF628BDB /* SleepStagesTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepStagesTimelineView.swift; sourceTree = "<group>"; };
 		B7C94AEB5A7EF2FE53231869 /* VitalsRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsRecord.swift; sourceTree = "<group>"; };
+		B881147C7D2F0ADEBAD1AD02 /* openapi.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = openapi.json; sourceTree = "<group>"; };
 		BED50F23F24049CF0324CF1B /* DeviceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatus.swift; sourceTree = "<group>"; };
 		C1287F50609E837343ABE038 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C5A1999947F6DB7202489B6C /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
@@ -181,9 +183,9 @@
 				295C867DF528905A55668F52 /* APIBackend.swift */,
 				1BBB2DEABE79587F398DEB17 /* APIEndpoint.swift */,
 				A42ACA637081CABD4502D011 /* APIError.swift */,
-				AC8330503AC6FDE01A58EF90 /* FreeSleepAPI.swift */,
 				970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */,
 				87060AD52798647A518FA8BE /* SleepypodCoreClient.swift */,
+				0144EC2C3B96839B69D7A14A /* SleepypodProtocol.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -261,6 +263,7 @@
 			children = (
 				9E902CB9201C2AE527A6C49F /* Assets.xcassets */,
 				C1287F50609E837343ABE038 /* Info.plist */,
+				B881147C7D2F0ADEBAD1AD02 /* openapi.json */,
 				54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */,
 				B59E5A73B7775D671213BDBD /* Models */,
 				791A521FE16A196430F60B8B /* Networking */,
@@ -330,6 +333,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5F58632442748EC2A7862CB1 /* Assets.xcassets in Resources */,
+				1201459B0B50A7E1250D248B /* openapi.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -348,7 +352,6 @@
 				9D7F9E63ABF049359432DF0F /* DeviceManager.swift in Sources */,
 				D81EAE0FD3DA1C07FC06B43F /* DeviceSettingsCardView.swift in Sources */,
 				ED1BA2E1F213040F5DDAEC30 /* DeviceStatus.swift in Sources */,
-				A510F6C3ACD796739DB48BEC /* FreeSleepAPI.swift in Sources */,
 				5D6566441668D7E70CE84F29 /* FreeSleepClient.swift in Sources */,
 				E41AEAF67CA5F7801B5A13EB /* Haptics.swift in Sources */,
 				9134DC5F465DB3F287914037 /* HealthCircleView.swift in Sources */,
@@ -380,6 +383,7 @@
 				910535B30A8B5FBB4DE1B33C /* SleepTimeCardView.swift in Sources */,
 				76BE44719ADE65F1F800F35D /* SleepypodApp.swift in Sources */,
 				A0711D54FE9EF5E664D13E9C /* SleepypodCoreClient.swift in Sources */,
+				7225E391367AFFDAA7450354 /* SleepypodProtocol.swift in Sources */,
 				80473DBF0C206E692C09E07B /* StatusManager.swift in Sources */,
 				2FFABF414A270E437894A9E4 /* StatusScreen.swift in Sources */,
 				23CF6D0AAB52344B3D8BD345 /* TempControlsView.swift in Sources */,

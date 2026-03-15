@@ -22,7 +22,7 @@ final class DeviceManager {
         return !ip.isEmpty
     }
 
-    private let api: FreeSleepAPIProtocol
+    private var api: FreeSleepAPIProtocol
     private var debounceTask: Task<Void, Never>?
     private var pollingTask: Task<Void, Never>?
     private var pendingUpdate: DeviceStatusUpdate?
@@ -57,6 +57,18 @@ final class DeviceManager {
         if status.left.isAlarmVibrating { return .left }
         if status.right.isAlarmVibrating { return .right }
         return nil
+    }
+
+    // MARK: - Backend Switching
+
+    func switchBackend(_ newClient: FreeSleepAPIProtocol) {
+        stopPolling()
+        api = newClient
+        deviceStatus = nil
+        isConnected = false
+        retryCount = 0
+        error = nil
+        startPolling()
     }
 
     // MARK: - Polling

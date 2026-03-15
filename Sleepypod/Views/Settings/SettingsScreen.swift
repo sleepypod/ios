@@ -64,6 +64,7 @@ struct SettingsScreen: View {
                             Haptics.tap()
                             selectedBackend = backend
                             APIBackend.current = backend
+                            deviceManager.switchBackend(backend.createClient())
                         } label: {
                             HStack {
                                 Text(backend.displayName)

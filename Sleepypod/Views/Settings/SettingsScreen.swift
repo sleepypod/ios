@@ -250,19 +250,16 @@ struct SettingsScreen: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    if isRebooting {
-                        ProgressView().tint(.white).scaleEffect(0.7)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    Text(isRebooting ? "REBOOTING" : "REBOOT")
+                    Image(systemName: "arrow.clockwise")
+                    Text(isRebooting ? "REBOOTING…" : "REBOOT")
                 }
                 .font(.caption.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(isRebooting ? Theme.amber : .white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Theme.error.opacity(0.6))
+                .background(isRebooting ? Theme.amber.opacity(0.2) : Theme.error.opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isRebooting)
             }
             .buttonStyle(.plain)
             .disabled(isBusy)

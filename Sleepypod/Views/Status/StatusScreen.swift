@@ -37,6 +37,9 @@ struct StatusScreen: View {
                     .cardStyle()
                 }
 
+                // Logs
+                LogsView()
+
                 // Last updated
                 if let lastUpdated = statusManager.lastUpdated {
                     Text("Last updated: \(lastUpdated, format: .relative(presentation: .named))")

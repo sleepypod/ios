@@ -17,21 +17,25 @@ struct SettingsScreen: View {
                     legacyPodCard
                 } else {
                     podCard
-                    UpdateCardView()
                 }
 
-                // Device settings
-                if settingsManager.settings != nil {
-                    DeviceSettingsCardView()
-                } else if settingsManager.isLoading {
-                    ProgressView()
-                        .tint(Theme.accent)
-                        .padding(40)
-                }
+                // Only show these when connected
+                if deviceManager.isConnected {
+                    if selectedBackend == .sleepypodCore {
+                        UpdateCardView()
+                    }
 
-                // Device info
-                if let status = deviceManager.deviceStatus {
-                    deviceInfoCard(status: status)
+                    if settingsManager.settings != nil {
+                        DeviceSettingsCardView()
+                    } else if settingsManager.isLoading {
+                        ProgressView()
+                            .tint(Theme.accent)
+                            .padding(40)
+                    }
+
+                    if let status = deviceManager.deviceStatus {
+                        deviceInfoCard(status: status)
+                    }
                 }
             }
             .padding(.horizontal, 16)

@@ -104,6 +104,7 @@ final class PodDiscovery {
 
         // Only advance status if we're still scanning (don't regress from later states)
         if let first = pods.first, status == .scanning {
+            Log.discovery.info("Found device: \(first.name)")
             status = .found(first.name)
         }
     }
@@ -124,17 +125,20 @@ final class PodDiscovery {
                 stopBrowsing()
                 status = .resolving(pod.name)
                 if let ip = await resolve(pod) {
+                    Log.discovery.info("Resolved \(pod.name) → \(ip)")
                     status = .connected(ip)
                     connectedPodName = pod.name
                     settingsManager.podIP = ip
                     deviceManager.retryConnection()
                     return ip
                 } else {
+                    Log.discovery.error("Failed to resolve \(pod.name)")
                     status = .failed
                 }
                 return nil
             }
         }
+        Log.discovery.warning("No devices found after 10s scan")
         stopBrowsing()
         if status == .scanning { status = .failed }
         return nil

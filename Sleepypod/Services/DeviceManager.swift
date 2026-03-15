@@ -110,7 +110,7 @@ final class DeviceManager {
             isConnecting = false
             retryCount += 1
             self.error = "\(error)"
-            print("[Sleepypod] fetchStatus failed: \(error)")
+            Log.device.error("fetchStatus failed (attempt \(self.retryCount)): \(error)")
         }
     }
 
@@ -270,6 +270,7 @@ final class DeviceManager {
             try await api.updateDeviceStatus(update)
         } catch {
             self.error = error.localizedDescription
+            Log.device.error("sendPendingUpdate failed: \(error)")
             await fetchStatus() // Revert on failure
         }
     }

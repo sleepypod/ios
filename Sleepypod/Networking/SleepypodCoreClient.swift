@@ -380,6 +380,7 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
             let envelope = try decoder.decode(TRPCEnvelope<T>.self, from: data)
             return envelope.result.data.json
         } catch {
+            Log.network.error("Decode failed: \(error)")
             throw APIError.decodingFailed(error)
         }
     }
@@ -388,6 +389,7 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
         do {
             return try await session.data(for: request)
         } catch {
+            Log.network.error("Request failed: \(request.url?.absoluteString ?? "?") — \(error)")
             throw APIError.networkError(error)
         }
     }
@@ -397,6 +399,7 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
             throw APIError.invalidResponse(statusCode: 0)
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            Log.network.error("HTTP \(httpResponse.statusCode): \(httpResponse.url?.absoluteString ?? "?")")
             throw APIError.invalidResponse(statusCode: httpResponse.statusCode)
         }
     }

@@ -13,9 +13,9 @@ final class MetricsManager {
     var isLoading = false
     var error: String?
 
-    private let api: FreeSleepAPIProtocol
+    private let api: SleepypodProtocol
 
-    init(api: FreeSleepAPIProtocol) {
+    init(api: SleepypodProtocol) {
         self.api = api
     }
 

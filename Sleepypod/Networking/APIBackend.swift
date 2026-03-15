@@ -22,7 +22,7 @@ enum APIBackend: String, CaseIterable, Sendable {
         self == .sleepypodCore
     }
 
-    func createClient() -> FreeSleepAPIProtocol {
+    func createClient() -> SleepypodProtocol {
         switch self {
         case .freeSleep:
             FreeSleepClient()

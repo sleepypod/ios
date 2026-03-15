@@ -1,6 +1,6 @@
 import Foundation
 
-protocol FreeSleepAPIProtocol: Sendable {
+protocol SleepypodProtocol: Sendable {
     func getDeviceStatus() async throws -> DeviceStatus
     func updateDeviceStatus(_ update: DeviceStatusUpdate) async throws
     func getSettings() async throws -> PodSettings

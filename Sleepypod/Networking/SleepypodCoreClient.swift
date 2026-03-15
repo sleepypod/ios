@@ -2,13 +2,13 @@ import Foundation
 
 /// tRPC client for sleepypod-core (Next.js backend).
 ///
-/// Translates `FreeSleepAPIProtocol` calls into tRPC HTTP requests.
+/// Translates `SleepypodProtocol` calls into tRPC HTTP requests.
 /// tRPC queries use GET with input as a URL-encoded JSON param.
 /// tRPC mutations use POST with JSON body `{"json": input}`.
 ///
 /// Data shape differences between free-sleep and sleepypod-core are
 /// handled internally so managers never know which backend is active.
-final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
+final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     private let session: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder

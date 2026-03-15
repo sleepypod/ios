@@ -10,10 +10,10 @@ final class StatusManager {
     var error: String?
     var lastUpdated: Date?
 
-    private let api: FreeSleepAPIProtocol
+    private let api: SleepypodProtocol
     private var pollingTask: Task<Void, Never>?
 
-    init(api: FreeSleepAPIProtocol) {
+    init(api: SleepypodProtocol) {
         self.api = api
     }
 

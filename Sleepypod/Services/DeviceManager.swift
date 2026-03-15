@@ -23,12 +23,12 @@ final class DeviceManager {
         return !ip.isEmpty
     }
 
-    private var api: FreeSleepAPIProtocol
+    private var api: SleepypodProtocol
     private var debounceTask: Task<Void, Never>?
     private var pollingTask: Task<Void, Never>?
     private var pendingUpdate: DeviceStatusUpdate?
 
-    init(api: FreeSleepAPIProtocol) {
+    init(api: SleepypodProtocol) {
         self.api = api
     }
 
@@ -62,7 +62,7 @@ final class DeviceManager {
 
     // MARK: - Backend Switching
 
-    func switchBackend(_ newClient: FreeSleepAPIProtocol) {
+    func switchBackend(_ newClient: SleepypodProtocol) {
         stopPolling()
         api = newClient
         deviceStatus = nil

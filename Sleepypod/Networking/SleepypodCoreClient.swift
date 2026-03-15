@@ -211,48 +211,55 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
         let health: TRPCSystemHealth = try await query("health.system")
         let scheduler: TRPCSchedulerHealth = try await query("health.scheduler")
 
-        // Map to free-sleep ServerStatus shape — use health/scheduler data
-        let dbStatus = StatusInfo(
-            name: "database", status: health.database.status == "ok" ? .healthy : .failed,
-            description: "Database", message: health.database.error ?? "OK"
-        )
-        let schedulerStatus = StatusInfo(
-            name: "jobs", status: scheduler.healthy ? .healthy : .failed,
-            description: "Job Scheduler", message: "Jobs: \(scheduler.jobCounts.total)"
-        )
-        let baseStatus = StatusInfo(name: "express", status: .healthy, description: "Core App", message: "OK")
+        // Map sleepypod-core health data to ServerStatus shape
+        let isDBHealthy = health.database.status == "ok"
+        let isSchedulerHealthy = scheduler.healthy
+
+        func info(_ name: String, status: ServiceStatus, desc: String, msg: String = "OK") -> StatusInfo {
+            StatusInfo(name: name, status: status, description: desc, message: msg)
+        }
+
+        let dbStatus: ServiceStatus = isDBHealthy ? .healthy : .failed
+        let schedStatus: ServiceStatus = isSchedulerHealthy ? .healthy : .failed
+        let jobsMsg = "Jobs: \(scheduler.jobCounts.total)"
+
+        // Note: sleepypod-core doesn't have biometrics/calibration service status endpoints yet.
+        // Biometrics and Calibration categories will be empty until core adds:
+        //   - health.biometrics (sleep analysis, stream, installation status per side)
+        //   - health.calibration (piezo calibration status per side)
+        // See: https://github.com/sleepypod/core/issues/149
 
         return ServerStatus(
-            alarmSchedule: schedulerStatus,
-            database: dbStatus,
-            express: baseStatus,
-            podSocket: baseStatus,
-            podSocketMonitor: baseStatus,
-            jobs: schedulerStatus,
-            logger: baseStatus,
-            powerSchedule: schedulerStatus,
-            primeSchedule: schedulerStatus,
-            rebootSchedule: schedulerStatus,
-            systemDate: baseStatus,
-            temperatureSchedule: schedulerStatus
+            alarmSchedule: info("Alarm Schedule", status: schedStatus, desc: "Wake-up alarm scheduler", msg: "\(scheduler.jobCounts.alarm) alarms"),
+            database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "OK"),
+            express: info("API Server", status: .healthy, desc: "tRPC HTTP server"),
+            podSocket: info("Pod Socket", status: .healthy, desc: "Hardware communication"),
+            podSocketMonitor: info("Pod Monitor", status: .healthy, desc: "Connection watchdog"),
+            jobs: info("Job Scheduler", status: schedStatus, desc: "Background task runner", msg: jobsMsg),
+            logger: info("Logger", status: .healthy, desc: "System logging"),
+            powerSchedule: info("Power Schedule", status: schedStatus, desc: "Auto on/off scheduler", msg: "\(scheduler.jobCounts.powerOn + scheduler.jobCounts.powerOff) power jobs"),
+            primeSchedule: info("Prime Schedule", status: schedStatus, desc: "Daily prime scheduler", msg: "\(scheduler.jobCounts.prime) prime jobs"),
+            rebootSchedule: info("Reboot Schedule", status: schedStatus, desc: "Daily reboot scheduler", msg: "\(scheduler.jobCounts.reboot) reboot jobs"),
+            systemDate: info("System Clock", status: .healthy, desc: "Server time"),
+            temperatureSchedule: info("Temperature Schedule", status: schedStatus, desc: "Temperature curve scheduler", msg: "\(scheduler.jobCounts.temperature) temp jobs")
         )
     }
 
     // MARK: - Services
 
     func getServices() async throws -> Services {
-        // sleepypod-core doesn't have a services endpoint — return defaults
-        let healthyInfo = StatusInfo(name: "default", status: .healthy, description: "", message: "OK")
+        // sleepypod-core doesn't have a services endpoint yet — return unknown state
+        let unknown = StatusInfo(name: "unknown", status: .notStarted, description: "Not available", message: "No API endpoint")
         return Services(
             biometrics: Biometrics(
-                enabled: true,
+                enabled: false,
                 jobs: BiometricsJobs(
-                    analyzeSleepLeft: healthyInfo,
-                    analyzeSleepRight: healthyInfo,
-                    installation: healthyInfo,
-                    stream: healthyInfo,
-                    calibrateLeft: healthyInfo,
-                    calibrateRight: healthyInfo
+                    analyzeSleepLeft: unknown,
+                    analyzeSleepRight: unknown,
+                    installation: unknown,
+                    stream: unknown,
+                    calibrateLeft: unknown,
+                    calibrateRight: unknown
                 )
             ),
             sentryLogging: SentryLogging(enabled: false)

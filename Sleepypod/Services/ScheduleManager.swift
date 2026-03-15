@@ -53,6 +53,36 @@ final class ScheduleManager {
         isLoading = false
     }
 
+    // MARK: - Toggle Power Schedule
+
+    func togglePowerSchedule() async {
+        guard var schedules else { return }
+        let side = selectedSide.primarySide
+        var sideSchedule = schedules.schedule(for: side)
+        var daily = sideSchedule[selectedDay]
+
+        daily.power.enabled.toggle()
+        sideSchedule[selectedDay] = daily
+        schedules.setSchedule(sideSchedule, for: side)
+
+        if selectedSide == .both {
+            var otherSide = schedules.schedule(for: side == .left ? .right : .left)
+            var otherDaily = otherSide[selectedDay]
+            otherDaily.power.enabled = daily.power.enabled
+            otherSide[selectedDay] = otherDaily
+            schedules.setSchedule(otherSide, for: side == .left ? .right : .left)
+        }
+
+        self.schedules = schedules
+
+        do {
+            self.schedules = try await api.updateSchedules(schedules)
+        } catch {
+            self.error = error.localizedDescription
+            await fetchSchedules()
+        }
+    }
+
     // MARK: - Update Temperature
 
     func updatePhaseTemperature(time: String, delta: Int) async {

@@ -7,8 +7,20 @@ import Observation
 final class PodDiscovery {
     var discoveredPods: [DiscoveredPod] = []
     var isSearching = false
+    var status: DiscoveryStatus = .idle
+    var connectedPodName: String?
+
+    enum DiscoveryStatus: Equatable {
+        case idle
+        case scanning
+        case found(String)        // device name
+        case resolving(String)    // device name
+        case connected(String)    // IP
+        case failed
+    }
 
     private var browser: NWBrowser?
+    private var autoConnecting = false
 
     struct DiscoveredPod: Identifiable, Sendable {
         let id: String
@@ -17,9 +29,13 @@ final class PodDiscovery {
         let port: UInt16
     }
 
+    // MARK: - Browse
+
     func startBrowsing() {
-        stopBrowsing()
+        browser?.cancel()
+        browser = nil
         isSearching = true
+        status = .scanning
         discoveredPods = []
 
         let params = NWParameters()
@@ -29,11 +45,12 @@ final class PodDiscovery {
 
         browser.stateUpdateHandler = { [weak self] state in
             Task { @MainActor in
+                guard let self else { return }
                 switch state {
                 case .ready:
-                    self?.isSearching = true
+                    self.isSearching = true
                 case .failed, .cancelled:
-                    self?.isSearching = false
+                    self.isSearching = false
                 default:
                     break
                 }
@@ -49,11 +66,17 @@ final class PodDiscovery {
         browser.start(queue: .main)
         self.browser = browser
 
-        // Auto-stop after 15 seconds to save battery
+        // Auto-stop after 15 seconds
         Task {
             try? await Task.sleep(for: .seconds(15))
             if self.isSearching {
-                self.stopBrowsing()
+                self.browser?.cancel()
+                self.browser = nil
+                self.isSearching = false
+                // Only set failed if we're still scanning (haven't moved forward)
+                if self.status == .scanning {
+                    self.status = .failed
+                }
             }
         }
     }
@@ -69,20 +92,56 @@ final class PodDiscovery {
 
         for result in results {
             guard case .service(let name, let type, let domain, _) = result.endpoint else { continue }
-
-            let pod = DiscoveredPod(
+            pods.append(DiscoveredPod(
                 id: "\(name).\(type).\(domain)",
                 name: name,
                 host: name,
                 port: 3000
-            )
-            pods.append(pod)
+            ))
         }
 
         discoveredPods = pods
+
+        // Only advance status if we're still scanning (don't regress from later states)
+        if let first = pods.first, status == .scanning {
+            status = .found(first.name)
+        }
     }
 
-    /// Resolve a discovered pod's endpoint to get the actual IP address
+    // MARK: - Auto Connect
+
+    func autoConnect(settingsManager: SettingsManager, deviceManager: DeviceManager) async -> String? {
+        guard !autoConnecting else { return nil }
+        autoConnecting = true
+        defer { autoConnecting = false }
+
+        startBrowsing()
+
+        // Wait up to 10 seconds for a device to appear
+        for _ in 0..<20 {
+            try? await Task.sleep(for: .milliseconds(500))
+            if let pod = discoveredPods.first {
+                stopBrowsing()
+                status = .resolving(pod.name)
+                if let ip = await resolve(pod) {
+                    status = .connected(ip)
+                    connectedPodName = pod.name
+                    settingsManager.podIP = ip
+                    deviceManager.retryConnection()
+                    return ip
+                } else {
+                    status = .failed
+                }
+                return nil
+            }
+        }
+        stopBrowsing()
+        if status == .scanning { status = .failed }
+        return nil
+    }
+
+    // MARK: - Resolve
+
     func resolve(_ pod: DiscoveredPod) async -> String? {
         await withCheckedContinuation { continuation in
             let endpoint = NWEndpoint.service(
@@ -93,6 +152,7 @@ final class PodDiscovery {
             )
             let params = NWParameters.tcp
             let connection = NWConnection(to: endpoint, using: params)
+            let once = OnceFlag()
 
             connection.stateUpdateHandler = { state in
                 switch state {
@@ -102,23 +162,25 @@ final class PodDiscovery {
                        case .hostPort(let host, _) = endpoint {
                         let hostString: String
                         switch host {
-                        case .ipv4(let addr):
-                            hostString = "\(addr)"
-                        case .ipv6(let addr):
-                            hostString = "\(addr)"
-                        case .name(let name, _):
-                            hostString = name
-                        @unknown default:
-                            hostString = "\(host)"
+                        case .ipv4(let addr): hostString = "\(addr)"
+                        case .ipv6(let addr): hostString = "\(addr)"
+                        case .name(let name, _): hostString = name
+                        @unknown default: hostString = "\(host)"
                         }
-                        connection.cancel()
-                        continuation.resume(returning: hostString)
+                        if once.fire() {
+                            connection.cancel()
+                            continuation.resume(returning: hostString)
+                        }
                     } else {
-                        connection.cancel()
-                        continuation.resume(returning: nil)
+                        if once.fire() {
+                            connection.cancel()
+                            continuation.resume(returning: nil)
+                        }
                     }
                 case .failed, .cancelled:
-                    continuation.resume(returning: nil)
+                    if once.fire() {
+                        continuation.resume(returning: nil)
+                    }
                 default:
                     break
                 }
@@ -126,13 +188,26 @@ final class PodDiscovery {
 
             connection.start(queue: .main)
 
-            // Timeout after 5 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                if connection.state != .ready {
+                if once.fire() {
                     connection.cancel()
+                    continuation.resume(returning: nil)
                 }
             }
         }
     }
 }
 
+/// Thread-safe single-fire flag for continuation safety.
+private final class OnceFlag: @unchecked Sendable {
+    private var _fired = false
+    private let lock = NSLock()
+
+    func fire() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if _fired { return false }
+        _fired = true
+        return true
+    }
+}

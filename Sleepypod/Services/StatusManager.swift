@@ -30,22 +30,22 @@ final class StatusManager {
 
         return [
             ServiceCategory(
-                name: "Core Services",
-                description: "Essential server components",
+                name: "Core",
+                description: "Server, database, and logging",
                 iconName: "server.rack",
                 iconColorHex: "4a90d9",
                 services: [status.express, status.database, status.logger, status.jobs]
             ),
             ServiceCategory(
                 name: "Hardware",
-                description: "Pod hardware interfaces",
+                description: "Pod communication and monitoring",
                 iconName: "cpu",
                 iconColorHex: "a080d0",
                 services: [status.podSocket, status.podSocketMonitor]
             ),
             ServiceCategory(
                 name: "Schedules",
-                description: "Automated schedule managers",
+                description: "Temperature, power, and alarm jobs",
                 subtitle: alarmSubtitle,
                 iconName: "calendar",
                 iconColorHex: "d4a84a",
@@ -62,14 +62,14 @@ final class StatusManager {
             ),
             ServiceCategory(
                 name: "Calibration",
-                description: "Sensor calibration jobs",
+                description: "Piezo sensor calibration",
                 iconName: "tuningfork",
                 iconColorHex: "4ecdc4",
                 services: [status.biometricsCalibrationLeft, status.biometricsCalibrationRight].compactMap { $0 }
             ),
             ServiceCategory(
                 name: "System",
-                description: "Time sync and utilities",
+                description: "Clock and system utilities",
                 subtitle: systemSubtitle,
                 iconName: "gear",
                 iconColorHex: "888888",

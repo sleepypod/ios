@@ -7,6 +7,7 @@ struct LogsView: View {
     @State private var logContent: String = ""
     @State private var isLoading = false
     @State private var isExpanded = false
+    @State private var loadFailed = false
 
     private var baseURL: String {
         guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else { return "" }
@@ -62,6 +63,16 @@ struct LogsView: View {
                         ProgressView().tint(Theme.accent)
                         Text("Loading log files…")
                             .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                    }
+                    .padding(.bottom, 8)
+                } else if logFiles.isEmpty && loadFailed {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Log viewer not available")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                        Text("Sleepypod Core doesn't have a logs endpoint yet. Use SSH or the trpc-panel to view logs.")
+                            .font(.caption2)
                             .foregroundColor(Theme.textMuted)
                     }
                     .padding(.bottom, 8)
@@ -134,7 +145,7 @@ struct LogsView: View {
             let result = try JSONDecoder().decode(LogFilesResponse.self, from: data)
             logFiles = result.logs
         } catch {
-            // Silently fail
+            loadFailed = true
         }
     }
 

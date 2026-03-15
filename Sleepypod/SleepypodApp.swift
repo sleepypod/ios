@@ -42,6 +42,8 @@ struct SleepypodApp: App {
 
 struct ContentView: View {
     @Environment(DeviceManager.self) private var deviceManager
+    @Environment(SettingsManager.self) private var settingsManager
+    @Environment(PodDiscovery.self) private var podDiscovery
     @State private var selectedTab = "temp"
 
     private var isConnected: Bool {
@@ -64,21 +66,21 @@ struct ContentView: View {
                 if isConnected {
                     ScheduleScreen()
                 } else {
-                    DisconnectedTabView(tab: "Schedule")
+                    DisconnectedTabView(tab: "Schedule", selectedTab: $selectedTab)
                 }
             }
             Tab("Data", systemImage: "chart.bar.fill", value: "data") {
                 if isConnected {
                     DataScreen()
                 } else {
-                    DisconnectedTabView(tab: "Data")
+                    DisconnectedTabView(tab: "Data", selectedTab: $selectedTab)
                 }
             }
             Tab("Status", systemImage: "heart.text.clipboard", value: "status") {
                 if isConnected {
                     StatusScreen()
                 } else {
-                    DisconnectedTabView(tab: "Status")
+                    DisconnectedTabView(tab: "Status", selectedTab: $selectedTab)
                 }
             }
             Tab("Settings", systemImage: "gearshape.fill", value: "settings") {
@@ -88,70 +90,232 @@ struct ContentView: View {
         .onChange(of: selectedTab) {
             Haptics.tap()
         }
+        .task {
+            if deviceManager.isConnected { return }
+
+            // Always start mDNS discovery immediately
+            // If we have a saved IP, DeviceManager is already trying it via polling
+            // mDNS runs in parallel — whichever connects first wins
+            await podDiscovery.autoConnect(settingsManager: settingsManager, deviceManager: deviceManager)
+        }
+        .onChange(of: deviceManager.isConnected) {
+            if deviceManager.isConnected {
+                podDiscovery.status = .idle
+            }
+        }
     }
 }
 
 struct DisconnectedTabView: View {
     let tab: String
+    var selectedTab: Binding<String>?
     @Environment(DeviceManager.self) private var deviceManager
+    @Environment(SettingsManager.self) private var settingsManager
+    @Environment(PodDiscovery.self) private var podDiscovery
 
-    private var podIP: String {
-        UserDefaults.standard.string(forKey: "podIPAddress") ?? ""
+    private var isActive: Bool {
+        podDiscovery.isSearching || deviceManager.isConnecting ||
+        podDiscovery.status == .scanning ||
+        { if case .resolving = podDiscovery.status { return true }; return false }() ||
+        { if case .connected = podDiscovery.status { return true }; return false }()
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             Spacer()
 
-            if deviceManager.isConnecting {
-                ProgressView()
-                    .tint(Theme.accent)
-                    .scaleEffect(1.2)
-                    .padding(.bottom, 8)
-                Text("Connecting to pod…")
-                    .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
-            } else {
-                Image(systemName: "icloud.slash")
-                    .font(.system(size: 36))
-                    .foregroundColor(Theme.error)
-                    .padding(.bottom, 4)
+            // Step indicators
+            VStack(spacing: 0) {
+                connectionStep(
+                    icon: "antenna.radiowaves.left.and.right",
+                    title: "Scanning network",
+                    state: scanState
+                )
 
-                if podIP.isEmpty {
-                    Text("No pod configured")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.white)
-                    Text("Set your pod IP address in Settings")
-                        .font(.caption)
-                        .foregroundColor(Theme.textMuted)
-                } else {
-                    Text("Could not connect to \(podIP)")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.white)
-                    Text("Check that your pod is powered on and reachable")
-                        .font(.caption)
-                        .foregroundColor(Theme.textMuted)
-                }
+                stepConnector(active: scanState == .done)
 
-                Button {
-                    Haptics.light()
-                    deviceManager.retryConnection()
-                } label: {
-                    Text("Retry")
+                connectionStep(
+                    icon: "bed.double.fill",
+                    title: deviceName ?? "Finding Sleepypod",
+                    state: findState
+                )
+
+                stepConnector(active: findState == .done)
+
+                connectionStep(
+                    icon: "link",
+                    title: resolvedIP ?? "Resolving address",
+                    state: resolveState
+                )
+
+                stepConnector(active: resolveState == .done)
+
+                connectionStep(
+                    icon: "wifi",
+                    title: "Connecting",
+                    state: connectState
+                )
+            }
+            .padding(.horizontal, 48)
+
+            // Actions — centered between steps and tab bar
+            if !isActive {
+                Spacer()
+
+                VStack(spacing: 12) {
+                    Button {
+                        Haptics.light()
+                        Task {
+                            await podDiscovery.autoConnect(
+                                settingsManager: settingsManager,
+                                deviceManager: deviceManager
+                            )
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                            Text("Search for Sleepypod")
+                        }
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                         .background(.ultraThinMaterial)
-                        .clipShape(Capsule())
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        Haptics.light()
+                        selectedTab?.wrappedValue = "settings"
+                    } label: {
+                        Text("Enter IP manually")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 8)
+                .padding(.horizontal, 32)
             }
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
+    }
+
+    // MARK: - Step States
+
+    private enum StepState {
+        case idle, active, done, failed
+    }
+
+    private var deviceName: String? {
+        if case .found(let n) = podDiscovery.status { return n }
+        if case .resolving(let n) = podDiscovery.status { return n }
+        if let n = podDiscovery.connectedPodName { return n }
+        return nil
+    }
+
+    private var resolvedIP: String? {
+        if case .connected(let ip) = podDiscovery.status { return ip }
+        if deviceManager.isConnecting { return settingsManager.podIP.isEmpty ? nil : settingsManager.podIP }
+        return nil
+    }
+
+    private var scanState: StepState {
+        switch podDiscovery.status {
+        case .scanning: return .active
+        case .found, .resolving, .connected: return .done
+        case .failed: return .failed
+        case .idle: return .idle
+        }
+    }
+
+    private var findState: StepState {
+        switch podDiscovery.status {
+        case .scanning: return .idle
+        case .found: return .active
+        case .resolving, .connected: return .done
+        case .failed: return .failed
+        case .idle: return .idle
+        }
+    }
+
+    private var resolveState: StepState {
+        switch podDiscovery.status {
+        case .scanning, .found: return .idle
+        case .resolving: return .active
+        case .connected: return .done
+        case .failed: return .failed
+        case .idle: return .idle
+        }
+    }
+
+    private var connectState: StepState {
+        switch podDiscovery.status {
+        case .scanning, .found, .resolving: return .idle
+        case .connected: return .active
+        case .failed: return .failed
+        case .idle: return .idle
+        }
+    }
+
+    // MARK: - Step Views
+
+    private func connectionStep(icon: String, title: String, state: StepState) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                // Glow for active state
+                if state == .active {
+                    Circle()
+                        .fill(Theme.accent.opacity(0.2))
+                        .frame(width: 44, height: 44)
+                        .blur(radius: 4)
+                }
+
+                Circle()
+                    .fill(stepColor(state).opacity(0.15))
+                    .frame(width: 36, height: 36)
+
+                if state == .active {
+                    ProgressView()
+                        .tint(Theme.accent)
+                        .scaleEffect(0.6)
+                } else {
+                    Image(systemName: state == .done ? "checkmark" : state == .failed ? "xmark" : icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(stepColor(state))
+                }
+            }
+            .frame(width: 44, height: 44)
+
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(state == .idle ? Theme.textMuted : .white)
+                .animation(.easeInOut(duration: 0.3), value: title)
+
+            Spacer()
+        }
+    }
+
+    private func stepConnector(active: Bool) -> some View {
+        HStack {
+            Rectangle()
+                .fill(active ? Theme.accent.opacity(0.4) : Color(hex: "333333"))
+                .frame(width: 2, height: 20)
+                .padding(.leading, 21)
+                .animation(.easeInOut(duration: 0.3), value: active)
+            Spacer()
+        }
+    }
+
+    private func stepColor(_ state: StepState) -> Color {
+        switch state {
+        case .idle: Theme.textMuted
+        case .active: Theme.accent
+        case .done: Theme.healthy
+        case .failed: Theme.error
+        }
     }
 }

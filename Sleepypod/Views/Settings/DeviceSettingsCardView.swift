@@ -2,6 +2,9 @@ import SwiftUI
 
 struct DeviceSettingsCardView: View {
     @Environment(SettingsManager.self) private var settingsManager
+    @Environment(StatusManager.self) private var statusManager
+    @Environment(DeviceManager.self) private var deviceManager
+    @State private var ledValue: Double = 50
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -65,24 +68,70 @@ struct DeviceSettingsCardView: View {
 
             // LED Brightness
             VStack(alignment: .leading, spacing: 6) {
-                Text("LED Brightness")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                HStack {
+                    Text("LED Brightness")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                    Spacer()
+                    Text("\(Int(ledValue))%")
+                        .font(.caption.monospaced())
+                        .foregroundColor(Theme.textSecondary)
+                }
 
                 HStack(spacing: 8) {
-                    Text("Off")
+                    Image(systemName: "light.min")
                         .font(.caption2)
                         .foregroundColor(Theme.textMuted)
-                    // LED brightness is read from DeviceStatus, not PodSettings
-                    Slider(value: .constant(50), in: 0...100, step: 1)
+                    Slider(value: $ledValue, in: 0...100, step: 1)
                         .tint(Theme.cooling)
-                    Text("100%")
+                    Image(systemName: "light.max")
                         .font(.caption2)
                         .foregroundColor(Theme.textMuted)
                 }
             }
+            .onAppear {
+                ledValue = Double(deviceManager.deviceStatus?.settings.ledBrightness ?? 50)
+            }
+
+            // Services
+            if let services = statusManager.services {
+                Divider().background(Theme.cardBorder)
+
+                serviceToggle(
+                    title: "Biometrics",
+                    description: "Sleep tracking and analysis",
+                    isOn: services.biometrics.enabled
+                ) {
+                    Task { await statusManager.toggleBiometrics() }
+                }
+
+                serviceToggle(
+                    title: "Sentry Logging",
+                    description: "Error reporting service",
+                    isOn: services.sentryLogging.enabled
+                ) {
+                    Task { await statusManager.toggleSentryLogging() }
+                }
+            }
         }
         .cardStyle()
+    }
+
+    private func serviceToggle(title: String, description: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+            }
+            Spacer()
+            Toggle("", isOn: Binding(get: { isOn }, set: { _ in Haptics.medium(); action() }))
+                .tint(Theme.cooling)
+                .labelsHidden()
+        }
     }
 
     private func formatButton(title: String, format: TemperatureFormat) -> some View {

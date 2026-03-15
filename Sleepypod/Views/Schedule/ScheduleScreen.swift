@@ -59,7 +59,10 @@ struct ScheduleScreen: View {
                     .foregroundColor(Theme.textSecondary)
             }
             Spacer()
-            Toggle("", isOn: .constant(scheduleManager.currentDailySchedule?.power.enabled ?? false))
+            Toggle("", isOn: Binding(
+                get: { scheduleManager.currentDailySchedule?.power.enabled ?? false },
+                set: { _ in Haptics.medium(); Task { await scheduleManager.togglePowerSchedule() } }
+            ))
                 .tint(Theme.cooling)
                 .labelsHidden()
         }

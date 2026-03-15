@@ -3,6 +3,9 @@ import SwiftUI
 struct StatusScreen: View {
     @Environment(StatusManager.self) private var statusManager
     @Environment(ScheduleManager.self) private var scheduleManager
+    @Environment(DeviceManager.self) private var deviceManager
+    @Environment(SettingsManager.self) private var settingsManager
+    @Environment(PodDiscovery.self) private var podDiscovery
 
     var body: some View {
         ScrollView {
@@ -24,22 +27,8 @@ struct StatusScreen: View {
                     }
                 }
 
-                // Biometrics toggle
-                if let services = statusManager.services {
-                    VStack(spacing: 12) {
-                        toggleRow(title: "Biometrics",
-                                  description: "Sleep tracking and analysis",
-                                  isOn: services.biometrics.enabled) {
-                            Task { await statusManager.toggleBiometrics() }
-                        }
-                        toggleRow(title: "Sentry Logging",
-                                  description: "Error reporting service",
-                                  isOn: services.sentryLogging.enabled) {
-                            Task { await statusManager.toggleSentryLogging() }
-                        }
-                    }
-                    .cardStyle()
-                }
+                // Network discovery
+                networkDiscoveryCard
 
                 // Logs
                 LogsView()
@@ -61,20 +50,119 @@ struct StatusScreen: View {
         }
     }
 
-    private func toggleRow(title: String, description: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+    // MARK: - Network Discovery
+
+    @State private var isDiscoveryExpanded = false
+
+    private var networkDiscoveryCard: some View {
+        VStack(spacing: 0) {
+            // Header — matches ServiceCategoryView style
+            Button {
+                Haptics.light()
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isDiscoveryExpanded.toggle()
+                }
+                if isDiscoveryExpanded && podDiscovery.discoveredPods.isEmpty && !podDiscovery.isSearching {
+                    podDiscovery.startBrowsing()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.accent)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.accent.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Network Discovery")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.white)
+                        Text("mDNS auto-discovery")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+
+                    Spacer()
+
+                    // Status badge — checkmark or warning
+                    Image(systemName: deviceManager.isConnected ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(deviceManager.isConnected ? Theme.healthy : Theme.amber)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                        .rotationEffect(.degrees(isDiscoveryExpanded ? 90 : 0))
+                }
             }
-            Spacer()
-            Toggle("", isOn: Binding(get: { isOn }, set: { _ in Haptics.medium(); action() }))
-                .tint(Theme.cooling)
-                .labelsHidden()
+            .buttonStyle(.plain)
+
+            if isDiscoveryExpanded {
+                Divider()
+                    .background(Theme.cardBorder)
+                    .padding(.vertical, 8)
+
+                VStack(spacing: 8) {
+                    // Connected pod info
+                    if deviceManager.isConnected {
+                        HStack(spacing: 10) {
+                            Image(systemName: "bed.double.fill")
+                                .font(.caption)
+                                .foregroundColor(Theme.accent)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(podDiscovery.connectedPodName ?? podDiscovery.discoveredPods.first?.name ?? settingsManager.podIP)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                                Text(settingsManager.podIP)
+                                    .font(.caption)
+                                    .foregroundColor(Theme.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(Theme.healthy)
+                        }
+                        .padding(.vertical, 4)
+                    }
+
+                    // Discovered pods from scan
+                    if podDiscovery.isSearching {
+                        HStack(spacing: 8) {
+                            ProgressView().tint(Theme.accent).scaleEffect(0.7)
+                            Text("Scanning network…")
+                                .font(.caption)
+                                .foregroundColor(Theme.textMuted)
+                        }
+                        .padding(.vertical, 4)
+                    } else if !podDiscovery.discoveredPods.isEmpty {
+                        ForEach(podDiscovery.discoveredPods) { pod in
+                            HStack(spacing: 10) {
+                                Image(systemName: "bed.double.fill")
+                                    .font(.caption)
+                                    .foregroundColor(Theme.textSecondary)
+                                Text(pod.name)
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Text("Port \(pod.port)")
+                                    .font(.caption2)
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    } else if !deviceManager.isConnected {
+                        Text("No Sleepypod found on network")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                            .padding(.vertical, 4)
+                    }
+                }
+            }
         }
+        .padding(16)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
+
 }

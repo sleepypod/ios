@@ -99,86 +99,36 @@ struct SideSelectorView: View {
     }
 
     private var linkButton: some View {
-        HStack(spacing: 0) {
-            // Left side indicator
-            sideLink(side: .left)
-
-            // Connecting line
-            Rectangle()
-                .fill(deviceManager.isLinked ? Theme.accent.opacity(0.4) : Color(hex: "333333").opacity(0.4))
-                .frame(width: 12, height: 2)
-
-            // Center link button
-            Button {
-                Haptics.medium()
-                deviceManager.toggleLink()
-            } label: {
-                Image(systemName: deviceManager.isLinked ? "link" : "link.badge.plus")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(deviceManager.isLinked ? .white : Theme.textTertiary)
-                    .frame(width: linkSize, height: linkSize)
-                    .background(
-                        deviceManager.isLinked ? Theme.cooling : Color(hex: "1a1a1a")
-                    )
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Color(hex: "0a0a0a"), lineWidth: 3)
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : Color(hex: "333333"), lineWidth: 1)
-                            .padding(3)
-                    )
-                    .shadow(color: .black.opacity(0.5), radius: 8, y: 2)
-            }
-            .buttonStyle(.plain)
-
-            // Connecting line
-            Rectangle()
-                .fill(deviceManager.isLinked ? Theme.accent.opacity(0.4) : Color(hex: "333333").opacity(0.4))
-                .frame(width: 12, height: 2)
-
-            // Right side indicator
-            sideLink(side: .right)
-        }
-    }
-
-    private func sideLink(side: Side) -> some View {
-        let isThisSide = deviceManager.selectedSide == (side == .left ? .left : .right)
-        let isActive = deviceManager.isLinked || isThisSide
-        let sideLinkSize: CGFloat = 28
-
-        return Button {
-            Haptics.tap()
-            deviceManager.selectSide(side == .left ? .left : .right)
+        Button {
+            Haptics.medium()
+            deviceManager.toggleLink()
         } label: {
-            Text(side == .left ? "L" : "R")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(isActive ? .white : Theme.textMuted)
-                .frame(width: sideLinkSize, height: sideLinkSize)
+            Image(systemName: deviceManager.isLinked ? "link" : "link.badge.plus")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(deviceManager.isLinked ? .white : Theme.textTertiary)
+                .frame(width: linkSize, height: linkSize)
                 .background(
-                    isActive ? Theme.cooling.opacity(0.7) : Color(hex: "1a1a1a")
+                    deviceManager.isLinked ? Theme.cooling : Color(hex: "1a1a1a")
                 )
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(Color(hex: "0a0a0a"), lineWidth: 2)
+                        .stroke(Color(hex: "0a0a0a"), lineWidth: 3)
                 )
                 .overlay(
                     Circle()
-                        .stroke(isActive ? Theme.accent.opacity(0.4) : Color(hex: "333333"), lineWidth: 1)
-                        .padding(2)
+                        .stroke(deviceManager.isLinked ? Theme.accent.opacity(0.5) : Color(hex: "333333"), lineWidth: 1)
+                        .padding(3)
                 )
-                .shadow(color: .black.opacity(0.3), radius: 4, y: 1)
+                .shadow(color: .black.opacity(0.5), radius: 8, y: 2)
         }
         .buttonStyle(.plain)
     }
 
     private func trendIcon(warming: Bool, cooling: Bool) -> String {
-        if warming { return "arrow.upper.right" }
-        if cooling { return "arrow.lower.right" }
-        return "equal"
+        if warming { return "chart.line.uptrend" }
+        if cooling { return "chart.line.downtrend" }
+        return "chart.line.flattrend"
     }
 }
 

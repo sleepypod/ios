@@ -5,60 +5,47 @@ struct TempScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { geo in
             if deviceManager.isConnected {
-                // Alerts at top (only when needed)
-                VStack(spacing: 8) {
-                    if deviceManager.deviceStatus?.isPriming == true {
-                        AlertBanner(
-                            icon: "drop.fill",
-                            title: "Pod is Priming",
-                            message: "Water is being circulated through the system",
-                            style: .info
-                        )
-                    }
-                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
-                        AlarmBanner(side: side) {
-                            deviceManager.stopAlarm()
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-
-                // Centered content between top and side selector
-                Spacer(minLength: 0)
-
-                VStack(spacing: 24) {
-                    TemperatureDialView()
-                        .onTapGesture {
-                            Haptics.medium()
-                            deviceManager.togglePower()
-                        }
-
-                    TempControlsView()
-
-                    EnvironmentInfoView()
-
-                    // Last updated — tap to refresh
-                    if let lastUpdated = deviceManager.lastUpdated {
-                        Button {
-                            Haptics.light()
-                            Task { await deviceManager.fetchStatus() }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 10))
-                                Text("Updated \(lastUpdated, format: .relative(presentation: .named))")
-                                    .font(.caption2)
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Alerts at top (only when needed)
+                        VStack(spacing: 8) {
+                            if deviceManager.deviceStatus?.isPriming == true {
+                                AlertBanner(
+                                    icon: "drop.fill",
+                                    title: "Sleepypod is Priming",
+                                    message: "Water is being circulated through the system",
+                                    style: .info
+                                )
                             }
-                            .foregroundColor(Theme.textMuted)
+                            if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
+                                AlarmBanner(side: side) {
+                                    deviceManager.stopAlarm()
+                                }
+                            }
                         }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
+                        .padding(.horizontal, 16)
 
-                Spacer(minLength: 0)
+                        VStack(spacing: 24) {
+                            TemperatureDialView()
+                                .onTapGesture {
+                                    Haptics.medium()
+                                    deviceManager.togglePower()
+                                }
+
+                            TempControlsView()
+
+                            EnvironmentInfoView()
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height)
+                }
+                .refreshable {
+                    await deviceManager.fetchStatus()
+                }
+                .scrollBounceBehavior(.basedOnSize)
             } else {
                 DisconnectedTabView(tab: "Temp")
             }

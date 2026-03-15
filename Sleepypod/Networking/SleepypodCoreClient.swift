@@ -106,12 +106,15 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
 
     func updateSettings(_ settings: PodSettings) async throws -> PodSettings {
         // Update device-level settings
+        // primePodDaily and primePodTime must always be sent together — backend requires both.
+        let primePodEnabled = settings.primePodDaily.enabled
+        let primePodTime = settings.primePodDaily.time.isEmpty ? "14:00" : settings.primePodDaily.time
         var deviceInput: [String: Any] = [:]
         deviceInput["timezone"] = settings.timeZone
         deviceInput["temperatureUnit"] = settings.temperatureFormat == .fahrenheit ? "F" : "C"
         deviceInput["rebootDaily"] = settings.rebootDaily
-        deviceInput["primePodDaily"] = settings.primePodDaily.enabled
-        deviceInput["primePodTime"] = settings.primePodDaily.time
+        deviceInput["primePodDaily"] = primePodEnabled
+        deviceInput["primePodTime"] = primePodTime
 
         let _: TRPCDeviceSettings = try await mutate("settings.updateDevice", input: deviceInput)
 
@@ -265,7 +268,7 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
 
     func getSleepRecords(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [SleepRecord] {
         var input: [String: Any] = [:]
-        if let side { input["side"] = side.rawValue }
+        input["side"] = (side ?? .left).rawValue
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start) }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end) }
         return try await query("biometrics.getSleepRecords", input: input)
@@ -273,24 +276,27 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
 
     func getVitals(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [VitalsRecord] {
         var input: [String: Any] = [:]
-        if let side { input["side"] = side.rawValue }
+        input["side"] = (side ?? .left).rawValue
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start) }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end) }
         return try await query("biometrics.getVitals", input: input)
     }
 
     func getVitalsSummary(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> VitalsSummary {
+        let fmt = ISO8601DateFormatter()
         var input: [String: Any] = [:]
-        if let side { input["side"] = side.rawValue }
-        if let start { input["startDate"] = ISO8601DateFormatter().string(from: start) }
-        if let end { input["endDate"] = ISO8601DateFormatter().string(from: end) }
+        input["side"] = (side ?? .left).rawValue
+        let resolvedEnd = end ?? Date()
+        let resolvedStart = start ?? Calendar.current.date(byAdding: .day, value: -7, to: resolvedEnd)!
+        input["startDate"] = fmt.string(from: resolvedStart)
+        input["endDate"] = fmt.string(from: resolvedEnd)
         let result: VitalsSummary? = try await query("biometrics.getVitalsSummary", input: input)
         return result ?? VitalsSummary(avgHeartRate: nil, minHeartRate: nil, maxHeartRate: nil, avgHRV: nil, avgBreathingRate: nil)
     }
 
     func getMovement(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [MovementRecord] {
         var input: [String: Any] = [:]
-        if let side { input["side"] = side.rawValue }
+        input["side"] = (side ?? .left).rawValue
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start) }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end) }
         return try await query("biometrics.getMovement", input: input)
@@ -408,7 +414,12 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
             alarm: AlarmOverride(disabled: false, timeOverride: "", expiresAt: "")
         )
 
-        func mapSideGestures(_ gestures: [TRPCTapGesture]) -> TapSettings {
+        let device = s.device
+        let leftSide = s.sides?.left
+        let rightSide = s.sides?.right
+
+        func mapSideGestures(_ gestures: [TRPCTapGesture]?) -> TapSettings {
+            guard let gestures else { return defaultTaps }
             var taps = defaultTaps
             for g in gestures {
                 let config: TapConfig
@@ -436,25 +447,25 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
 
         return PodSettings(
             id: "1",
-            timeZone: s.device.timezone,
+            timeZone: device?.timezone ?? TimeZone.current.identifier,
             left: SideSettings(
-                name: s.sides.left.name,
-                awayMode: s.sides.left.awayMode,
+                name: leftSide?.name ?? "Left",
+                awayMode: leftSide?.awayMode ?? false,
                 scheduleOverrides: defaultOverrides,
-                taps: mapSideGestures(s.gestures.left)
+                taps: mapSideGestures(s.gestures?.left)
             ),
             right: SideSettings(
-                name: s.sides.right.name,
-                awayMode: s.sides.right.awayMode,
+                name: rightSide?.name ?? "Right",
+                awayMode: rightSide?.awayMode ?? false,
                 scheduleOverrides: defaultOverrides,
-                taps: mapSideGestures(s.gestures.right)
+                taps: mapSideGestures(s.gestures?.right)
             ),
             primePodDaily: PrimePodDaily(
-                enabled: s.device.primePodDaily,
-                time: s.device.primePodTime ?? "14:00"
+                enabled: device?.primePodDaily ?? false,
+                time: device?.primePodTime ?? "14:00"
             ),
-            temperatureFormat: s.device.temperatureUnit == "C" ? .celsius : .fahrenheit,
-            rebootDaily: s.device.rebootDaily
+            temperatureFormat: device?.temperatureUnit == "C" ? .celsius : .fahrenheit,
+            rebootDaily: device?.rebootDaily ?? false
         )
     }
 
@@ -556,18 +567,18 @@ private struct TRPCDeviceStatus: Decodable {
 }
 
 private struct TRPCDeviceSettings: Decodable {
-    let timezone: String
-    let temperatureUnit: String
-    let rebootDaily: Bool
+    let timezone: String?
+    let temperatureUnit: String?
+    let rebootDaily: Bool?
     let rebootTime: String?
-    let primePodDaily: Bool
+    let primePodDaily: Bool?
     let primePodTime: String?
 }
 
 private struct TRPCSideSettings: Decodable {
-    let side: String
-    let name: String
-    let awayMode: Bool
+    let side: String?
+    let name: String?
+    let awayMode: Bool?
 }
 
 private struct TRPCTapGesture: Decodable {
@@ -582,19 +593,19 @@ private struct TRPCTapGesture: Decodable {
 }
 
 private struct TRPCSettings: Decodable {
-    let device: TRPCDeviceSettings
-    let sides: TRPCSettingsSides
-    let gestures: TRPCSettingsGestures
+    let device: TRPCDeviceSettings?
+    let sides: TRPCSettingsSides?
+    let gestures: TRPCSettingsGestures?
 }
 
 private struct TRPCSettingsSides: Decodable {
-    let left: TRPCSideSettings
-    let right: TRPCSideSettings
+    let left: TRPCSideSettings?
+    let right: TRPCSideSettings?
 }
 
 private struct TRPCSettingsGestures: Decodable {
-    let left: [TRPCTapGesture]
-    let right: [TRPCTapGesture]
+    let left: [TRPCTapGesture]?
+    let right: [TRPCTapGesture]?
 }
 
 private struct TRPCSystemHealth: Decodable {

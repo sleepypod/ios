@@ -2,20 +2,44 @@ import Foundation
 
 struct MovementRecord: Codable, Sendable, Identifiable {
     var id: Int
-    var timestamp: Int   // Unix timestamp
     var side: String
     var totalMovement: Int
 
+    private var _timestamp: TimeInterval
+
     enum CodingKeys: String, CodingKey {
-        case id
-        case timestamp
-        case side
-        case totalMovement = "total_movement"
+        case id, side, timestamp, totalMovement, total_movement
     }
 
-    var date: Date {
-        Date(timeIntervalSince1970: TimeInterval(timestamp))
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        side = try c.decode(String.self, forKey: .side)
+        totalMovement = (try? c.decode(Int.self, forKey: .totalMovement))
+            ?? (try? c.decode(Int.self, forKey: .total_movement)) ?? 0
+
+        if let unix = try? c.decode(Int.self, forKey: .timestamp) {
+            _timestamp = TimeInterval(unix)
+        } else if let iso = try? c.decode(String.self, forKey: .timestamp) {
+            let fmt = ISO8601DateFormatter()
+            fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            _timestamp = fmt.date(from: iso)?.timeIntervalSince1970
+                ?? ISO8601DateFormatter().date(from: iso)?.timeIntervalSince1970 ?? 0
+        } else {
+            _timestamp = 0
+        }
     }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(side, forKey: .side)
+        try c.encode(Int(_timestamp), forKey: .timestamp)
+        try c.encode(totalMovement, forKey: .totalMovement)
+    }
+
+    var timestamp: Int { Int(_timestamp) }
+    var date: Date { Date(timeIntervalSince1970: _timestamp) }
 
     var timeLabel: String {
         let formatter = DateFormatter()

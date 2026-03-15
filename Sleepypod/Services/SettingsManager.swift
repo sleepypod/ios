@@ -78,8 +78,27 @@ final class SettingsManager {
 
     func updateLEDBrightness(_ brightness: Int) async {
         // LED brightness is in DeviceStatus.settings, not PodSettings
-        // This would need to go through DeviceManager
-        // For now, this is a placeholder
+        // Needs device.setLedBrightness endpoint (core#159)
+    }
+
+    func updateSideName(_ side: Side, name: String) async {
+        guard var settings else { return }
+        switch side {
+        case .left: settings.left.name = name
+        case .right: settings.right.name = name
+        }
+        self.settings = settings
+        await saveSettings(settings)
+    }
+
+    func toggleAwayMode(_ side: Side) async {
+        guard var settings else { return }
+        switch side {
+        case .left: settings.left.awayMode.toggle()
+        case .right: settings.right.awayMode.toggle()
+        }
+        self.settings = settings
+        await saveSettings(settings)
     }
 
     func reboot() async {

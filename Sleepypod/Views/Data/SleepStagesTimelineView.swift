@@ -82,7 +82,7 @@ struct SleepStagesTimelineView: View {
         var entries: [TimelineEntry] = []
 
         // Parse present intervals from JSON string
-        if let data = record.presentIntervals.data(using: .utf8),
+        if let data = record.presentIntervals?.data(using: .utf8),
            let intervals = try? JSONDecoder().decode([[Int]].self, from: data) {
             for interval in intervals {
                 guard interval.count >= 2 else { continue }
@@ -93,7 +93,7 @@ struct SleepStagesTimelineView: View {
         }
 
         // Parse not-present intervals
-        if let data = record.notPresentIntervals.data(using: .utf8),
+        if let data = record.notPresentIntervals?.data(using: .utf8),
            let intervals = try? JSONDecoder().decode([[Int]].self, from: data) {
             for interval in intervals {
                 guard interval.count >= 2 else { continue }

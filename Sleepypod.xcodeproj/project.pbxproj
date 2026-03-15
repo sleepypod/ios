@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		00F44793F97313509F4C9400 /* APIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBB2DEABE79587F398DEB17 /* APIEndpoint.swift */; };
-		010B13E2ABA8EE69249B8E9A /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62E924A9B264056469B99997 /* SettingsScreen.swift */; };
 		041D6F2AA0D299253FFA1B27 /* Services.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8F3BFDBBA72B77A16C8606 /* Services.swift */; };
 		0B484FB88EA2286B4B2B83EB /* ScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00032A1688C27E11B0BF64CC /* ScheduleScreen.swift */; };
 		1201459B0B50A7E1250D248B /* openapi.json in Resources */ = {isa = PBXBuildFile; fileRef = B881147C7D2F0ADEBAD1AD02 /* openapi.json */; };
@@ -26,7 +25,6 @@
 		3F3CA68DBFC6398C218DB8D0 /* MovementRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9604F6662B2AB6363AECF42A /* MovementRecord.swift */; };
 		4537E75A1A5822042DB9C8A2 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060906F2618180E4E45E29F3 /* Log.swift */; };
 		4B76AE90EF4105BC911F5102 /* ScheduleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */; };
-		5D54502CCA3F2067F5AF8FE2 /* DataScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23DE6DD1986CBAD98C55A406 /* DataScreen.swift */; };
 		5D6566441668D7E70CE84F29 /* FreeSleepClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */; };
 		5F58632442748EC2A7862CB1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9E902CB9201C2AE527A6C49F /* Assets.xcassets */; };
 		650EC4F1527BA82FBF187755 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */; };
@@ -40,7 +38,6 @@
 		7B18A3F8BC4258895EBEE279 /* ServiceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE210E5A8FC6945D3DE384C /* ServiceRowView.swift */; };
 		7ECF8266BF6DB9733BB31DDF /* ServiceCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6E2D8EB06314CC264F24D1 /* ServiceCategoryView.swift */; };
 		80473DBF0C206E692C09E07B /* StatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F4EAF0885B4206D02501DC8 /* StatusManager.swift */; };
-		8140F85331225690E9EAC76D /* BiometricsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 453C195267A4A753C5A55087 /* BiometricsScreen.swift */; };
 		8267672B7C3A060FF4D8AB52 /* HealthMetricsGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04710A8ABCD6BE865AA7E37E /* HealthMetricsGridView.swift */; };
 		89CC786871A5B3B08D0EC3C4 /* Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2FC5FEF1954A73556633CF /* Schedule.swift */; };
 		8DD9CBBCA55884DBA45F5938 /* MetricsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A651EEB721EF0EFD1B2D16 /* MetricsManager.swift */; };
@@ -81,7 +78,6 @@
 		0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateChartView.swift; sourceTree = "<group>"; };
 		0FCC5EA8D41BF91BCCFDEA6D /* SleepTimeCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimeCardView.swift; sourceTree = "<group>"; };
 		1BBB2DEABE79587F398DEB17 /* APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpoint.swift; sourceTree = "<group>"; };
-		23DE6DD1986CBAD98C55A406 /* DataScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataScreen.swift; sourceTree = "<group>"; };
 		2941CA088FC1C77B69F36D60 /* DeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManager.swift; sourceTree = "<group>"; };
 		295C867DF528905A55668F52 /* APIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIBackend.swift; sourceTree = "<group>"; };
 		2D039BE0CE64C5F6438E6442 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
@@ -92,14 +88,12 @@
 		30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureConversion.swift; sourceTree = "<group>"; };
 		3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sleepypod.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		452905BE65E698AC3C3419A6 /* MovementCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementCardView.swift; sourceTree = "<group>"; };
-		453C195267A4A753C5A55087 /* BiometricsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricsScreen.swift; sourceTree = "<group>"; };
 		4A8BAD843B5F8A9CD181A2AE /* TempScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempScreen.swift; sourceTree = "<group>"; };
 		4BE210E5A8FC6945D3DE384C /* ServiceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceRowView.swift; sourceTree = "<group>"; };
 		4F4EAF0885B4206D02501DC8 /* StatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusManager.swift; sourceTree = "<group>"; };
 		50BD72013CAB411F125A77BC /* RawDataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawDataSheet.swift; sourceTree = "<group>"; };
 		537D551820017038203719E1 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodApp.swift; sourceTree = "<group>"; };
-		62E924A9B264056469B99997 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
 		677BD56179BBE15ACC5E97C1 /* DeviceSettingsCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSettingsCardView.swift; sourceTree = "<group>"; };
 		68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
 		7609963B2396D197BA589466 /* SleepAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAnalyzer.swift; sourceTree = "<group>"; };
@@ -142,8 +136,6 @@
 		03F3D37449D239BBAB65C8AF /* Data */ = {
 			isa = PBXGroup;
 			children = (
-				453C195267A4A753C5A55087 /* BiometricsScreen.swift */,
-				23DE6DD1986CBAD98C55A406 /* DataScreen.swift */,
 				04710A8ABCD6BE865AA7E37E /* HealthMetricsGridView.swift */,
 				0370A4FF64B61475AC0C1125 /* HealthScreen.swift */,
 				0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */,
@@ -276,7 +268,6 @@
 			isa = PBXGroup;
 			children = (
 				677BD56179BBE15ACC5E97C1 /* DeviceSettingsCardView.swift */,
-				62E924A9B264056469B99997 /* SettingsScreen.swift */,
 				D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */,
 			);
 			path = Settings;
@@ -371,8 +362,6 @@
 				6C2843125C47D323DAB695BC /* APIBackend.swift in Sources */,
 				00F44793F97313509F4C9400 /* APIEndpoint.swift in Sources */,
 				8DDF8FDD9FE7688543CA8831 /* APIError.swift in Sources */,
-				8140F85331225690E9EAC76D /* BiometricsScreen.swift in Sources */,
-				5D54502CCA3F2067F5AF8FE2 /* DataScreen.swift in Sources */,
 				973184378E3DE691E858EC2E /* DaySelectorView.swift in Sources */,
 				9D7F9E63ABF049359432DF0F /* DeviceManager.swift in Sources */,
 				D81EAE0FD3DA1C07FC06B43F /* DeviceSettingsCardView.swift in Sources */,
@@ -402,7 +391,6 @@
 				041D6F2AA0D299253FFA1B27 /* Services.swift in Sources */,
 				3D73A737D4F03B61D50F5185 /* Settings.swift in Sources */,
 				650EC4F1527BA82FBF187755 /* SettingsManager.swift in Sources */,
-				010B13E2ABA8EE69249B8E9A /* SettingsScreen.swift in Sources */,
 				8FE251F5B081255681839A64 /* ShareSheet.swift in Sources */,
 				BA94451123ED98F30EAC7AF8 /* Side.swift in Sources */,
 				37AB53DDD324F8C29F174A93 /* SideSelectorView.swift in Sources */,

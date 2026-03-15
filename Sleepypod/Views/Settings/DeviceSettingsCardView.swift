@@ -94,6 +94,63 @@ struct DeviceSettingsCardView: View {
                 ledValue = Double(deviceManager.deviceStatus?.settings.ledBrightness ?? 50)
             }
 
+            // Side settings
+            if let settings = settingsManager.settings {
+                Divider().background(Theme.cardBorder)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Side Names")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+
+                    HStack(spacing: 10) {
+                        sideNameField("Left", value: settings.left.name) { name in
+                            Task { await settingsManager.updateSideName(.left, name: name) }
+                        }
+                        sideNameField("Right", value: settings.right.name) { name in
+                            Task { await settingsManager.updateSideName(.right, name: name) }
+                        }
+                    }
+                }
+
+                // Away mode
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Away Mode (Left)")
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                        Text("Disable heating when away")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { settings.left.awayMode },
+                        set: { _ in Haptics.medium(); Task { await settingsManager.toggleAwayMode(.left) } }
+                    ))
+                    .tint(Theme.cooling)
+                    .labelsHidden()
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Away Mode (Right)")
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                        Text("Disable heating when away")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { settings.right.awayMode },
+                        set: { _ in Haptics.medium(); Task { await settingsManager.toggleAwayMode(.right) } }
+                    ))
+                    .tint(Theme.cooling)
+                    .labelsHidden()
+                }
+            }
+
             // Services
             if let services = statusManager.services {
                 Divider().background(Theme.cardBorder)
@@ -133,6 +190,18 @@ struct DeviceSettingsCardView: View {
                 .tint(Theme.cooling)
                 .labelsHidden()
         }
+    }
+
+    private func sideNameField(_ placeholder: String, value: String, onCommit: @escaping (String) -> Void) -> some View {
+        @State var text = value
+        return TextField(placeholder, text: $text)
+            .font(.subheadline)
+            .foregroundColor(.white)
+            .textFieldStyle(.plain)
+            .padding(10)
+            .background(Theme.cardElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .onSubmit { onCommit(text) }
     }
 
     private func formatButton(title: String, format: TemperatureFormat) -> some View {

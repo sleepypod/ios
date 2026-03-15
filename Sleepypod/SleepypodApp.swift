@@ -64,14 +64,14 @@ struct ContentView: View {
                     DisconnectedTabView(tab: "Schedule", selectedTab: $selectedTab)
                 }
             }
-            Tab("Biometrics", systemImage: "waveform.path.ecg", value: "health") {
+            Tab("Biometrics", systemImage: "heart.text.clipboard", value: "health") {
                 if isConnected {
                     HealthScreen()
                 } else {
                     DisconnectedTabView(tab: "Health", selectedTab: $selectedTab)
                 }
             }
-            Tab("Status", systemImage: "chart.bar.doc.horizontal", value: "status") {
+            Tab("Status", systemImage: "antenna.radiowaves.left.and.right", value: "status") {
                 if isConnected {
                     StatusScreen()
                 } else {

@@ -1,18 +1,19 @@
 import SwiftUI
 
 struct LogsView: View {
-    @Environment(DeviceManager.self) private var deviceManager
-    @State private var logFiles: [String] = []
-    @State private var selectedFile: String?
     @State private var logContent: String = ""
+    @State private var selectedUnit: String = "sleepypod.service"
     @State private var isLoading = false
     @State private var isExpanded = false
-    @State private var loadFailed = false
+    @State private var error: String?
 
-    private var baseURL: String {
-        guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else { return "" }
-        return "http://\(ip):3000"
-    }
+    private let units = [
+        "sleepypod.service",
+        "sleepypod-piezo-processor.service",
+        "sleepypod-sleep-detector.service"
+    ]
+
+    private var api: SleepypodProtocol { APIBackend.current.createClient() }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -22,8 +23,8 @@ struct LogsView: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded.toggle()
                 }
-                if isExpanded && logFiles.isEmpty {
-                    Task { await fetchLogFiles() }
+                if isExpanded && logContent.isEmpty {
+                    Task { await fetchLogs() }
                 }
             } label: {
                 HStack(spacing: 12) {
@@ -38,7 +39,7 @@ struct LogsView: View {
                         Text("Logs")
                             .font(.subheadline.weight(.medium))
                             .foregroundColor(.white)
-                        Text("View server log files")
+                        Text("systemd journal")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
@@ -58,74 +59,55 @@ struct LogsView: View {
                     .background(Theme.cardBorder)
                     .padding(.vertical, 10)
 
-                if isLoading && logFiles.isEmpty {
-                    HStack {
-                        ProgressView().tint(Theme.accent)
-                        Text("Loading log files…")
-                            .font(.caption)
-                            .foregroundColor(Theme.textMuted)
-                    }
-                    .padding(.bottom, 8)
-                } else if logFiles.isEmpty && loadFailed {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Log viewer not available")
-                            .font(.caption)
-                            .foregroundColor(Theme.textMuted)
-                        Text("Sleepypod Core doesn't have a logs endpoint yet. Use SSH or the trpc-panel to view logs.")
-                            .font(.caption2)
-                            .foregroundColor(Theme.textMuted)
-                    }
-                    .padding(.bottom, 8)
-                } else if logFiles.isEmpty {
-                    Text("No log files found")
-                        .font(.caption)
-                        .foregroundColor(Theme.textMuted)
-                        .padding(.bottom, 8)
-                } else {
-                    // File picker
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(logFiles, id: \.self) { file in
-                                Button {
-                                    Haptics.tap()
-                                    selectedFile = file
-                                    Task { await fetchLog(file) }
-                                } label: {
-                                    Text(file)
-                                        .font(.caption)
-                                        .foregroundColor(selectedFile == file ? .white : Theme.textSecondary)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(selectedFile == file ? Theme.cooling : Theme.cardElevated)
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
+                // Unit picker
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(units, id: \.self) { unit in
+                            Button {
+                                Haptics.tap()
+                                selectedUnit = unit
+                                Task { await fetchLogs() }
+                            } label: {
+                                Text(unit.replacingOccurrences(of: ".service", with: ""))
+                                    .font(.caption2)
+                                    .foregroundColor(selectedUnit == unit ? .white : Theme.textSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(selectedUnit == unit ? Theme.cooling : Theme.cardElevated)
+                                    .clipShape(Capsule())
                             }
+                            .buttonStyle(.plain)
                         }
+                    }
+                }
+                .padding(.bottom, 8)
+
+                // Log content
+                if isLoading {
+                    HStack {
+                        ProgressView().tint(Theme.accent).scaleEffect(0.7)
+                        Text("Loading logs…")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
                     }
                     .padding(.bottom, 8)
-
-                    // Log content
-                    if isLoading && selectedFile != nil {
-                        HStack {
-                            ProgressView().tint(Theme.accent)
-                            Text("Loading…")
-                                .font(.caption)
-                                .foregroundColor(Theme.textMuted)
-                        }
-                    } else if !logContent.isEmpty {
-                        ScrollView {
-                            Text(logContent)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(Theme.textSecondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                        }
-                        .frame(maxHeight: 300)
-                        .padding(8)
-                        .background(Color(hex: "0f0f0f"))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else if let error {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(Theme.error)
+                        .padding(.bottom, 8)
+                } else if !logContent.isEmpty {
+                    ScrollView {
+                        Text(logContent)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(Theme.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
                     }
+                    .frame(maxHeight: 300)
+                    .padding(8)
+                    .background(Color(hex: "0f0f0f"))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
         }
@@ -134,52 +116,42 @@ struct LogsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    private func fetchLogFiles() async {
-        guard !baseURL.isEmpty else { return }
+    private func fetchLogs() async {
         isLoading = true
+        error = nil
         defer { isLoading = false }
 
-        guard let url = URL(string: "\(baseURL)/api/logs") else { return }
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let result = try JSONDecoder().decode(LogFilesResponse.self, from: data)
-            logFiles = result.logs
-        } catch {
-            loadFailed = true
+        guard let base = URL(string: "http://\(UserDefaults.standard.string(forKey: "podIPAddress") ?? ""):3000") else {
+            error = "No pod IP configured"
+            return
         }
-    }
 
-    private func fetchLog(_ filename: String) async {
-        guard !baseURL.isEmpty else { return }
-        isLoading = true
-        defer { isLoading = false }
-
-        // The SSE endpoint returns data: { message: "..." } — fetch as regular GET with short timeout
-        guard let url = URL(string: "\(baseURL)/api/logs/\(filename)") else { return }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 5
+        let input = "{\"json\":{\"unit\":\"\(selectedUnit)\",\"lines\":50}}"
+        let encoded = input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input
+        guard let url = URL(string: "\(base)/api/trpc/system.getLogs?input=\(encoded)") else { return }
 
         do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 10
             let (data, _) = try await URLSession.shared.data(for: request)
-            let text = String(data: data, encoding: .utf8) ?? ""
-            // Parse SSE: "data: {...}\n\n"
-            if let jsonStart = text.firstIndex(of: "{"),
-               let jsonData = text[jsonStart...].data(using: .utf8),
-               let parsed = try? JSONDecoder().decode(LogMessage.self, from: jsonData) {
-                logContent = parsed.message
+
+            // Parse tRPC response: {"result":{"data":{"json":{"lines":["..."]}}}}
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let result = json["result"] as? [String: Any],
+               let dataObj = result["data"] as? [String: Any],
+               let jsonObj = dataObj["json"] as? [String: Any],
+               let lines = jsonObj["lines"] as? [String] {
+                logContent = lines.joined(separator: "\n")
+            } else if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let errObj = json["error"] as? [String: Any],
+                      let errJson = errObj["json"] as? [String: Any],
+                      let msg = errJson["message"] as? String {
+                error = msg
             } else {
-                logContent = text
+                logContent = String(data: data, encoding: .utf8) ?? "Unable to parse response"
             }
         } catch {
-            logContent = "Failed to load log"
+            self.error = error.localizedDescription
         }
     }
-}
-
-private struct LogFilesResponse: Decodable {
-    let logs: [String]
-}
-
-private struct LogMessage: Decodable {
-    let message: String
 }

@@ -77,15 +77,27 @@ struct HealthCircleView: View {
 
                     Spacer()
 
-                    // External internet — tappable
+                    // Wifi signal
+                    HStack(spacing: 3) {
+                        Image(systemName: "wifi")
+                            .font(.system(size: 10))
+                        Text("\(deviceManager.deviceStatus?.wifiStrength ?? 0)%")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(wifiColor(deviceManager.deviceStatus?.wifiStrength ?? 0))
+
+                    Text("·")
+                        .foregroundColor(Theme.textMuted)
+
+                    // Internet — tappable
                     Button {
                         Haptics.light()
                         showInternetSheet = true
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             Image(systemName: isInternetBlocked ? "lock.shield.fill" : "globe")
                                 .font(.system(size: 10))
-                            Text(isInternetBlocked ? "Local only" : "Internet enabled")
+                            Text(isInternetBlocked ? "Local only" : "Internet")
                                 .font(.caption2)
                         }
                         .foregroundColor(isInternetBlocked ? Theme.healthy : Theme.amber)
@@ -176,6 +188,12 @@ struct HealthCircleView: View {
         case "H03": "Pod 2"
         default: version
         }
+    }
+
+    private func wifiColor(_ strength: Int) -> Color {
+        if strength >= 50 { return Theme.healthy }
+        if strength >= 25 { return Theme.amber }
+        return Theme.error
     }
 
     private func waterColor(_ level: String) -> Color {

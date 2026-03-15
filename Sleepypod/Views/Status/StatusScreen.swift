@@ -55,12 +55,25 @@ struct StatusScreen: View {
     // MARK: - Calibration
 
     @State private var isCalibrationExpanded = false
+    @State private var leftCalibration: CalibrationStatus?
+    @State private var rightCalibration: CalibrationStatus?
+
+    private var calHealthy: Int {
+        (leftCalibration?.healthyCount ?? 0) + (rightCalibration?.healthyCount ?? 0)
+    }
 
     private var calibrationCard: some View {
         VStack(spacing: 0) {
             Button {
                 Haptics.light()
                 withAnimation(.easeInOut(duration: 0.2)) { isCalibrationExpanded.toggle() }
+                if isCalibrationExpanded && leftCalibration == nil {
+                    Task {
+                        let api = APIBackend.current.createClient()
+                        leftCalibration = try? await api.getCalibrationStatus(side: .left)
+                        rightCalibration = try? await api.getCalibrationStatus(side: .right)
+                    }
+                }
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "tuningfork")
@@ -77,10 +90,12 @@ struct StatusScreen: View {
                     Spacer()
 
                     HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
+                        let total = 6
+                        let allGood = calHealthy == total
+                        Image(systemName: allGood ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                             .font(.caption2)
-                            .foregroundColor(Theme.amber)
-                        Text("0/2")
+                            .foregroundColor(allGood ? Theme.healthy : Theme.amber)
+                        Text("\(calHealthy)/\(total)")
                             .font(.caption.weight(.medium))
                             .foregroundColor(Theme.textSecondary)
                     }
@@ -100,31 +115,20 @@ struct StatusScreen: View {
             if isCalibrationExpanded {
                 Divider().background(Theme.cardBorder).padding(.vertical, 8)
 
-                VStack(spacing: 8) {
-                    calibrationRow("Left sensor", status: "Not calibrated")
-                    calibrationRow("Right sensor", status: "Not calibrated")
-
-                    Button {
-                        Haptics.medium()
-                        // TODO: Call calibration endpoint (core#138)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "tuningfork")
-                            Text("Run Calibration")
-                        }
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(Theme.cyan)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Theme.cyan.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                VStack(spacing: 6) {
+                    if let left = leftCalibration {
+                        sideCalibrationSection("Left", cal: left)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.top, 4)
-
-                    Text("Requires someone in bed for ~5 minutes to measure baseline sensor readings.")
-                        .font(.caption2)
-                        .foregroundColor(Theme.textMuted)
+                    if let right = rightCalibration {
+                        Divider().background(Theme.cardBorder).padding(.vertical, 4)
+                        sideCalibrationSection("Right", cal: right)
+                    }
+                    if leftCalibration == nil {
+                        HStack {
+                            ProgressView().tint(Theme.accent).scaleEffect(0.7)
+                            Text("Loading…").font(.caption).foregroundColor(Theme.textMuted)
+                        }
+                    }
                 }
             }
         }
@@ -133,18 +137,60 @@ struct StatusScreen: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    private func calibrationRow(_ label: String, status: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sensor.fill")
-                .font(.system(size: 11))
-                .foregroundColor(Theme.amber)
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.white)
-            Spacer()
-            Text(status)
-                .font(.caption)
-                .foregroundColor(Theme.amber)
+    private func sideCalibrationSection(_ side: String, cal: CalibrationStatus) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(side) Side")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(Theme.accent)
+
+            ForEach(cal.sensors, id: \.id) { sensor in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Image(systemName: sensor.status == "completed" ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(sensor.status == "completed" ? Theme.healthy : Theme.error)
+                        Text(sensor.sensorType.capitalized)
+                            .font(.caption)
+                            .foregroundColor(.white)
+                        Spacer()
+                        if let score = sensor.qualityScore {
+                            Text(String(format: "%.0f%%", score * 100))
+                                .font(.caption2.monospaced())
+                                .foregroundColor(Theme.textMuted)
+                        }
+                        if let samples = sensor.samplesUsed {
+                            Text("\(samples) samples")
+                                .font(.caption2)
+                                .foregroundColor(Theme.textMuted)
+                        }
+                    }
+                    if let err = sensor.errorMessage {
+                        Text(err)
+                            .font(.caption2)
+                            .foregroundColor(Theme.error)
+                            .padding(.leading, 19)
+                    }
+                }
+            }
+
+            // Recalibrate button
+            Button {
+                Haptics.medium()
+                // TODO: Call calibration.run endpoint when available
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "tuningfork")
+                    Text("Recalibrate \(side)")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(Theme.cyan)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Theme.cyan.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
     }
 

@@ -96,6 +96,11 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
         // Not supported on free-sleep
     }
 
+    func getCalibrationStatus(side: Side) async throws -> CalibrationStatus {
+        // Not supported on free-sleep
+        throw APIError.invalidResponse(statusCode: 404)
+    }
+
     // MARK: - Private Helpers
 
     private func buildRequest(_ endpoint: APIEndpoint) throws -> URLRequest {

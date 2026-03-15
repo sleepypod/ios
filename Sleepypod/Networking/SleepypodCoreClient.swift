@@ -32,6 +32,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let status: TRPCDeviceStatus = try await query("device.getStatus")
         let settings: TRPCSettings = try await query("settings.getAll")
         let health: TRPCSystemHealth = try await query("health.system")
+        let wifi = try? await query("system.wifiStatus") as TRPCWifiStatus
 
         return DeviceStatus(
             left: SideStatus(
@@ -40,7 +41,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                 targetTemperatureF: Int(status.leftSide.targetTemperature),
                 secondsRemaining: status.leftSide.heatingDuration,
                 isOn: status.leftSide.targetLevel != 0,
-                isAlarmVibrating: false, // tRPC doesn't expose this directly in getStatus
+                isAlarmVibrating: false,
                 taps: mapGestures(status.gestures, side: .left)
             ),
             right: SideStatus(
@@ -61,7 +62,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                 version: health.status == "ok" ? "core" : "core (degraded)",
                 branch: "main"
             ),
-            wifiStrength: 100 // Not available from tRPC — assume connected
+            wifiStrength: wifi?.signal ?? 0
         )
     }
 
@@ -216,6 +217,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let dacMonitor = try? await query("health.dacMonitor") as TRPCDacMonitor
         let bioProcessing = try? await query("biometrics.getProcessingStatus") as TRPCBiometricsProcessing
         let internet = try? await query("system.internetStatus") as TRPCInternetStatus
+        let wifi = try? await query("system.wifiStatus") as TRPCWifiStatus
 
         func info(_ name: String, status: ServiceStatus, desc: String, msg: String = "OK") -> StatusInfo {
             StatusInfo(name: name, status: status, description: desc, message: msg)
@@ -235,10 +237,6 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let bioStatus: ServiceStatus = bioProcessing?.iosProcessingActive == true ? .started : .healthy
         let bioMsg = bioProcessing.map { $0.iosProcessingActive ? "Processing active" : "Idle" } ?? "OK"
 
-        // Internet
-        let internetMsg = internet.map { $0.blocked ? "Blocked" : "Connected" } ?? "OK"
-        let internetStatus: ServiceStatus = internet?.blocked == true ? .failed : .healthy
-
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", status: schedStatus, desc: "Wake-up alarm scheduler", msg: "\(scheduler.jobCounts.alarm) alarms"),
             database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "\(String(format: "%.1fms", health.database.latencyMs ?? 0)) latency"),
@@ -246,7 +244,9 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             podSocket: info("Hardware Socket", status: hwStatus, desc: "DAC communication", msg: hwLatency),
             podSocketMonitor: info("DAC Monitor", status: dacStatus, desc: "Hardware watchdog", msg: dacMsg),
             jobs: info("Job Scheduler", status: schedStatus, desc: "Background task runner", msg: "Jobs: \(scheduler.jobCounts.total)"),
-            logger: info("Internet", status: internetStatus, desc: "Network access", msg: internetMsg),
+            logger: info("Wifi", status: wifi?.connected == true ? .healthy : .failed,
+                         desc: wifi?.ssid ?? "Wireless connection",
+                         msg: wifi.map { $0.connected ? "\($0.signal ?? 0)% signal" : "Disconnected" } ?? "Unknown"),
             powerSchedule: info("Power Schedule", status: schedStatus, desc: "Auto on/off scheduler", msg: "\(scheduler.jobCounts.powerOn + scheduler.jobCounts.powerOff) power jobs"),
             primeSchedule: info("Prime Schedule", status: schedStatus, desc: "Daily prime scheduler", msg: "\(scheduler.jobCounts.prime) prime jobs"),
             rebootSchedule: info("Reboot Schedule", status: schedStatus, desc: "Daily reboot scheduler", msg: "\(scheduler.jobCounts.reboot) reboot jobs"),
@@ -331,6 +331,10 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             "vibrationPattern": alarm.vibrationPattern.rawValue,
             "duration": alarm.duration,
         ])
+    }
+
+    func getCalibrationStatus(side: Side) async throws -> CalibrationStatus {
+        try await query("calibration.getStatus", input: ["side": side.rawValue])
     }
 
     func setInternetAccess(blocked: Bool) async throws {
@@ -721,6 +725,26 @@ private struct TRPCScheduleSet: Decodable {
     let alarm: [TRPCAlarmSchedule]
 }
 
+// Calibration
+struct CalibrationSensor: Decodable, Sendable {
+    let id: Int
+    let side: String
+    let sensorType: String
+    let status: String
+    let qualityScore: Double?
+    let samplesUsed: Int?
+    let errorMessage: String?
+}
+
+struct CalibrationStatus: Decodable, Sendable {
+    let capacitance: CalibrationSensor
+    let piezo: CalibrationSensor
+    let temperature: CalibrationSensor
+
+    var sensors: [CalibrationSensor] { [capacitance, piezo, temperature] }
+    var healthyCount: Int { sensors.filter { $0.status == "completed" }.count }
+}
+
 // New endpoints
 private struct TRPCHardwareHealth: Decodable {
     let status: String
@@ -741,4 +765,10 @@ private struct TRPCBiometricsProcessing: Decodable {
 
 private struct TRPCInternetStatus: Decodable {
     let blocked: Bool
+}
+
+private struct TRPCWifiStatus: Decodable {
+    let connected: Bool
+    let ssid: String?
+    let signal: Int?
 }

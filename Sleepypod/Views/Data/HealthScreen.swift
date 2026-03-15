@@ -145,7 +145,7 @@ struct HealthScreen: View {
             .presentationDragIndicator(.visible)
         }
         .onChange(of: metricsManager.selectedSide) {
-            Task { await fetchVitals() }
+            Task { await refresh() }
         }
     }
 
@@ -382,7 +382,6 @@ private struct HealthSideSelectorView: View {
                 Button {
                     Haptics.tap()
                     metricsManager.selectedSide = side
-                    Task { await metricsManager.fetchAll() }
                 } label: {
                     Text(side.displayName)
                         .font(.subheadline.weight(.medium))
@@ -552,12 +551,23 @@ struct VitalsChartCard: View {
                             .foregroundStyle(Theme.textMuted)
                     }
                 }
-                .chartXSelection(value: $selectedDate)
+                .chartOverlay { proxy in
+                    GeometryReader { geo in
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .onTapGesture { location in
+                                guard let date: Date = proxy.value(atX: location.x) else { return }
+                                Haptics.light()
+                                if selectedDate != nil && abs((selectedDate ?? .distantPast).timeIntervalSince(date)) < 60 {
+                                    selectedDate = nil
+                                } else {
+                                    selectedDate = date
+                                }
+                            }
+                    }
+                }
                 .frame(height: 180)
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onEnded { _ in selectedDate = nil }
-                )
 
                 // Legend: min / avg / max + zone labels
                 HStack(spacing: 16) {

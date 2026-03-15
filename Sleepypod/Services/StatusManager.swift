@@ -31,7 +31,7 @@ final class StatusManager {
         return [
             ServiceCategory(
                 name: "Core",
-                description: "Server, database, and network",
+                description: "Server, database, wifi, and scheduler",
                 iconName: "server.rack",
                 iconColorHex: "4a90d9",
                 services: [status.express, status.database, status.logger, status.jobs]

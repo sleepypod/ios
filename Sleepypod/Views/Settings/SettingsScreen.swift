@@ -67,7 +67,7 @@ struct SettingsScreen: View {
             ipAddressRow
 
             // Reboot
-            rebootButton
+            actionButtons
         }
         .cardStyle()
     }
@@ -121,7 +121,7 @@ struct SettingsScreen: View {
             Divider().background(Theme.cardBorder)
 
             ipAddressRow
-            rebootButton
+            actionButtons
         }
         .cardStyle()
     }
@@ -201,23 +201,46 @@ struct SettingsScreen: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
-    private var rebootButton: some View {
-        Button {
-            Haptics.heavy()
-            Task { await settingsManager.reboot() }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.clockwise")
-                Text("REBOOT POD")
+    private var actionButtons: some View {
+        HStack(spacing: 10) {
+            Button {
+                Haptics.medium()
+                deviceManager.retryConnection()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                    Text("RECONNECT")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                )
             }
-            .font(.caption.weight(.semibold))
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(Theme.cooling)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .buttonStyle(.plain)
+
+            Button {
+                Haptics.heavy()
+                Task { await settingsManager.reboot() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("REBOOT")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Theme.error.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     @ViewBuilder

@@ -2,9 +2,9 @@ name: Contract Test
 
 on:
   pull_request:
-    paths:
-      - 'Sleepypod/Models/**'
-      - 'contract-tests/**'
+  schedule:
+    # Run daily to catch core-side drift
+    - cron: '0 6 * * *'
 
 permissions:
   contents: read

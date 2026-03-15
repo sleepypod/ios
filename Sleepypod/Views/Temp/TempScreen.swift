@@ -6,20 +6,9 @@ struct TempScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Connection state
-                    if !deviceManager.hasPodIP {
-                        NoPodConfiguredView()
-                    } else if deviceManager.showConnectionFailed {
-                        ConnectionFailedView {
-                            deviceManager.retryConnection()
-                        }
-                    } else if !deviceManager.isConnected {
-                        ConnectingView()
-                    }
-
-                    if deviceManager.isConnected {
+            if deviceManager.isConnected {
+                ScrollView {
+                    VStack(spacing: 24) {
                         // Priming alert
                         if deviceManager.deviceStatus?.isPriming == true {
                             AlertBanner(
@@ -51,110 +40,26 @@ struct TempScreen: View {
                         EnvironmentInfoView()
                             .padding(.top, 4)
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+
+                Spacer(minLength: 0)
+
+                // Side selector pinned between content and tab bar
+                SideSelectorView()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+            } else {
+                DisconnectedTabView(tab: "Temp")
             }
-
-            Spacer(minLength: 0)
-
-            // Side selector pinned between content and tab bar
-            SideSelectorView()
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 16)
         }
         .background(Theme.background)
         .task {
             deviceManager.startPolling()
             await deviceManager.fetchStatus()
         }
-    }
-}
-
-// MARK: - No Pod Configured
-
-private struct NoPodConfiguredView: View {
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "network.slash")
-                .font(.title2)
-                .foregroundColor(Theme.textMuted)
-            Text("No Pod Configured")
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(Theme.textSecondary)
-            Text("Enter your pod's IP address in Settings")
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Connecting
-
-private struct ConnectingView: View {
-    var body: some View {
-        HStack(spacing: 12) {
-            ProgressView()
-                .tint(Theme.accent)
-            Text("Connecting to pod…")
-                .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Connection Failed
-
-private struct ConnectionFailedView: View {
-    let onRetry: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 18))
-                .foregroundColor(Theme.error)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Could not connect to pod")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
-                Text("Check that your pod is powered on and reachable")
-                    .font(.caption)
-                    .foregroundColor(Theme.textMuted)
-            }
-
-            Spacer()
-
-            Button {
-                Haptics.light()
-                onRetry()
-            } label: {
-                Text("Retry")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(12)
-        .background(Theme.error.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Theme.error.opacity(0.25), lineWidth: 1)
-        )
     }
 }
 

@@ -82,21 +82,65 @@ struct ContentView: View {
     }
 }
 
-private struct DisconnectedTabView: View {
+struct DisconnectedTabView: View {
     let tab: String
     @Environment(DeviceManager.self) private var deviceManager
 
+    private var podIP: String {
+        UserDefaults.standard.string(forKey: "podIPAddress") ?? ""
+    }
+
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 32))
-                .foregroundColor(Theme.textMuted)
-            Text("Connect to your pod to view \(tab)")
-                .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
-            Text("Configure your pod IP in Settings")
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
+        VStack(spacing: 16) {
+            Spacer()
+
+            if deviceManager.isConnecting {
+                ProgressView()
+                    .tint(Theme.accent)
+                    .scaleEffect(1.2)
+                    .padding(.bottom, 8)
+                Text("Connecting to pod…")
+                    .font(.subheadline)
+                    .foregroundColor(Theme.textSecondary)
+            } else {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 36))
+                    .foregroundColor(Theme.error)
+                    .padding(.bottom, 4)
+
+                if podIP.isEmpty {
+                    Text("No pod configured")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.white)
+                    Text("Set your pod IP address in Settings")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                } else {
+                    Text("Could not connect to \(podIP)")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.white)
+                    Text("Check that your pod is powered on and reachable")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                }
+
+                Button {
+                    Haptics.light()
+                    deviceManager.retryConnection()
+                } label: {
+                    Text("Retry")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
+            }
+
+            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)

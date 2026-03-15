@@ -1,0 +1,79 @@
+name: Contract Test
+
+on:
+  pull_request:
+    paths:
+      - 'Sleepypod/Models/**'
+      - 'contract-tests/**'
+
+permissions:
+  contents: read
+
+jobs:
+  contract-test:
+    runs-on: macos-15
+    steps:
+      - name: Checkout iOS
+        uses: actions/checkout@v4
+
+      - name: Checkout core
+        uses: actions/checkout@v4
+        with:
+          repository: sleepypod/core
+          token: ${{ secrets.CORE_REPO_TOKEN }}
+          path: core-checkout
+
+      - name: Copy iOS model files into Swift package
+        run: |
+          for f in Side DeviceStatus VitalsRecord SleepRecord MovementRecord ServerStatus Settings Schedule Services TemperatureConversion; do
+            cp "Sleepypod/Models/${f}.swift" contract-tests/Sources/SleepypodModels/
+          done
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_dir: core-checkout
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: core-checkout/pnpm-lock.yaml
+
+      - name: Install core dependencies
+        run: cd core-checkout && pnpm install --frozen-lockfile
+
+      - name: Build core
+        run: cd core-checkout && pnpm build
+
+      - name: Start core server
+        run: |
+          cd core-checkout && pnpm start &
+          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/healthcheck > /dev/null 2>&1; then
+              echo "Server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to start within 60s"
+          exit 1
+
+      - name: Seed test data
+        run: |
+          cd core-checkout && bash ../contract-tests/scripts/seed-test-data.sh
+
+      - name: Snapshot API responses
+        run: bash contract-tests/scripts/snapshot-responses.sh
+
+      - name: Run Swift contract tests
+        run: cd contract-tests && swift test
+
+      - name: Stop server
+        if: always()
+        run: kill "$SERVER_PID" 2>/dev/null || true

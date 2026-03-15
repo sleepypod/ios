@@ -16,4 +16,5 @@ protocol SleepypodProtocol: Sendable {
     func getMovement(side: Side?, start: Date?, end: Date?) async throws -> [MovementRecord]
     func triggerAlarm(_ alarm: AlarmJob) async throws
     func reboot() async throws
+    func setInternetAccess(blocked: Bool) async throws
 }

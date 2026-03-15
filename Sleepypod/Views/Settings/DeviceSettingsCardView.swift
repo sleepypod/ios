@@ -41,8 +41,9 @@ struct DeviceSettingsCardView: View {
                     .foregroundColor(Theme.textSecondary)
 
                 HStack(spacing: 0) {
-                    formatButton(title: "CELSIUS", format: .celsius)
-                    formatButton(title: "FAHRENHEIT", format: .fahrenheit)
+                    formatButton(title: "°F", format: .fahrenheit)
+                    formatButton(title: "°C", format: .celsius)
+                    formatButton(title: "+/-", format: .relative)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }

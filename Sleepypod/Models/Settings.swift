@@ -3,6 +3,7 @@ import Foundation
 enum TemperatureFormat: String, Codable, Sendable {
     case celsius
     case fahrenheit
+    case relative  // Eight Sleep style: +3, -2, 0
 }
 
 enum TapConfigType: String, Codable, Sendable {

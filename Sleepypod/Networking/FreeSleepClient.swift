@@ -92,6 +92,10 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
         try await postEmpty(path: "/api/execute", body: ["command": "reboot"])
     }
 
+    func setInternetAccess(blocked: Bool) async throws {
+        // Not supported on free-sleep
+    }
+
     // MARK: - Private Helpers
 
     private func buildRequest(_ endpoint: APIEndpoint) throws -> URLRequest {

@@ -30,6 +30,9 @@ enum TemperatureConversion {
         case .celsius:
             let c = tempFToC(tempF)
             return "\(Int(round(c)))°C"
+        case .relative:
+            let offset = tempFToOffset(tempF)
+            return offsetDisplay(offset)
         }
     }
 
@@ -61,8 +64,8 @@ enum TempColor {
 
     static func glowForDelta(target: Int, current: Int) -> Color {
         let delta = target - current
-        let intensity = min(abs(Double(delta)) / 10.0, 1.0) * 0.6
-        return colorForDelta(delta).opacity(max(intensity, 0.15))
+        let intensity = min(abs(Double(delta)) / 8.0, 1.0) * 0.8
+        return colorForDelta(delta).opacity(max(intensity, 0.3))
     }
 
     /// Offset-based color for side selector (relative to 80°F base)

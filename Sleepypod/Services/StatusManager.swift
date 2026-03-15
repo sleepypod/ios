@@ -31,14 +31,14 @@ final class StatusManager {
         return [
             ServiceCategory(
                 name: "Core",
-                description: "Server, database, and logging",
+                description: "Server, database, and network",
                 iconName: "server.rack",
                 iconColorHex: "4a90d9",
                 services: [status.express, status.database, status.logger, status.jobs]
             ),
             ServiceCategory(
                 name: "Hardware",
-                description: "Pod communication and monitoring",
+                description: "DAC socket and monitoring",
                 iconName: "cpu",
                 iconColorHex: "a080d0",
                 services: [status.podSocket, status.podSocketMonitor]
@@ -54,11 +54,12 @@ final class StatusManager {
             ),
             ServiceCategory(
                 name: "Biometrics",
-                description: "Sleep tracking and analysis",
+                description: "Sleep data processing",
                 iconName: "heart.fill",
                 iconColorHex: "e05050",
-                services: [status.analyzeSleepLeft, status.analyzeSleepRight,
-                           status.biometricsStream, status.biometricsInstallation].compactMap { $0 }
+                services: [status.systemDate] +
+                    [status.analyzeSleepLeft, status.analyzeSleepRight,
+                     status.biometricsStream, status.biometricsInstallation].compactMap { $0 }
             ),
             ServiceCategory(
                 name: "Calibration",
@@ -66,14 +67,6 @@ final class StatusManager {
                 iconName: "tuningfork",
                 iconColorHex: "4ecdc4",
                 services: [status.biometricsCalibrationLeft, status.biometricsCalibrationRight].compactMap { $0 }
-            ),
-            ServiceCategory(
-                name: "System",
-                description: "Clock and system utilities",
-                subtitle: systemSubtitle,
-                iconName: "gear",
-                iconColorHex: "888888",
-                services: [status.systemDate]
             )
         ].filter { !$0.services.isEmpty }
     }
@@ -194,6 +187,17 @@ final class StatusManager {
         self.services = services
         do {
             self.services = try await api.updateServices(services)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    // MARK: - Internet Access
+
+    func setInternetAccess(blocked: Bool) async {
+        do {
+            try await api.setInternetAccess(blocked: blocked)
+            await fetchAll()
         } catch {
             self.error = error.localizedDescription
         }

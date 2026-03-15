@@ -4,50 +4,98 @@ struct TempScreen: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(SettingsManager.self) private var settingsManager
 
+    @State private var bgPulse = false
+
+    private var ambientColor: Color {
+        guard deviceManager.isConnected, deviceManager.isOn else { return .clear }
+        let status = deviceManager.currentSideStatus
+        let target = status?.targetTemperatureF ?? 80
+        let current = status?.currentTemperatureF ?? 80
+        return TempColor.forDelta(target: target, current: current)
+    }
+
     var body: some View {
         GeometryReader { geo in
-            if deviceManager.isConnected {
-                ScrollView {
+            ZStack {
+                // Full-screen ambient glow
+                if deviceManager.isConnected && deviceManager.isOn {
+                    RadialGradient(
+                        colors: [
+                            ambientColor.opacity(bgPulse ? 0.3 : 0.18),
+                            ambientColor.opacity(bgPulse ? 0.12 : 0.05),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 40,
+                        endRadius: geo.size.height * (bgPulse ? 0.75 : 0.65)
+                    )
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: bgPulse)
+                    .animation(.easeInOut(duration: 1.0), value: ambientColor)
+                    .onAppear { bgPulse = true }
+                }
+
+                if deviceManager.isConnected {
                     VStack(spacing: 0) {
-                        // Alerts at top (only when needed)
-                        VStack(spacing: 8) {
-                            if deviceManager.deviceStatus?.isPriming == true {
-                                AlertBanner(
-                                    icon: "drop.fill",
-                                    title: "Sleepypod is Priming",
-                                    message: "Water is being circulated through the system",
-                                    style: .info
-                                )
-                            }
-                            if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
-                                AlarmBanner(side: side) {
-                                    deviceManager.stopAlarm()
-                                }
-                            }
+                        // Top bar — profile only
+                        HStack {
+                            Spacer()
+                            UserSelectorView()
                         }
                         .padding(.horizontal, 16)
+                        .padding(.top, 4)
+                        .padding(.bottom, 4)
 
-                        VStack(spacing: 24) {
-                            TemperatureDialView()
-                                .onTapGesture {
-                                    Haptics.medium()
-                                    deviceManager.togglePower()
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            // Side selector
+                            SideSelectorView()
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 12)
+
+                            // Alerts
+                            VStack(spacing: 8) {
+                                if deviceManager.deviceStatus?.isPriming == true {
+                                    AlertBanner(
+                                        icon: "drop.fill",
+                                        title: "Sleepypod is Priming",
+                                        message: "Water is being circulated through the system",
+                                        style: .info
+                                    )
                                 }
+                                if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
+                                    AlarmBanner(side: side) {
+                                        deviceManager.stopAlarm()
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
 
-                            TempControlsView()
+                            // Dial + controls
+                            VStack(spacing: 32) {
+                                TemperatureDialView()
+                                    .onTapGesture {
+                                        Haptics.medium()
+                                        deviceManager.togglePower()
+                                    }
 
-                            EnvironmentInfoView()
+                                TempControlsView()
+
+                                EnvironmentInfoView()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
                         }
-                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity, minHeight: geo.size.height)
                     }
-                    .frame(maxWidth: .infinity, minHeight: geo.size.height)
+                    .refreshable {
+                        await deviceManager.fetchStatus()
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    } // VStack
+                } else {
+                    DisconnectedTabView(tab: "Temp")
                 }
-                .refreshable {
-                    await deviceManager.fetchStatus()
-                }
-                .scrollBounceBehavior(.basedOnSize)
-            } else {
-                DisconnectedTabView(tab: "Temp")
             }
         }
         .background(Theme.background)
@@ -164,45 +212,37 @@ private struct EnvironmentInfoView: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(SettingsManager.self) private var settingsManager
 
-    private var waterLevelLabel: String {
-        guard let level = deviceManager.deviceStatus?.waterLevel else { return "---" }
-        switch level.lowercased() {
-        case "true", "ok", "full", "good": return "Water OK"
-        case "false", "low", "empty": return "Water Low"
-        default: return "Water: \(level)"
-        }
-    }
-
-    private var waterLevelColor: Color {
-        guard let level = deviceManager.deviceStatus?.waterLevel else { return Theme.textMuted }
-        switch level.lowercased() {
-        case "true", "ok", "full", "good": return Theme.healthy
-        case "false", "low", "empty": return Theme.amber
-        default: return Theme.textSecondary
-        }
-    }
-
     private var ambientTempF: Int {
         deviceManager.currentSideStatus?.currentTemperatureF ?? 0
     }
 
-    var body: some View {
-        HStack(spacing: 28) {
-            HStack(spacing: 6) {
-                Image(systemName: "drop.fill")
-                    .font(.caption)
-                    .foregroundColor(waterLevelColor)
-                Text(waterLevelLabel)
-                    .font(.caption)
-                    .foregroundColor(waterLevelColor)
-            }
+    private var autoOffText: String? {
+        guard let remaining = deviceManager.currentSideStatus?.secondsRemaining, remaining > 0 else { return nil }
+        let hours = remaining / 3600
+        let minutes = (remaining % 3600) / 60
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
+    }
 
+    var body: some View {
+        HStack(spacing: 20) {
             if ambientTempF > 0 {
                 HStack(spacing: 6) {
                     Image(systemName: "house.fill")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                     Text("\(TemperatureConversion.displayTemp(ambientTempF, format: settingsManager.temperatureFormat))  Inside")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+            }
+
+            if let autoOff = autoOffText {
+                HStack(spacing: 6) {
+                    Image(systemName: "timer")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                    Text(autoOff)
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                 }

@@ -9,6 +9,7 @@ struct SleepypodApp: App {
     @State private var settingsManager: SettingsManager
     @State private var updateChecker = UpdateChecker()
     @State private var podDiscovery = PodDiscovery()
+    @State private var userProfile = UserProfile()
 
     init() {
         let client = APIBackend.current.createClient()
@@ -35,6 +36,7 @@ struct SleepypodApp: App {
                 .environment(settingsManager)
                 .environment(updateChecker)
                 .environment(podDiscovery)
+                .environment(userProfile)
                 .preferredColorScheme(.dark)
         }
     }
@@ -54,13 +56,6 @@ struct ContentView: View {
         TabView(selection: $selectedTab) {
             Tab("Temp", systemImage: "thermometer.medium", value: "temp") {
                 TempScreen()
-                    .safeAreaInset(edge: .bottom) {
-                        if isConnected {
-                            SideSelectorView()
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                        }
-                    }
             }
             Tab("Schedule", systemImage: "calendar", value: "schedule") {
                 if isConnected {
@@ -69,22 +64,19 @@ struct ContentView: View {
                     DisconnectedTabView(tab: "Schedule", selectedTab: $selectedTab)
                 }
             }
-            Tab("Data", systemImage: "chart.bar.fill", value: "data") {
+            Tab("Health", systemImage: "heart.text.clipboard", value: "health") {
                 if isConnected {
-                    DataScreen()
+                    HealthScreen()
                 } else {
-                    DisconnectedTabView(tab: "Data", selectedTab: $selectedTab)
+                    DisconnectedTabView(tab: "Health", selectedTab: $selectedTab)
                 }
             }
-            Tab("Status", systemImage: "heart.text.clipboard", value: "status") {
+            Tab("Status", systemImage: "gear", value: "status") {
                 if isConnected {
                     StatusScreen()
                 } else {
                     DisconnectedTabView(tab: "Status", selectedTab: $selectedTab)
                 }
-            }
-            Tab("Settings", systemImage: "gearshape.fill", value: "settings") {
-                SettingsScreen()
             }
         }
         .onChange(of: selectedTab) {

@@ -5,7 +5,7 @@ struct TemperatureDialView: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     private let dialSize: CGFloat = 280
-    private let ringWidth: CGFloat = 6
+    private let ringWidth: CGFloat = 10
     private let thumbSize: CGFloat = 22
 
     // Dial arc: 3/4 circle (from 135° to 405°, i.e. 270° sweep)
@@ -14,6 +14,7 @@ struct TemperatureDialView: View {
     private let totalSweep: Double = 270
 
     @State private var isDragging = false
+    @State private var glowPulse = false
 
     private var sideStatus: SideStatus? {
         deviceManager.currentSideStatus
@@ -54,10 +55,10 @@ struct TemperatureDialView: View {
         return TempColor.glowForDelta(target: targetTempF, current: currentTempF)
     }
 
-    private var directionLabel: String? {
+    private var directionLabel: (text: String, icon: String, color: Color)? {
         guard isOn else { return nil }
-        if targetTempF > currentTempF { return "WARMING TO" }
-        if targetTempF < currentTempF { return "COOLING TO" }
+        if targetTempF > currentTempF { return ("WARMING", "flame.fill", Theme.warming) }
+        if targetTempF < currentTempF { return ("COOLING", "snowflake", Theme.cooling) }
         return nil
     }
 
@@ -80,16 +81,34 @@ struct TemperatureDialView: View {
                 .stroke(Color(hex: "222222"), style: StrokeStyle(lineWidth: ringWidth, lineCap: .round))
                 .frame(width: dialSize, height: dialSize)
 
-            // Filled arc to target position
+            // Colored arc between current and target (the "journey")
+            if isOn && targetTempF != currentTempF {
+                let fromProgress = min(currentProgress, targetProgress)
+                let toProgress = max(currentProgress, targetProgress)
+                Arc(startAngle: .degrees(startAngle + fromProgress * totalSweep),
+                    endAngle: .degrees(startAngle + toProgress * totalSweep))
+                    .stroke(ringColor.opacity(0.4), style: StrokeStyle(lineWidth: ringWidth + 4, lineCap: .round))
+                    .frame(width: dialSize, height: dialSize)
+                    .shadow(color: glowColor, radius: glowPulse ? 50 : 30)
+                    .shadow(color: glowColor, radius: glowPulse ? 25 : 15)
+                    .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: glowPulse)
+                    .onAppear { glowPulse = true }
+            }
+
+            // Target position marker on ring
             if isOn {
                 arcShape(progress: targetProgress)
                     .stroke(ringColor, style: StrokeStyle(lineWidth: ringWidth, lineCap: .round))
                     .frame(width: dialSize, height: dialSize)
-                    .shadow(color: glowColor, radius: 20)
-                    .shadow(color: glowColor, radius: 10)
+                    .shadow(color: glowColor, radius: 8)
             }
 
-            // Draggable thumb
+            // Current temp marker (where you are)
+            if isOn {
+                currentTempMarker
+            }
+
+            // Draggable thumb (where you're going)
             if isOn {
                 thumbView
             }
@@ -97,35 +116,57 @@ struct TemperatureDialView: View {
             // Center content
             VStack(spacing: 4) {
                 if isOn {
-                    if let label = directionLabel {
-                        Text(label)
-                            .font(.system(size: 11, weight: .semibold))
-                            .tracking(2)
-                            .foregroundColor(tempColor.opacity(0.8))
-                            .padding(.bottom, 2)
-                    }
-
-                    Text(absoluteTempDisplay)
-                        .font(.system(size: 56, weight: .light, design: .rounded))
-                        .foregroundColor(tempColor)
-                        .contentTransition(.numericText())
-                        .animation(.easeInOut(duration: 0.2), value: targetTempF)
-
-                    Text("Currently at \(currentTempDisplay)")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.textMuted)
-                        .padding(.top, 2)
-
-                    if let remaining = sideStatus?.secondsRemaining, remaining > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "timer")
-                                .font(.system(size: 10))
-                            Text(formatRemaining(remaining))
+                    if let direction = directionLabel {
+                        HStack(spacing: 6) {
+                            Image(systemName: direction.icon)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(direction.color)
+                                .symbolEffect(.pulse)
+                            Text(direction.text)
+                                .font(.system(size: 11, weight: .semibold))
+                                .tracking(2)
+                                .foregroundColor(direction.color.opacity(0.9))
                         }
-                        .font(.caption2)
-                        .foregroundColor(Theme.textMuted)
+                        .padding(.bottom, 2)
+                    }
+
+                    if settingsManager.temperatureFormat == .relative {
+                        // Relative mode: offset is the hero
+                        Text(TemperatureConversion.offsetDisplay(targetOffset))
+                            .font(.system(size: 56, weight: .light, design: .rounded))
+                            .foregroundColor(tempColor)
+                            .contentTransition(.numericText())
+                            .animation(.easeInOut(duration: 0.2), value: targetOffset)
+
+                        Text("Now \(TemperatureConversion.displayTemp(currentTempF, format: .fahrenheit))")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.textMuted)
+                            .padding(.top, 2)
+                    } else {
+                        // Absolute mode: temp is the hero, offset below
+                        Text(absoluteTempDisplay)
+                            .font(.system(size: 56, weight: .light, design: .rounded))
+                            .foregroundColor(tempColor)
+                            .contentTransition(.numericText())
+                            .animation(.easeInOut(duration: 0.2), value: targetTempF)
+
+                        HStack(spacing: 12) {
+                            Text(TemperatureConversion.offsetDisplay(targetOffset))
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .foregroundColor(tempColor.opacity(0.7))
+                                .contentTransition(.numericText())
+                                .animation(.easeInOut(duration: 0.2), value: targetOffset)
+
+                            Text("·")
+                                .foregroundColor(Theme.textMuted)
+
+                            Text("Now \(currentTempDisplay)")
+                                .font(.system(size: 13))
+                                .foregroundColor(Theme.textMuted)
+                        }
                         .padding(.top, 2)
                     }
+
                 } else {
                     Text("OFF")
                         .font(.system(size: 48, weight: .light, design: .rounded))
@@ -134,6 +175,31 @@ struct TemperatureDialView: View {
             }
         }
         .padding(.vertical, 16)
+    }
+
+    // MARK: - Current Temp Marker
+
+    private var currentTempMarker: some View {
+        let angle = startAngle + currentProgress * totalSweep
+        let radius = dialSize / 2
+        let radians = angle * .pi / 180
+        let tickX = cos(radians) * radius
+        let tickY = sin(radians) * radius
+        let labelX = cos(radians) * (radius + 16)
+        let labelY = sin(radians) * (radius + 16)
+
+        return Group {
+            Capsule()
+                .fill(.white.opacity(0.6))
+                .frame(width: 2, height: 12)
+                .rotationEffect(.degrees(angle + 90))
+                .offset(x: tickX, y: tickY)
+
+            Text("NOW")
+                .font(.system(size: 7, weight: .bold))
+                .foregroundColor(.white.opacity(0.5))
+                .offset(x: labelX, y: labelY)
+        }
     }
 
     // MARK: - Thumb
@@ -148,6 +214,7 @@ struct TemperatureDialView: View {
         return Circle()
             .fill(.white)
             .frame(width: thumbSize, height: thumbSize)
+            .shadow(color: glowColor, radius: 12)
             .shadow(color: glowColor, radius: 6)
             .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
             .offset(x: x, y: y)

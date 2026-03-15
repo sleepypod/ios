@@ -62,7 +62,8 @@ struct StatusScreen: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isDiscoveryExpanded.toggle()
                 }
-                if isDiscoveryExpanded && podDiscovery.discoveredPods.isEmpty && !podDiscovery.isSearching {
+                // Only scan when disconnected — don't disrupt active connection
+                if isDiscoveryExpanded && !deviceManager.isConnected && !podDiscovery.isSearching {
                     podDiscovery.startBrowsing()
                 }
             } label: {
@@ -85,10 +86,19 @@ struct StatusScreen: View {
 
                     Spacer()
 
-                    // Status badge — checkmark or warning
-                    Image(systemName: deviceManager.isConnected ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(deviceManager.isConnected ? Theme.healthy : Theme.amber)
+                    // Status badge — matches ServiceCategoryView pattern
+                    HStack(spacing: 4) {
+                        Image(systemName: deviceManager.isConnected ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundColor(deviceManager.isConnected ? Theme.healthy : Theme.amber)
+                        Text(deviceManager.isConnected ? "1/1" : "0/1")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "222222"))
+                    .clipShape(Capsule())
 
                     Image(systemName: "chevron.right")
                         .font(.caption)

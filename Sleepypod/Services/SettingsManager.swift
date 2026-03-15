@@ -17,7 +17,12 @@ final class SettingsManager {
     // MARK: - Computed
 
     var temperatureFormat: TemperatureFormat {
-        settings?.temperatureFormat ?? .fahrenheit
+        // Relative is local-only (API only knows F/C)
+        if let local = UserDefaults.standard.string(forKey: "temperatureFormat"),
+           let format = TemperatureFormat(rawValue: local) {
+            return format
+        }
+        return settings?.temperatureFormat ?? .fahrenheit
     }
 
     var timeZone: String {
@@ -52,10 +57,16 @@ final class SettingsManager {
     }
 
     func updateTemperatureFormat(_ format: TemperatureFormat) async {
-        guard var settings else { return }
-        settings.temperatureFormat = format
-        self.settings = settings
-        await saveSettings(settings)
+        // Always store locally (for relative mode)
+        UserDefaults.standard.set(format.rawValue, forKey: "temperatureFormat")
+
+        // Only sync F/C to the server — relative is local-only
+        if format != .relative {
+            guard var settings else { return }
+            settings.temperatureFormat = format
+            self.settings = settings
+            await saveSettings(settings)
+        }
     }
 
     func toggleRebootDaily() async {

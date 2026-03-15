@@ -33,9 +33,6 @@ struct SettingsScreen: View {
                             .padding(40)
                     }
 
-                    if let status = deviceManager.deviceStatus {
-                        deviceInfoCard(status: status)
-                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -368,12 +365,6 @@ struct SettingsScreen: View {
         }
     }
 
-    private func wifiColor(_ strength: Int) -> Color {
-        if strength >= 50 { return Theme.healthy }
-        if strength >= 25 { return Theme.amber }
-        return Theme.error
-    }
-
     private func saveBranch() {
         let trimmed = selectedBranch.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -382,150 +373,4 @@ struct SettingsScreen: View {
         updateChecker.trackingBranch = trimmed
     }
 
-    // MARK: - Device Info
-
-    @State private var showSerials = false
-
-    private func deviceInfoCard(status: DeviceStatus) -> some View {
-        VStack(spacing: 0) {
-            // Header — icon + name + connection badge
-            HStack(spacing: 12) {
-                Image(systemName: "bed.double.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(Theme.accent)
-                    .frame(width: 48, height: 48)
-                    .background(Theme.accent.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Sleepypod")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
-
-                    Text("Connected")
-                        .font(.caption)
-                        .foregroundColor(Theme.healthy)
-                }
-
-                Spacer()
-
-                // Wifi signal
-                if let strength = deviceManager.deviceStatus?.wifiStrength {
-                    HStack(spacing: 4) {
-                        Image(systemName: "wifi")
-                            .font(.system(size: 11))
-                        Text("\(strength)%")
-                            .font(.caption2.weight(.medium))
-                    }
-                    .foregroundColor(wifiColor(strength))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(wifiColor(strength).opacity(0.12))
-                    .clipShape(Capsule())
-                }
-            }
-            .padding(.bottom, 14)
-
-            Divider().background(Theme.cardBorder)
-
-            // Info rows
-            VStack(spacing: 0) {
-                hardwareRow(
-                    icon: "cpu",
-                    label: "Firmware",
-                    value: status.freeSleep.version
-                )
-
-                Divider().background(Theme.cardBorder).padding(.leading, 36)
-
-                hardwareRow(
-                    icon: "arrow.triangle.branch",
-                    label: "Branch",
-                    value: status.freeSleep.branch
-                )
-
-                Divider().background(Theme.cardBorder).padding(.leading, 36)
-
-                hardwareRow(
-                    icon: "drop.fill",
-                    label: "Water Level",
-                    value: status.waterLevel.capitalized
-                )
-
-                Divider().background(Theme.cardBorder).padding(.leading, 36)
-
-                // Serial rows with eye toggle
-                HStack {
-                    Image(systemName: "barcode")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.textMuted)
-                        .frame(width: 20)
-
-                    Text("Serials")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
-
-                    Spacer()
-
-                    Button {
-                        Haptics.light()
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showSerials.toggle()
-                        }
-                    } label: {
-                        Image(systemName: showSerials ? "eye" : "eye.slash")
-                            .font(.system(size: 14))
-                            .foregroundColor(Theme.textMuted)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.vertical, 10)
-
-                if showSerials {
-                    VStack(spacing: 6) {
-                        serialRow(label: "Cover", value: status.coverVersion)
-                        serialRow(label: "Hub", value: status.hubVersion)
-                    }
-                    .padding(.leading, 36)
-                    .padding(.bottom, 6)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-            }
-        }
-        .cardStyle()
-    }
-
-    private func hardwareRow(icon: String, label: String, value: String) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.system(size: 13))
-                .foregroundColor(Theme.textMuted)
-                .frame(width: 20)
-
-            Text(label)
-                .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
-
-            Spacer()
-
-            Text(value)
-                .font(.subheadline.monospaced())
-                .foregroundColor(.white)
-        }
-        .padding(.vertical, 10)
-    }
-
-    private func serialRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
-
-            Spacer()
-
-            Text(value)
-                .font(.caption.monospaced())
-                .foregroundColor(Theme.textTertiary)
-        }
-    }
 }

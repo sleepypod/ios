@@ -211,36 +211,46 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let health: TRPCSystemHealth = try await query("health.system")
         let scheduler: TRPCSchedulerHealth = try await query("health.scheduler")
 
-        // Map sleepypod-core health data to ServerStatus shape
-        let isDBHealthy = health.database.status == "ok"
-        let isSchedulerHealthy = scheduler.healthy
+        // Fetch additional health endpoints (non-critical — don't fail if unavailable)
+        let hardware = try? await query("health.hardware") as TRPCHardwareHealth
+        let dacMonitor = try? await query("health.dacMonitor") as TRPCDacMonitor
+        let bioProcessing = try? await query("biometrics.getProcessingStatus") as TRPCBiometricsProcessing
+        let internet = try? await query("system.internetStatus") as TRPCInternetStatus
 
         func info(_ name: String, status: ServiceStatus, desc: String, msg: String = "OK") -> StatusInfo {
             StatusInfo(name: name, status: status, description: desc, message: msg)
         }
 
-        let dbStatus: ServiceStatus = isDBHealthy ? .healthy : .failed
-        let schedStatus: ServiceStatus = isSchedulerHealthy ? .healthy : .failed
-        let jobsMsg = "Jobs: \(scheduler.jobCounts.total)"
+        let dbStatus: ServiceStatus = health.database.status == "ok" ? .healthy : .failed
+        let schedStatus: ServiceStatus = scheduler.healthy ? .healthy : .failed
 
-        // Note: sleepypod-core doesn't have biometrics/calibration service status endpoints yet.
-        // Biometrics and Calibration categories will be empty until core adds:
-        //   - health.biometrics (sleep analysis, stream, installation status per side)
-        //   - health.calibration (piezo calibration status per side)
-        // See: https://github.com/sleepypod/core/issues/149
+        // Hardware status from real endpoints
+        let hwStatus: ServiceStatus = hardware?.status == "ok" ? .healthy : (hardware != nil ? .failed : .healthy)
+        let hwLatency = hardware.map { String(format: "%.1fms", $0.latencyMs ?? 0) } ?? "OK"
+
+        let dacStatus: ServiceStatus = dacMonitor?.status == "running" ? .healthy : (dacMonitor != nil ? .failed : .healthy)
+        let dacMsg = dacMonitor.map { "\($0.status)\($0.gesturesSupported == true ? " · gestures" : "")" } ?? "OK"
+
+        // Biometrics processing
+        let bioStatus: ServiceStatus = bioProcessing?.iosProcessingActive == true ? .started : .healthy
+        let bioMsg = bioProcessing.map { $0.iosProcessingActive ? "Processing active" : "Idle" } ?? "OK"
+
+        // Internet
+        let internetMsg = internet.map { $0.blocked ? "Blocked" : "Connected" } ?? "OK"
+        let internetStatus: ServiceStatus = internet?.blocked == true ? .failed : .healthy
 
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", status: schedStatus, desc: "Wake-up alarm scheduler", msg: "\(scheduler.jobCounts.alarm) alarms"),
-            database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "OK"),
-            express: info("API Server", status: .healthy, desc: "tRPC HTTP server"),
-            podSocket: info("Pod Socket", status: .healthy, desc: "Hardware communication"),
-            podSocketMonitor: info("Pod Monitor", status: .healthy, desc: "Connection watchdog"),
-            jobs: info("Job Scheduler", status: schedStatus, desc: "Background task runner", msg: jobsMsg),
-            logger: info("Logger", status: .healthy, desc: "System logging"),
+            database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "\(String(format: "%.1fms", health.database.latencyMs ?? 0)) latency"),
+            express: info("Sleepypod Core", status: .healthy, desc: "API and hardware bridge"),
+            podSocket: info("Hardware Socket", status: hwStatus, desc: "DAC communication", msg: hwLatency),
+            podSocketMonitor: info("DAC Monitor", status: dacStatus, desc: "Hardware watchdog", msg: dacMsg),
+            jobs: info("Job Scheduler", status: schedStatus, desc: "Background task runner", msg: "Jobs: \(scheduler.jobCounts.total)"),
+            logger: info("Internet", status: internetStatus, desc: "Network access", msg: internetMsg),
             powerSchedule: info("Power Schedule", status: schedStatus, desc: "Auto on/off scheduler", msg: "\(scheduler.jobCounts.powerOn + scheduler.jobCounts.powerOff) power jobs"),
             primeSchedule: info("Prime Schedule", status: schedStatus, desc: "Daily prime scheduler", msg: "\(scheduler.jobCounts.prime) prime jobs"),
             rebootSchedule: info("Reboot Schedule", status: schedStatus, desc: "Daily reboot scheduler", msg: "\(scheduler.jobCounts.reboot) reboot jobs"),
-            systemDate: info("System Clock", status: .healthy, desc: "Server time"),
+            systemDate: info("Biometrics", status: bioStatus, desc: "Sleep data processing", msg: bioMsg),
             temperatureSchedule: info("Temperature Schedule", status: schedStatus, desc: "Temperature curve scheduler", msg: "\(scheduler.jobCounts.temperature) temp jobs")
         )
     }
@@ -276,17 +286,19 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     func getSleepRecords(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [SleepRecord] {
         var input: [String: Any] = [:]
         input["side"] = (side ?? .left).rawValue
-        if let start { input["startDate"] = ISO8601DateFormatter().string(from: start) }
-        if let end { input["endDate"] = ISO8601DateFormatter().string(from: end) }
-        return try await query("biometrics.getSleepRecords", input: input)
+        var dateKeys: [String] = []
+        if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
+        if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
+        return try await query("biometrics.getSleepRecords", input: input, dateKeys: dateKeys)
     }
 
     func getVitals(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [VitalsRecord] {
         var input: [String: Any] = [:]
         input["side"] = (side ?? .left).rawValue
-        if let start { input["startDate"] = ISO8601DateFormatter().string(from: start) }
-        if let end { input["endDate"] = ISO8601DateFormatter().string(from: end) }
-        return try await query("biometrics.getVitals", input: input)
+        var dateKeys: [String] = []
+        if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
+        if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
+        return try await query("biometrics.getVitals", input: input, dateKeys: dateKeys)
     }
 
     func getVitalsSummary(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> VitalsSummary {
@@ -297,16 +309,17 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let resolvedStart = start ?? Calendar.current.date(byAdding: .day, value: -7, to: resolvedEnd)!
         input["startDate"] = fmt.string(from: resolvedStart)
         input["endDate"] = fmt.string(from: resolvedEnd)
-        let result: VitalsSummary? = try await query("biometrics.getVitalsSummary", input: input)
+        let result: VitalsSummary? = try await query("biometrics.getVitalsSummary", input: input, dateKeys: ["startDate", "endDate"])
         return result ?? VitalsSummary(avgHeartRate: nil, minHeartRate: nil, maxHeartRate: nil, avgHRV: nil, avgBreathingRate: nil)
     }
 
     func getMovement(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [MovementRecord] {
         var input: [String: Any] = [:]
         input["side"] = (side ?? .left).rawValue
-        if let start { input["startDate"] = ISO8601DateFormatter().string(from: start) }
-        if let end { input["endDate"] = ISO8601DateFormatter().string(from: end) }
-        return try await query("biometrics.getMovement", input: input)
+        var dateKeys: [String] = []
+        if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
+        if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
+        return try await query("biometrics.getMovement", input: input, dateKeys: dateKeys)
     }
 
     // MARK: - Actions
@@ -320,6 +333,10 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         ])
     }
 
+    func setInternetAccess(blocked: Bool) async throws {
+        let _: TRPCInternetStatus = try await mutate("system.setInternetAccess", input: ["blocked": blocked])
+    }
+
     func reboot() async throws {
         // sleepypod-core uses system.triggerUpdate for restarts
         // For a full reboot, there's no direct endpoint — this is a best-effort
@@ -330,7 +347,8 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     // MARK: - tRPC Transport
 
     /// tRPC query — GET /api/trpc/{procedure}?input={json}
-    private func query<T: Decodable>(_ procedure: String, input: [String: Any]? = nil) async throws -> T {
+    /// dateKeys: keys in `input` that should be annotated as Date in superjson meta
+    private func query<T: Decodable>(_ procedure: String, input: [String: Any]? = nil, dateKeys: [String] = []) async throws -> T {
         guard let base = baseURL else { throw APIError.noBaseURL }
 
         var urlString = "\(base)/api/trpc/\(procedure)"
@@ -342,7 +360,18 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         } else {
             inputJSON = "{}"
         }
-        let wrapped = "{\"json\":\(inputJSON)}"
+
+        // Build superjson envelope with optional meta for Date fields
+        var wrapped: String
+        if !dateKeys.isEmpty {
+            var values: [String: [String]] = [:]
+            for key in dateKeys { values[key] = ["Date"] }
+            let metaData = try JSONSerialization.data(withJSONObject: ["values": values])
+            let metaJSON = String(data: metaData, encoding: .utf8) ?? "{}"
+            wrapped = "{\"json\":\(inputJSON),\"meta\":\(metaJSON)}"
+        } else {
+            wrapped = "{\"json\":\(inputJSON)}"
+        }
         let encoded = wrapped.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? wrapped
         urlString += "?input=\(encoded)"
 
@@ -690,4 +719,26 @@ private struct TRPCScheduleSet: Decodable {
     let temperature: [TRPCTemperatureSchedule]
     let power: [TRPCPowerSchedule]
     let alarm: [TRPCAlarmSchedule]
+}
+
+// New endpoints
+private struct TRPCHardwareHealth: Decodable {
+    let status: String
+    let socketPath: String?
+    let latencyMs: Double?
+}
+
+private struct TRPCDacMonitor: Decodable {
+    let status: String
+    let podVersion: String?
+    let gesturesSupported: Bool?
+}
+
+private struct TRPCBiometricsProcessing: Decodable {
+    let iosProcessingActive: Bool
+    let connectedSince: String?
+}
+
+private struct TRPCInternetStatus: Decodable {
+    let blocked: Bool
 }

@@ -7,9 +7,15 @@ final class DeviceManager {
     var deviceStatus: DeviceStatus?
     var isConnected = false
     var isConnecting = false
+    var retryCount = 0
     var selectedSide: SideSelection = .left
     var isLinked = false
     var error: String?
+
+    /// Show spinner for first 3 attempts, then show failed state
+    var showConnectionFailed: Bool {
+        !isConnected && !isConnecting && retryCount >= 3 && hasPodIP
+    }
 
     var hasPodIP: Bool {
         guard let ip = UserDefaults.standard.string(forKey: "podIPAddress") else { return false }
@@ -75,18 +81,28 @@ final class DeviceManager {
     }
 
     func fetchStatus() async {
-        if !isConnected { isConnecting = true }
+        if !isConnected && retryCount < 3 {
+            isConnecting = true
+        }
         do {
             let status = try await api.getDeviceStatus()
             deviceStatus = status
             isConnected = true
             isConnecting = false
+            retryCount = 0
             error = nil
         } catch {
             isConnected = false
             isConnecting = false
+            retryCount += 1
             self.error = error.localizedDescription
         }
+    }
+
+    func retryConnection() {
+        retryCount = 0
+        isConnecting = true
+        Task { await fetchStatus() }
     }
 
     // MARK: - Temperature Control

@@ -49,6 +49,10 @@ struct StatusScreen: View {
         .task {
             statusManager.startPolling()
             await scheduleManager.fetchSchedules()
+            // Fetch calibration on load
+            let api = APIBackend.current.createClient()
+            leftCalibration = try? await api.getCalibrationStatus(side: .left)
+            rightCalibration = try? await api.getCalibrationStatus(side: .right)
         }
     }
 

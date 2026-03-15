@@ -52,22 +52,8 @@ final class StatusManager {
                 services: [status.temperatureSchedule, status.alarmSchedule, status.powerSchedule,
                            status.primeSchedule, status.rebootSchedule]
             ),
-            ServiceCategory(
-                name: "Biometrics",
-                description: "Sleep data processing",
-                iconName: "heart.fill",
-                iconColorHex: "e05050",
-                services: [status.systemDate] +
-                    [status.analyzeSleepLeft, status.analyzeSleepRight,
-                     status.biometricsStream, status.biometricsInstallation].compactMap { $0 }
-            ),
-            ServiceCategory(
-                name: "Calibration",
-                description: "Piezo sensor calibration",
-                iconName: "tuningfork",
-                iconColorHex: "4ecdc4",
-                services: [status.biometricsCalibrationLeft, status.biometricsCalibrationRight].compactMap { $0 }
-            )
+            // Biometrics and Calibration are shown as individual cards
+            // with real data from their own endpoints — not from ServerStatus
         ].filter { !$0.services.isEmpty }
     }
 

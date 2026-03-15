@@ -1,157 +1,286 @@
 import SwiftUI
 
 struct LogsView: View {
-    @State private var logContent: String = ""
-    @State private var selectedUnit: String = "sleepypod.service"
-    @State private var isLoading = false
-    @State private var isExpanded = false
-    @State private var error: String?
-
-    private let units = [
-        "sleepypod.service",
-        "sleepypod-piezo-processor.service",
-        "sleepypod-sleep-detector.service"
-    ]
-
-    private var api: SleepypodProtocol { APIBackend.current.createClient() }
+    @State private var showSheet = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            Button {
-                Haptics.light()
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-                if isExpanded && logContent.isEmpty {
-                    Task { await fetchLogs() }
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "doc.text")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.textSecondary.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+        Button {
+            Haptics.light()
+            showSheet = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 14))
+                    .foregroundColor(Theme.textSecondary)
+                    .frame(width: 32, height: 32)
+                    .background(Theme.textSecondary.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Logs")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
-                        Text("systemd journal")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("System Logs")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.white)
+                    Text("View service activity")
                         .font(.caption)
-                        .foregroundColor(Theme.textMuted)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .foregroundColor(Theme.textSecondary)
                 }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(Theme.textMuted)
             }
-            .buttonStyle(.plain)
+            .padding(16)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showSheet) {
+            LogsSheet()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
 
-            if isExpanded {
-                Divider()
-                    .background(Theme.cardBorder)
-                    .padding(.vertical, 10)
+// MARK: - Logs Sheet
 
-                // Unit picker
+private struct LogsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var logs: [LogEntry] = []
+    @State private var selectedService: String = "sleepypod"
+    @State private var isLoading = false
+    @State private var error: String?
+
+    private let services = [
+        ("sleepypod", "Core"),
+        ("sleepypod-piezo-processor", "Piezo"),
+        ("sleepypod-sleep-detector", "Sleep")
+    ]
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Service picker
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(units, id: \.self) { unit in
+                        ForEach(services, id: \.0) { id, label in
                             Button {
                                 Haptics.tap()
-                                selectedUnit = unit
+                                selectedService = id
                                 Task { await fetchLogs() }
                             } label: {
-                                Text(unit.replacingOccurrences(of: ".service", with: ""))
-                                    .font(.caption2)
-                                    .foregroundColor(selectedUnit == unit ? .white : Theme.textSecondary)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(selectedUnit == unit ? Theme.cooling : Theme.cardElevated)
+                                Text(label)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundColor(selectedService == id ? .white : Theme.textSecondary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(selectedService == id ? Theme.cooling : Theme.cardElevated)
                                     .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal, 16)
                 }
-                .padding(.bottom, 8)
+                .padding(.vertical, 10)
 
-                // Log content
+                Divider().background(Theme.cardBorder)
+
+                // Log entries
                 if isLoading {
-                    HStack {
-                        ProgressView().tint(Theme.accent).scaleEffect(0.7)
-                        Text("Loading logs…")
+                    Spacer()
+                    ProgressView().tint(Theme.accent)
+                    Spacer()
+                } else if let error {
+                    Spacer()
+                    VStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.title2)
+                            .foregroundColor(Theme.amber)
+                        Text(error)
                             .font(.caption)
                             .foregroundColor(Theme.textMuted)
+                            .multilineTextAlignment(.center)
                     }
-                    .padding(.bottom, 8)
-                } else if let error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(Theme.error)
-                        .padding(.bottom, 8)
-                } else if !logContent.isEmpty {
+                    .padding(32)
+                    Spacer()
+                } else if logs.isEmpty {
+                    Spacer()
+                    Text("No log entries")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textMuted)
+                    Spacer()
+                } else {
                     ScrollView {
-                        Text(logContent)
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundColor(Theme.textSecondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(logs) { entry in
+                                logRow(entry)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                     }
-                    .frame(maxHeight: 300)
-                    .padding(8)
-                    .background(Color(hex: "0f0f0f"))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
+            .background(Theme.background)
+            .navigationTitle("Logs")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(Theme.accent)
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        Haptics.light()
+                        Task { await fetchLogs() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(Theme.accent)
+                    }
+                }
+            }
+            .task { await fetchLogs() }
         }
-        .padding(16)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
+
+    private func logRow(_ entry: LogEntry) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            // Level indicator
+            Circle()
+                .fill(entry.levelColor)
+                .frame(width: 6, height: 6)
+                .padding(.top, 5)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.message)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white)
+                    .textSelection(.enabled)
+
+                Text(entry.time)
+                    .font(.system(size: 9))
+                    .foregroundColor(Theme.textMuted)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - Fetch
 
     private func fetchLogs() async {
         isLoading = true
         error = nil
         defer { isLoading = false }
 
-        guard let base = URL(string: "http://\(UserDefaults.standard.string(forKey: "podIPAddress") ?? ""):3000") else {
-            error = "No pod IP configured"
+        guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else {
+            error = "No Sleepypod connected"
             return
         }
 
-        let input = "{\"json\":{\"unit\":\"\(selectedUnit)\",\"lines\":50}}"
+        let unit = "\(selectedService).service"
+        let input = "{\"json\":{\"unit\":\"\(unit)\",\"lines\":100}}"
         let encoded = input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input
-        guard let url = URL(string: "\(base)/api/trpc/system.getLogs?input=\(encoded)") else { return }
+        guard let url = URL(string: "http://\(ip):3000/api/trpc/system.getLogs?input=\(encoded)") else { return }
 
         do {
             var request = URLRequest(url: url)
             request.timeoutInterval = 10
             let (data, _) = try await URLSession.shared.data(for: request)
 
-            // Parse tRPC response: {"result":{"data":{"json":{"lines":["..."]}}}}
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let result = json["result"] as? [String: Any],
                let dataObj = result["data"] as? [String: Any],
                let jsonObj = dataObj["json"] as? [String: Any],
                let lines = jsonObj["lines"] as? [String] {
-                logContent = lines.joined(separator: "\n")
+                logs = lines.enumerated().map { i, line in
+                    LogEntry.parse(line, index: i)
+                }
             } else if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let errObj = json["error"] as? [String: Any],
                       let errJson = errObj["json"] as? [String: Any],
                       let msg = errJson["message"] as? String {
                 error = msg
-            } else {
-                logContent = String(data: data, encoding: .utf8) ?? "Unable to parse response"
             }
         } catch {
             self.error = error.localizedDescription
         }
+    }
+}
+
+// MARK: - Log Entry
+
+private struct LogEntry: Identifiable {
+    let id: Int
+    let time: String
+    let level: Level
+    let message: String
+
+    enum Level {
+        case info, warn, error, debug
+
+        var color: Color {
+            switch self {
+            case .info: Theme.healthy
+            case .warn: Theme.amber
+            case .error: Theme.error
+            case .debug: Theme.textMuted
+            }
+        }
+    }
+
+    var levelColor: Color { level.color }
+
+    /// Parse a journalctl line like:
+    /// "2026-03-15T14:30:00+0000 sleepypod[123]: [INFO] Server started on port 3000"
+    static func parse(_ line: String, index: Int) -> LogEntry {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+        // Try to extract timestamp from start
+        var time = ""
+        var rest = trimmed
+
+        // ISO timestamp prefix
+        if trimmed.count > 19, trimmed[trimmed.index(trimmed.startIndex, offsetBy: 4)] == "-" {
+            let tsEnd = trimmed.index(trimmed.startIndex, offsetBy: min(19, trimmed.count))
+            let ts = String(trimmed[..<tsEnd])
+            // Format to just time
+            if let tIdx = ts.firstIndex(of: "T") {
+                time = String(ts[ts.index(after: tIdx)...])
+            } else {
+                time = ts
+            }
+            // Find message after unit name
+            if let colonIdx = trimmed[tsEnd...].firstIndex(of: ":") {
+                rest = String(trimmed[trimmed.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
+            }
+        }
+
+        // Detect level
+        let level: Level
+        let lower = rest.lowercased()
+        if lower.contains("[error]") || lower.contains("error:") || lower.contains("err ") {
+            level = .error
+        } else if lower.contains("[warn]") || lower.contains("warning:") {
+            level = .warn
+        } else if lower.contains("[debug]") || lower.contains("debug:") {
+            level = .debug
+        } else {
+            level = .info
+        }
+
+        // Clean up level tags from message
+        var msg = rest
+            .replacingOccurrences(of: "[INFO]", with: "")
+            .replacingOccurrences(of: "[WARN]", with: "")
+            .replacingOccurrences(of: "[ERROR]", with: "")
+            .replacingOccurrences(of: "[DEBUG]", with: "")
+            .trimmingCharacters(in: .whitespaces)
+
+        if msg.isEmpty { msg = trimmed }
+
+        return LogEntry(id: index, time: time, level: level, message: msg)
     }
 }

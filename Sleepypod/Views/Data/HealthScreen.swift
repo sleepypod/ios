@@ -10,6 +10,7 @@ struct HealthScreen: View {
     @State private var isLoadingVitals = false
     @State private var showRawData = false
     @State private var sleepAnalyzer = SleepAnalyzer()
+    @State private var isCalibrated = false
 
     private var api: SleepypodProtocol { APIBackend.current.createClient() }
 
@@ -27,8 +28,10 @@ struct HealthScreen: View {
                 if metricsManager.isLoading && metricsManager.sleepRecords.isEmpty {
                     LoadingView(message: "Loading health data…")
                 } else {
-                    // Calibration warning
-                    calibrationWarning
+                    // Calibration warning (only if not calibrated)
+                    if !isCalibrated {
+                        calibrationWarning
+                    }
 
                     // Sleep summary
                     SleepSummaryCardView()
@@ -354,6 +357,16 @@ struct HealthScreen: View {
     private func refresh() async {
         await metricsManager.fetchAll()
         await fetchVitals()
+        await checkCalibration()
+    }
+
+    private func checkCalibration() async {
+        let api = APIBackend.current.createClient()
+        guard let left = try? await api.getCalibrationStatus(side: .left),
+              let right = try? await api.getCalibrationStatus(side: .right) else { return }
+        // Consider calibrated if piezo sensors on both sides completed
+        isCalibrated = left.piezo.status == "completed" && right.piezo.status == "completed"
+            && (left.piezo.qualityScore ?? 0) > 0.5 && (right.piezo.qualityScore ?? 0) > 0.5
     }
 
     private func fetchVitals() async {

@@ -12,11 +12,13 @@ struct SettingsScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Combined pod connection card
-                podCard
-
-                // Update card
-                UpdateCardView()
+                // Pod connection — different layout per backend
+                if selectedBackend == .freeSleep {
+                    legacyPodCard
+                } else {
+                    podCard
+                    UpdateCardView()
+                }
 
                 // Device settings
                 if settingsManager.settings != nil {
@@ -46,45 +48,36 @@ struct SettingsScreen: View {
         }
     }
 
-    // MARK: - Combined Pod Card
+    // MARK: - Legacy Pod Card (Free Sleep)
+
+    @ViewBuilder
+    private var legacyPodCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Server picker (same as main card)
+            serverPickerRow
+
+            Text(selectedBackend.description)
+                .font(.caption)
+                .foregroundColor(Theme.textMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Divider().background(Theme.cardBorder)
+
+            // Just the IP field
+            ipAddressRow
+
+            // Reboot
+            rebootButton
+        }
+        .cardStyle()
+    }
+
+    // MARK: - Combined Pod Card (Sleepypod)
 
     @ViewBuilder
     private var podCard: some View {
-        @Bindable var manager = settingsManager
         VStack(alignment: .leading, spacing: 14) {
-            // Pod Server row
-            HStack {
-                Text("Pod Server")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
-                Spacer()
-                Menu {
-                    ForEach(APIBackend.allCases, id: \.rawValue) { backend in
-                        Button {
-                            Haptics.tap()
-                            selectedBackend = backend
-                            APIBackend.current = backend
-                            deviceManager.switchBackend(backend.createClient())
-                        } label: {
-                            HStack {
-                                Text(backend.displayName)
-                                if selectedBackend == backend {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(selectedBackend.displayName)
-                            .font(.subheadline)
-                            .foregroundColor(Theme.accent)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption2)
-                            .foregroundColor(Theme.textMuted)
-                    }
-                }
-            }
+            serverPickerRow
 
             Text(selectedBackend.description)
                 .font(.caption)
@@ -127,62 +120,104 @@ struct SettingsScreen: View {
 
             Divider().background(Theme.cardBorder)
 
-            // IP Address row
-            HStack(spacing: 12) {
-                Image(systemName: "network")
-                    .foregroundColor(Theme.accent)
-
-                TextField("Pod IP Address", text: Binding(
-                    get: { settingsManager.podIP },
-                    set: { settingsManager.podIP = $0.trimmingCharacters(in: .whitespaces) }
-                ))
-                .font(.subheadline)
-                .foregroundColor(.white)
-                .textFieldStyle(.plain)
-                .keyboardType(.decimalPad)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .focused($isIPFieldFocused)
-                .submitLabel(.done)
-                .onSubmit { isIPFieldFocused = false }
-
-                if isIPFieldFocused {
-                    Button {
-                        Haptics.light()
-                        isIPFieldFocused = false
-                    } label: {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(Theme.healthy)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    wifiIndicator
-                }
-            }
-            .padding(12)
-            .background(Theme.cardElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            // Reboot
-            Button {
-                Haptics.heavy()
-                Task { await settingsManager.reboot() }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.clockwise")
-                    Text("REBOOT POD")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Theme.cooling)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-            .buttonStyle(.plain)
+            ipAddressRow
+            rebootButton
         }
         .cardStyle()
+    }
+
+    // MARK: - Shared Components
+
+    private var serverPickerRow: some View {
+        HStack {
+            Text("Pod Server")
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.white)
+            Spacer()
+            Menu {
+                ForEach(APIBackend.allCases, id: \.rawValue) { backend in
+                    Button {
+                        Haptics.tap()
+                        selectedBackend = backend
+                        APIBackend.current = backend
+                        deviceManager.switchBackend(backend.createClient())
+                    } label: {
+                        HStack {
+                            Text(backend.displayName)
+                            if selectedBackend == backend {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(selectedBackend.displayName)
+                        .font(.subheadline)
+                        .foregroundColor(Theme.accent)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                }
+            }
+        }
+    }
+
+    private var ipAddressRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "network")
+                .foregroundColor(Theme.accent)
+
+            TextField("Pod IP Address", text: Binding(
+                get: { settingsManager.podIP },
+                set: { settingsManager.podIP = $0.trimmingCharacters(in: .whitespaces) }
+            ))
+            .font(.subheadline)
+            .foregroundColor(.white)
+            .textFieldStyle(.plain)
+            .keyboardType(.decimalPad)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .focused($isIPFieldFocused)
+            .submitLabel(.done)
+            .onSubmit { isIPFieldFocused = false }
+
+            if isIPFieldFocused {
+                Button {
+                    Haptics.light()
+                    isIPFieldFocused = false
+                } label: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(Theme.healthy)
+                }
+                .buttonStyle(.plain)
+            } else {
+                wifiIndicator
+            }
+        }
+        .padding(12)
+        .background(Theme.cardElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var rebootButton: some View {
+        Button {
+            Haptics.heavy()
+            Task { await settingsManager.reboot() }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.clockwise")
+                Text("REBOOT POD")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Theme.cooling)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder

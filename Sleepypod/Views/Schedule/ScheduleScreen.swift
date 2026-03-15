@@ -30,9 +30,7 @@ struct ScheduleScreen: View {
                         }
                     }
                 } else if scheduleManager.isLoading {
-                    ProgressView()
-                        .tint(Theme.accent)
-                        .padding(40)
+                    LoadingView(message: "Loading schedule…")
                 } else {
                     Text("No schedule data")
                         .foregroundColor(Theme.textSecondary)

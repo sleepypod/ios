@@ -16,9 +16,7 @@ struct StatusScreen: View {
                 // Service categories
                 let cats = statusManager.categories(schedules: scheduleManager.schedules)
                 if cats.isEmpty && statusManager.isLoading {
-                    ProgressView()
-                        .tint(Theme.accent)
-                        .padding(40)
+                    LoadingView(message: "Checking services…")
                 } else {
                     ForEach(cats) { category in
                         ServiceCategoryView(category: category) { service in

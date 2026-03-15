@@ -28,7 +28,7 @@ struct WeekNavigatorView: View {
         .buttonStyle(.plain)
         .sheet(isPresented: $showDatePicker) {
             WeekPickerSheet()
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
     }
@@ -39,38 +39,73 @@ private struct WeekPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedDate: Date = Date()
 
+    private var weekStart: Date {
+        Calendar.current.startOfWeek(for: selectedDate)
+    }
+
+    private var weekEnd: Date {
+        Calendar.current.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+    }
+
+    private var weekRangeLabel: String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMM d"
+        return "\(fmt.string(from: weekStart)) - \(fmt.string(from: weekEnd))"
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
+            VStack(spacing: 0) {
+                // Selected range display
+                HStack(spacing: 10) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 16))
+                        .foregroundColor(Theme.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Selected Week")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                        Text(weekRangeLabel)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.white)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Theme.accent.opacity(0.08))
+
                 DatePicker(
-                    "Select week",
+                    "Select date",
                     selection: $selectedDate,
                     in: ...Date(),
                     displayedComponents: .date
                 )
                 .datePickerStyle(.graphical)
                 .tint(Theme.accent)
-                .padding(.horizontal)
+                .padding(.horizontal, 8)
 
+                // Confirm button
                 Button {
                     Haptics.medium()
-                    metricsManager.selectedWeekStart = Calendar.current.startOfWeek(for: selectedDate)
+                    metricsManager.selectedWeekStart = weekStart
                     Task { await metricsManager.fetchAll() }
                     dismiss()
                 } label: {
-                    Text("Show This Week")
+                    Text("Show \(weekRangeLabel)")
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 14)
                         .background(Theme.accent)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
             }
             .background(Theme.background)
-            .navigationTitle("Select Date Range")
+            .navigationTitle("Date Range")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

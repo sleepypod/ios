@@ -9,6 +9,7 @@ struct HealthScreen: View {
     @State private var vitals: [VitalsRecord] = []
     @State private var isLoadingVitals = false
     @State private var showRawData = false
+    @State private var sleepAnalyzer = SleepAnalyzer()
 
     private var api: SleepypodProtocol { APIBackend.current.createClient() }
 
@@ -24,10 +25,11 @@ struct HealthScreen: View {
                 HealthSideSelectorView()
 
                 if metricsManager.isLoading && metricsManager.sleepRecords.isEmpty {
-                    ProgressView()
-                        .tint(Theme.accent)
-                        .padding(40)
+                    LoadingView(message: "Loading health data…")
                 } else {
+                    // Calibration warning
+                    calibrationWarning
+
                     // Sleep summary
                     SleepSummaryCardView()
 
@@ -80,6 +82,11 @@ struct HealthScreen: View {
                         average: metricsManager.vitalsSummary?.avgBreathingRate
                     )
 
+                    // On-device sleep analysis
+                    if !sleepAnalyzer.stages.isEmpty {
+                        sleepAnalysisCard
+                    }
+
                     // Sleep stages timeline
                     SleepStagesTimelineView()
 
@@ -91,9 +98,6 @@ struct HealthScreen: View {
 
                     // Raw data section
                     rawDataSection
-
-                    // Calibration warning
-                    calibrationWarning
                 }
             }
             .padding(.horizontal, 16)
@@ -192,6 +196,10 @@ struct HealthScreen: View {
 
     // MARK: - Raw Data Section
 
+    @State private var isExporting = false
+    @State private var exportURL: URL?
+    @State private var showShareSheet = false
+
     private var rawDataSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
@@ -210,7 +218,7 @@ struct HealthScreen: View {
                         Text("Raw Data")
                             .font(.subheadline.weight(.medium))
                             .foregroundColor(.white)
-                        Text("\(vitals.count) data points · \(selectedSide.displayName) side")
+                        Text("\(vitals.count) vitals · \(metricsManager.sleepRecords.count) sleep records")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
@@ -226,46 +234,211 @@ struct HealthScreen: View {
             .buttonStyle(.plain)
 
             if showRawData {
-                VStack(spacing: 4) {
+                VStack(spacing: 8) {
+                    // Stats
                     let filtered = smoothedVitals.count
                     let total = vitals.count
                     let dropped = total - filtered
 
-                    HStack(spacing: 8) {
-                        Text("Total records")
-                            .font(.caption)
-                            .foregroundColor(Theme.textMuted)
-                        Spacer()
-                        Text("\(total)")
-                            .font(.caption.monospaced())
-                            .foregroundColor(Theme.textSecondary)
-                    }
-                    HStack(spacing: 8) {
-                        Text("After filtering")
-                            .font(.caption)
-                            .foregroundColor(Theme.textMuted)
-                        Spacer()
-                        Text("\(filtered)")
-                            .font(.caption.monospaced())
-                            .foregroundColor(Theme.textSecondary)
-                    }
+                    rawStatRow("Vitals records", "\(total)")
+                    rawStatRow("After filtering", "\(filtered)")
                     if dropped > 0 {
-                        HStack(spacing: 8) {
-                            Text("Outliers removed")
-                                .font(.caption)
-                                .foregroundColor(Theme.amber)
-                            Spacer()
-                            Text("\(dropped)")
-                                .font(.caption.monospaced())
-                                .foregroundColor(Theme.amber)
-                        }
+                        rawStatRow("Outliers removed", "\(dropped)", color: Theme.amber)
                     }
+                    rawStatRow("Sleep sessions", "\(metricsManager.sleepRecords.count)")
+                    rawStatRow("Movement records", "\(metricsManager.movementRecords.count)")
+
+                    Divider().background(Theme.cardBorder).padding(.vertical, 4)
+
+                    // File list
+                    dataFileRow(
+                        name: "vitals-\(metricsManager.selectedSide.rawValue).csv",
+                        size: "\(vitals.count) rows",
+                        icon: "heart.text.clipboard"
+                    ) { exportVitalsCSV() }
+
+                    dataFileRow(
+                        name: "sleep-\(metricsManager.selectedSide.rawValue).csv",
+                        size: "\(metricsManager.sleepRecords.count) rows",
+                        icon: "bed.double"
+                    ) { exportSleepCSV() }
+
+                    dataFileRow(
+                        name: "movement-\(metricsManager.selectedSide.rawValue).csv",
+                        size: "\(metricsManager.movementRecords.count) rows",
+                        icon: "figure.walk"
+                    ) { exportMovementCSV() }
+
+                    // Export all
+                    Button {
+                        Haptics.medium()
+                        exportAllCSV()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "square.and.arrow.up")
+                            Text(isExporting ? "Exporting…" : "Export All Data")
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Theme.accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Theme.accent.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExporting)
+                    .padding(.top, 4)
                 }
                 .padding(.leading, 44)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .cardStyle()
+        .sheet(isPresented: $showShareSheet) {
+            if let url = exportURL {
+                ShareSheet(items: [url])
+            }
+        }
+    }
+
+    private func rawStatRow(_ label: String, _ value: String, color: Color = Theme.textSecondary) -> some View {
+        HStack {
+            Text(label).font(.caption).foregroundColor(Theme.textMuted)
+            Spacer()
+            Text(value).font(.caption.monospaced()).foregroundColor(color)
+        }
+    }
+
+    private func dataFileRow(name: String, size: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.accent)
+                Text(name)
+                    .font(.caption.monospaced())
+                    .foregroundColor(.white)
+                Spacer()
+                Text(size)
+                    .font(.caption2)
+                    .foregroundColor(Theme.textMuted)
+                Image(systemName: "arrow.down.circle")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.accent)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - CSV Export
+
+    private func exportVitalsCSV() {
+        let csv = "id,side,timestamp,heartRate,hrv,breathingRate\n" +
+            vitals.map { "\($0.id),\($0.side),\($0.date.ISO8601Format()),\($0.heartRate ?? 0),\($0.hrv ?? 0),\($0.breathingRate ?? 0)" }
+                .joined(separator: "\n")
+        shareCSV(csv, filename: "vitals-\(metricsManager.selectedSide.rawValue).csv")
+    }
+
+    private func exportSleepCSV() {
+        let csv = "id,side,enteredBed,leftBed,durationSeconds,timesExited\n" +
+            metricsManager.sleepRecords.map { "\($0.id),\($0.side),\($0.enteredBedDate.ISO8601Format()),\($0.leftBedDate.ISO8601Format()),\($0.sleepPeriodSeconds),\($0.timesExitedBed)" }
+                .joined(separator: "\n")
+        shareCSV(csv, filename: "sleep-\(metricsManager.selectedSide.rawValue).csv")
+    }
+
+    private func exportMovementCSV() {
+        let csv = "timestamp,movement\n" +
+            metricsManager.movementRecords.map { "\($0.timestamp),\($0.totalMovement)" }
+                .joined(separator: "\n")
+        shareCSV(csv, filename: "movement-\(metricsManager.selectedSide.rawValue).csv")
+    }
+
+    private func exportAllCSV() {
+        isExporting = true
+        exportVitalsCSV()
+    }
+
+    private func shareCSV(_ content: String, filename: String) {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? content.write(to: url, atomically: true, encoding: .utf8)
+        exportURL = url
+        showShareSheet = true
+        isExporting = false
+    }
+
+    // MARK: - Sleep Analysis Card
+
+    private var sleepAnalysisCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "brain")
+                        .font(.caption)
+                        .foregroundColor(Theme.purple)
+                    Text("SLEEP ANALYSIS")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Theme.textSecondary)
+                        .tracking(1)
+                }
+                Spacer()
+                if let score = sleepAnalyzer.qualityScore {
+                    Text("Score: \(score)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(score >= 70 ? Theme.healthy : score >= 40 ? Theme.amber : Theme.error)
+                }
+            }
+
+            Text("On-device · Rule-based")
+                .font(.caption2)
+                .foregroundColor(Theme.textMuted)
+
+            // Stage distribution bar
+            GeometryReader { geo in
+                HStack(spacing: 1) {
+                    let total = max(sleepAnalyzer.stages.count, 1)
+                    let deep = sleepAnalyzer.stages.filter { $0.stage == .deep }.count
+                    let light = sleepAnalyzer.stages.filter { $0.stage == .light }.count
+                    let rem = sleepAnalyzer.stages.filter { $0.stage == .rem }.count
+                    let wake = sleepAnalyzer.stages.filter { $0.stage == .wake }.count
+
+                    stageBar(pct: Double(deep) / Double(total), color: Color(hex: "2563eb"), width: geo.size.width)
+                    stageBar(pct: Double(light) / Double(total), color: Color(hex: "4a90d9"), width: geo.size.width)
+                    stageBar(pct: Double(rem) / Double(total), color: Color(hex: "a080d0"), width: geo.size.width)
+                    stageBar(pct: Double(wake) / Double(total), color: Color(hex: "888888"), width: geo.size.width)
+                }
+                .clipShape(Capsule())
+            }
+            .frame(height: 10)
+
+            // Legend
+            HStack(spacing: 16) {
+                stageLegend("Deep", color: Color(hex: "2563eb"), pct: stagePct(.deep))
+                stageLegend("Light", color: Color(hex: "4a90d9"), pct: stagePct(.light))
+                stageLegend("REM", color: Color(hex: "a080d0"), pct: stagePct(.rem))
+                stageLegend("Wake", color: Color(hex: "888888"), pct: stagePct(.wake))
+            }
+        }
+        .cardStyle()
+    }
+
+    private func stageBar(pct: Double, color: Color, width: CGFloat) -> some View {
+        Rectangle()
+            .fill(color)
+            .frame(width: max(width * pct - 1, 0))
+    }
+
+    private func stageLegend(_ label: String, color: Color, pct: Int) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text("\(label) \(pct)%")
+                .font(.caption2)
+                .foregroundColor(Theme.textSecondary)
+        }
+    }
+
+    private func stagePct(_ stage: SleepAnalyzer.SleepStage) -> Int {
+        guard !sleepAnalyzer.stages.isEmpty else { return 0 }
+        return Int(Double(sleepAnalyzer.stages.filter { $0.stage == stage }.count) / Double(sleepAnalyzer.stages.count) * 100)
     }
 
     // MARK: - Calibration Warning
@@ -310,6 +483,7 @@ struct HealthScreen: View {
             Log.network.error("Failed to fetch vitals: \(error)")
         }
         isLoadingVitals = false
+        sleepAnalyzer.analyze(vitals: vitals)
     }
 }
 

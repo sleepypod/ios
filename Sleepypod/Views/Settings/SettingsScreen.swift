@@ -50,42 +50,42 @@ struct SettingsScreen: View {
 
     @ViewBuilder
     private var backendCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Backend")
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
-
-            ForEach(APIBackend.allCases, id: \.rawValue) { backend in
-                Button {
-                    Haptics.tap()
-                    selectedBackend = backend
-                    APIBackend.current = backend
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: selectedBackend == backend ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(selectedBackend == backend ? Theme.accent : Theme.textMuted)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(backend.displayName)
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                            Text(backend.description)
-                                .font(.caption)
-                                .foregroundColor(Theme.textMuted)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Server")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.white)
+                Spacer()
+                Menu {
+                    ForEach(APIBackend.allCases, id: \.rawValue) { backend in
+                        Button {
+                            Haptics.tap()
+                            selectedBackend = backend
+                            APIBackend.current = backend
+                        } label: {
+                            HStack {
+                                Text(backend.displayName)
+                                if selectedBackend == backend {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
                         }
-
-                        Spacer()
                     }
-                    .padding(12)
-                    .background(selectedBackend == backend ? Theme.cardElevated : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(selectedBackend.displayName)
+                            .font(.subheadline)
+                            .foregroundColor(Theme.accent)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textMuted)
+                    }
                 }
-                .buttonStyle(.plain)
             }
 
-            Text("Changing backend requires restarting the app.")
+            Text(selectedBackend.description)
                 .font(.caption)
-                .foregroundColor(Theme.amber)
+                .foregroundColor(Theme.textMuted)
         }
         .cardStyle()
     }

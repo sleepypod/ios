@@ -6,15 +6,15 @@ enum APIBackend: String, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .freeSleep: "Free Sleep"
-        case .sleepypodCore: "SleepyPod Core"
+        case .freeSleep: "Free Sleep (Legacy)"
+        case .sleepypodCore: "Sleepypod"
         }
     }
 
     var description: String {
         switch self {
-        case .freeSleep: "Original free-sleep server (Express/REST)"
-        case .sleepypodCore: "SleepyPod Core rewrite (Next.js/tRPC)"
+        case .freeSleep: "Legacy server — some features may be incomplete or unsupported"
+        case .sleepypodCore: "Recommended — built for reliability with full feature support"
         }
     }
 
@@ -35,7 +35,7 @@ enum APIBackend: String, CaseIterable, Sendable {
         get {
             guard let raw = UserDefaults.standard.string(forKey: key),
                   let backend = APIBackend(rawValue: raw) else {
-                return .freeSleep
+                return .sleepypodCore
             }
             return backend
         }

@@ -109,7 +109,8 @@ final class DeviceManager {
             isConnected = false
             isConnecting = false
             retryCount += 1
-            self.error = error.localizedDescription
+            self.error = "\(error)"
+            print("[Sleepypod] fetchStatus failed: \(error)")
         }
     }
 

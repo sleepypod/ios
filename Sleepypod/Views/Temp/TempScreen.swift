@@ -51,10 +51,6 @@ struct TempScreen: View {
             }
         }
         .background(Theme.background)
-        .task {
-            deviceManager.startPolling()
-            await deviceManager.fetchStatus()
-        }
     }
 }
 

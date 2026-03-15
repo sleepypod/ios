@@ -334,14 +334,17 @@ final class SleepypodCoreClient: FreeSleepAPIProtocol, @unchecked Sendable {
         guard let base = baseURL else { throw APIError.noBaseURL }
 
         var urlString = "\(base)/api/trpc/\(procedure)"
+        // tRPC v11 requires input param even for no-input queries
+        let inputJSON: String
         if let input, !input.isEmpty {
             let inputData = try JSONSerialization.data(withJSONObject: input)
-            let inputJSON = String(data: inputData, encoding: .utf8) ?? "{}"
-            // tRPC expects input wrapped: {"json": ...}
-            let wrapped = "{\"json\":\(inputJSON)}"
-            let encoded = wrapped.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? wrapped
-            urlString += "?input=\(encoded)"
+            inputJSON = String(data: inputData, encoding: .utf8) ?? "{}"
+        } else {
+            inputJSON = "{}"
         }
+        let wrapped = "{\"json\":\(inputJSON)}"
+        let encoded = wrapped.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? wrapped
+        urlString += "?input=\(encoded)"
 
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
         var request = URLRequest(url: url)
@@ -555,6 +558,7 @@ private struct TRPCSideStatus: Decodable {
 private struct TRPCGesturePair: Decodable {
     let l: Int
     let r: Int
+    let s: Int?
 }
 
 private struct TRPCGestures: Decodable {

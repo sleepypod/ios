@@ -42,7 +42,7 @@ Native iOS app for controlling and monitoring your Sleepypod — temperature con
 
 ## Architecture
 
-```
+```text
 SleepypodProtocol          ← shared interface for all backends
 ├── FreeSleepClient        ← legacy free-sleep REST API
 └── SleepypodCoreClient    ← sleepypod-core tRPC API
@@ -61,9 +61,9 @@ Any backend conforms to `SleepypodProtocol` and the entire app works — no view
 
 ## Requirements
 
-- iOS 26.0+
-- Xcode 26+
-- Swift 6.0
+- iOS 26.0+ (set in `project.yml` → `deploymentTarget`)
+- Xcode 26+ (set in `project.yml` → `xcodeVersion`)
+- Swift 6.0 (set in `project.yml` → `SWIFT_VERSION`)
 - A Sleepypod on the local network
 
 ## Setup
@@ -118,7 +118,7 @@ cd contract-tests && swift test
 
 ## Project Structure
 
-```
+```text
 Sleepypod/
 ├── Models/           # Codable types (dual-format: free-sleep + core)
 ├── Networking/       # API clients, protocol, endpoints
@@ -136,6 +136,14 @@ Sleepypod/
 ## Documentation
 
 - [Health Vitals Science](docs/health-vitals-science.md) — measurement principles, normal ranges, filtering, and references
+
+### Architecture Decision Records
+
+- [ADR-001](docs/adr/001-protocol-abstraction.md) — Protocol abstraction for multi-backend support
+- [ADR-002](docs/adr/002-mdns-discovery.md) — mDNS/Bonjour for pod discovery
+- [ADR-003](docs/adr/003-contract-testing.md) — Contract testing between iOS and core
+- [ADR-004](docs/adr/004-on-device-ml.md) — On-device sleep analysis with Core ML
+- [ADR-005](docs/adr/005-dual-format-models.md) — Dual-format Decodable models
 
 ## Related
 

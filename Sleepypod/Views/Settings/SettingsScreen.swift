@@ -205,6 +205,12 @@ struct SettingsScreen: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
+    @State private var isRebooting = false
+
+    private var isBusy: Bool {
+        deviceManager.isConnecting || isRebooting
+    }
+
     private var actionButtons: some View {
         HStack(spacing: 10) {
             Button {
@@ -212,8 +218,12 @@ struct SettingsScreen: View {
                 deviceManager.retryConnection()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                    Text("RECONNECT")
+                    if deviceManager.isConnecting {
+                        ProgressView().tint(.white).scaleEffect(0.7)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                    }
+                    Text(deviceManager.isConnecting ? "CONNECTING" : "RECONNECT")
                 }
                 .font(.caption.weight(.semibold))
                 .foregroundColor(.white)
@@ -227,14 +237,25 @@ struct SettingsScreen: View {
                 )
             }
             .buttonStyle(.plain)
+            .disabled(isBusy)
+            .opacity(isBusy ? 0.5 : 1)
 
             Button {
                 Haptics.heavy()
-                Task { await settingsManager.reboot() }
+                isRebooting = true
+                Task {
+                    await settingsManager.reboot()
+                    isRebooting = false
+                    deviceManager.retryConnection()
+                }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "arrow.clockwise")
-                    Text("REBOOT")
+                    if isRebooting {
+                        ProgressView().tint(.white).scaleEffect(0.7)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    Text(isRebooting ? "REBOOTING" : "REBOOT")
                 }
                 .font(.caption.weight(.semibold))
                 .foregroundColor(.white)
@@ -244,6 +265,8 @@ struct SettingsScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
+            .disabled(isBusy)
+            .opacity(isBusy ? 0.5 : 1)
         }
     }
 

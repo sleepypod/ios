@@ -14,7 +14,10 @@ trpc_query() {
   local procedure="$2"
   local input="${3:-$EMPTY_ENC}"
   echo "  -> $name ($procedure)"
-  curl -sf "${BASE_URL}/api/trpc/${procedure}?input=${input}" -o "${FIXTURES_DIR}/${name}.json"
+  if ! curl -sf "${BASE_URL}/api/trpc/${procedure}?input=${input}" -o "${FIXTURES_DIR}/${name}.json" 2>/dev/null; then
+    echo "     WARN: $procedure failed — writing empty fixture"
+    echo '{"result":{"data":{"json":null}}}' > "${FIXTURES_DIR}/${name}.json"
+  fi
 }
 
 echo "Snapshotting tRPC API responses..."

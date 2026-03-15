@@ -59,6 +59,7 @@
 		BA94451123ED98F30EAC7AF8 /* Side.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB85BC15DC6D3030C728B6FC /* Side.swift */; };
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
 		D81EAE0FD3DA1C07FC06B43F /* DeviceSettingsCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677BD56179BBE15ACC5E97C1 /* DeviceSettingsCardView.swift */; };
+		DA978EC7B69BEC856EF30085 /* TapGestureConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */; };
 		E41AEAF67CA5F7801B5A13EB /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1999947F6DB7202489B6C /* Haptics.swift */; };
 		E6661819B24B1F3364F913AF /* VitalsReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2495028E884905FC457615E /* VitalsReport.swift */; };
 		ED1BA2E1F213040F5DDAEC30 /* DeviceStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = BED50F23F24049CF0324CF1B /* DeviceStatus.swift */; };
@@ -122,6 +123,7 @@
 		C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyBarChartView.swift; sourceTree = "<group>"; };
 		C803665AE72E33B8B50730E9 /* PodDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodDiscovery.swift; sourceTree = "<group>"; };
 		CB85BC15DC6D3030C728B6FC /* Side.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Side.swift; sourceTree = "<group>"; };
+		CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapGestureConfigView.swift; sourceTree = "<group>"; };
 		D2495028E884905FC457615E /* VitalsReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsReport.swift; sourceTree = "<group>"; };
 		D3AB3B17FD36D878C2457E20 /* HealthCircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCircleView.swift; sourceTree = "<group>"; };
 		D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePickerView.swift; sourceTree = "<group>"; };
@@ -268,6 +270,7 @@
 			isa = PBXGroup;
 			children = (
 				677BD56179BBE15ACC5E97C1 /* DeviceSettingsCardView.swift */,
+				CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */,
 				D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */,
 			);
 			path = Settings;
@@ -404,6 +407,7 @@
 				7225E391367AFFDAA7450354 /* SleepypodProtocol.swift in Sources */,
 				80473DBF0C206E692C09E07B /* StatusManager.swift in Sources */,
 				2FFABF414A270E437894A9E4 /* StatusScreen.swift in Sources */,
+				DA978EC7B69BEC856EF30085 /* TapGestureConfigView.swift in Sources */,
 				23CF6D0AAB52344B3D8BD345 /* TempControlsView.swift in Sources */,
 				F5144B5FD15C90C6F0B6F42F /* TempScreen.swift in Sources */,
 				1558A064C84FC3F65897D129 /* TemperatureConversion.swift in Sources */,

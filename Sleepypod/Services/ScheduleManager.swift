@@ -83,6 +83,66 @@ final class ScheduleManager {
         }
     }
 
+    // MARK: - Update Alarm Time
+
+    func updateAlarmTime(_ time: String) async {
+        guard var schedules else { return }
+        let side = selectedSide.primarySide
+        var sideSchedule = schedules.schedule(for: side)
+        var daily = sideSchedule[selectedDay]
+        daily.alarm.time = time
+        daily.alarm.enabled = true
+        sideSchedule[selectedDay] = daily
+        schedules.setSchedule(sideSchedule, for: side)
+
+        if selectedSide == .both {
+            var other = schedules.schedule(for: side == .left ? .right : .left)
+            var otherDaily = other[selectedDay]
+            otherDaily.alarm.time = time
+            otherDaily.alarm.enabled = true
+            other[selectedDay] = otherDaily
+            schedules.setSchedule(other, for: side == .left ? .right : .left)
+        }
+
+        self.schedules = schedules
+        do {
+            self.schedules = try await api.updateSchedules(schedules)
+        } catch {
+            self.error = error.localizedDescription
+            await fetchSchedules()
+        }
+    }
+
+    // MARK: - Update Bedtime
+
+    func updateBedtime(_ time: String) async {
+        guard var schedules else { return }
+        let side = selectedSide.primarySide
+        var sideSchedule = schedules.schedule(for: side)
+        var daily = sideSchedule[selectedDay]
+        daily.power.on = time
+        daily.power.enabled = true
+        sideSchedule[selectedDay] = daily
+        schedules.setSchedule(sideSchedule, for: side)
+
+        if selectedSide == .both {
+            var other = schedules.schedule(for: side == .left ? .right : .left)
+            var otherDaily = other[selectedDay]
+            otherDaily.power.on = time
+            otherDaily.power.enabled = true
+            other[selectedDay] = otherDaily
+            schedules.setSchedule(other, for: side == .left ? .right : .left)
+        }
+
+        self.schedules = schedules
+        do {
+            self.schedules = try await api.updateSchedules(schedules)
+        } catch {
+            self.error = error.localizedDescription
+            await fetchSchedules()
+        }
+    }
+
     // MARK: - Update Temperature
 
     func updatePhaseTemperature(time: String, delta: Int) async {

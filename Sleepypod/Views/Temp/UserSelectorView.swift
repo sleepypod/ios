@@ -51,6 +51,7 @@ private struct ProfileAndSettingsSheet: View {
                     // Device settings
                     if settingsManager.settings != nil {
                         DeviceSettingsCardView()
+                        TapGestureConfigView()
                     }
 
                     // Update

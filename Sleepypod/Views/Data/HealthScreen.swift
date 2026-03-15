@@ -408,12 +408,26 @@ struct VitalsChartCard: View {
     let zones: [Zone]
     let average: Double?
 
-    @State private var selectedRecord: VitalsRecord?
+    @State private var selectedDate: Date?
 
     private var dataPoints: [(Date, Double)] {
         records.compactMap { r in
             r[keyPath: valueKey].map { (r.date, $0) }
         }
+    }
+
+    private var selectedRecord: VitalsRecord? {
+        guard let date = selectedDate else { return nil }
+        return records.min(by: {
+            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+        })
+    }
+
+    private var values: [Double] { dataPoints.map(\.1) }
+    private var minVal: Double { values.min() ?? 0 }
+    private var maxVal: Double { values.max() ?? 0 }
+    private var avgVal: Double {
+        average ?? (values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count))
     }
 
     var body: some View {
@@ -431,11 +445,10 @@ struct VitalsChartCard: View {
                 }
                 Spacer()
 
-                // Show selected value or latest
                 if let sel = selectedRecord, let val = sel[keyPath: valueKey] {
                     VStack(alignment: .trailing, spacing: 1) {
                         Text("\(Int(val)) \(unit)")
-                            .font(.caption.weight(.semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundColor(color)
                         Text(sel.timeLabel)
                             .font(.caption2)
@@ -465,16 +478,14 @@ struct VitalsChartCard: View {
                     }
 
                     // Average line
-                    if let avg = average {
-                        RuleMark(y: .value("Avg", avg))
-                            .foregroundStyle(color.opacity(0.3))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
-                            .annotation(position: .leading) {
-                                Text("avg")
-                                    .font(.system(size: 8))
-                                    .foregroundColor(color.opacity(0.5))
-                            }
-                    }
+                    RuleMark(y: .value("Avg", avgVal))
+                        .foregroundStyle(color.opacity(0.3))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                        .annotation(position: .leading) {
+                            Text("avg")
+                                .font(.system(size: 8))
+                                .foregroundColor(color.opacity(0.5))
+                        }
 
                     // Data line
                     ForEach(Array(dataPoints.enumerated()), id: \.offset) { _, point in
@@ -507,7 +518,7 @@ struct VitalsChartCard: View {
                             y: .value(title, val)
                         )
                         .foregroundStyle(.white)
-                        .symbolSize(40)
+                        .symbolSize(60)
 
                         RuleMark(x: .value("Time", sel.date))
                             .foregroundStyle(.white.opacity(0.3))
@@ -528,21 +539,46 @@ struct VitalsChartCard: View {
                             .foregroundStyle(Theme.textMuted)
                     }
                 }
-                .chartXSelection(value: $selectedRecord.date)
+                .chartXSelection(value: $selectedDate)
                 .frame(height: 180)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onEnded { _ in selectedDate = nil }
+                )
+
+                // Legend: min / avg / max + zone labels
+                HStack(spacing: 16) {
+                    legendItem("Min", value: "\(Int(minVal))", color: Theme.textMuted)
+                    legendItem("Avg", value: "\(Int(avgVal))", color: color.opacity(0.7))
+                    legendItem("Max", value: "\(Int(maxVal))", color: Theme.textMuted)
+
+                    Spacer()
+
+                    // Zone labels
+                    ForEach(zones, id: \.label) { zone in
+                        HStack(spacing: 3) {
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(zone.color.opacity(3))
+                                .frame(width: 8, height: 8)
+                            Text(zone.label)
+                                .font(.system(size: 9))
+                                .foregroundColor(Theme.textMuted)
+                        }
+                    }
+                }
             }
         }
         .cardStyle()
     }
-}
 
-// MARK: - Selection Binding Helper
-
-private extension Binding where Value == VitalsRecord? {
-    var date: Binding<Date?> {
-        Binding<Date?>(
-            get: { wrappedValue?.date },
-            set: { _ in }
-        )
+    private func legendItem(_ label: String, value: String, color: Color) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.caption2.weight(.medium).monospaced())
+                .foregroundColor(color)
+            Text(label)
+                .font(.system(size: 8))
+                .foregroundColor(Theme.textMuted)
+        }
     }
 }

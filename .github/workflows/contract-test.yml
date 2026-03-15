@@ -21,7 +21,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sleepypod/core
-          token: ${{ secrets.CORE_REPO_TOKEN }}
           path: core-checkout
 
       - name: Copy iOS model files into Swift package

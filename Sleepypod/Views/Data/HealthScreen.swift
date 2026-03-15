@@ -33,6 +33,11 @@ struct HealthScreen: View {
                     // Sleep summary
                     SleepSummaryCardView()
 
+                    // On-device sleep analysis (ML)
+                    if !sleepAnalyzer.stages.isEmpty {
+                        sleepAnalysisCard
+                    }
+
                     // Vitals summary
                     vitalsSummaryCard
 
@@ -81,11 +86,6 @@ struct HealthScreen: View {
                         ],
                         average: metricsManager.vitalsSummary?.avgBreathingRate
                     )
-
-                    // On-device sleep analysis
-                    if !sleepAnalyzer.stages.isEmpty {
-                        sleepAnalysisCard
-                    }
 
                     // Sleep stages timeline
                     SleepStagesTimelineView()
@@ -314,26 +314,39 @@ struct HealthScreen: View {
     // MARK: - Calibration Warning
 
     private var calibrationWarning: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14))
-                .foregroundColor(Theme.amber)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Data may be uncalibrated")
-                    .font(.caption.weight(.medium))
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.amber)
-                Text("Piezo sensors require calibration for accurate readings. Values shown may not reflect actual vitals.")
-                    .font(.caption2)
-                    .foregroundColor(Theme.textMuted)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Data may be uncalibrated")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(Theme.amber)
+                    Text("Piezo sensors require calibration for accurate readings. Values shown may not reflect actual vitals.")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                }
             }
+
+            Button {
+                Haptics.medium()
+                // TODO: Call calibration endpoint when available (core#138)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "tuningfork")
+                    Text("Recalibrate Sensors")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(Theme.amber)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Theme.amber.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
         }
-        .padding(12)
-        .background(Theme.amber.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Theme.amber.opacity(0.2), lineWidth: 1)
-        )
+        .cardStyle()
     }
 
     // MARK: - Fetch
@@ -445,20 +458,18 @@ struct VitalsChartCard: View {
                 }
                 Spacer()
 
-                if let sel = selectedRecord, let val = sel[keyPath: valueKey] {
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text("\(Int(val)) \(unit)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(color)
-                        Text(sel.timeLabel)
-                            .font(.caption2)
-                            .foregroundColor(Theme.textMuted)
-                    }
-                } else if let last = dataPoints.last {
-                    Text("\(Int(last.1)) \(unit)")
+                VStack(alignment: .trailing, spacing: 1) {
+                    let displayVal = selectedRecord?[keyPath: valueKey] ?? dataPoints.last?.1
+                    let displayTime = selectedRecord?.timeLabel
+
+                    Text("\(Int(displayVal ?? 0)) \(unit)")
                         .font(.caption.weight(.medium))
                         .foregroundColor(color)
+                    Text(displayTime ?? " ")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
                 }
+                .frame(width: 70, alignment: .trailing)
             }
 
             if dataPoints.isEmpty {
@@ -487,28 +498,30 @@ struct VitalsChartCard: View {
                                 .foregroundColor(color.opacity(0.5))
                         }
 
-                    // Data line
-                    ForEach(Array(dataPoints.enumerated()), id: \.offset) { _, point in
-                        LineMark(
-                            x: .value("Time", point.0),
-                            y: .value(title, point.1)
-                        )
-                        .foregroundStyle(color)
-                        .interpolationMethod(.catmullRom)
-                        .lineStyle(StrokeStyle(lineWidth: 2))
-
-                        AreaMark(
-                            x: .value("Time", point.0),
-                            y: .value(title, point.1)
-                        )
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [color.opacity(0.2), color.opacity(0.02)],
-                                startPoint: .top,
-                                endPoint: .bottom
+                    // Data line — use record ID for stable identity
+                    ForEach(records.filter { $0[keyPath: valueKey] != nil }, id: \.id) { record in
+                        if let val = record[keyPath: valueKey] {
+                            LineMark(
+                                x: .value("Time", record.date),
+                                y: .value(title, val)
                             )
-                        )
-                        .interpolationMethod(.catmullRom)
+                            .foregroundStyle(color)
+                            .interpolationMethod(.catmullRom)
+                            .lineStyle(StrokeStyle(lineWidth: 2))
+
+                            AreaMark(
+                                x: .value("Time", record.date),
+                                y: .value(title, val)
+                            )
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [color.opacity(0.2), color.opacity(0.02)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .interpolationMethod(.catmullRom)
+                        }
                     }
 
                     // Selection indicator

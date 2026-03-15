@@ -13,7 +13,7 @@ struct StatusScreen: View {
                 // Health circle
                 HealthCircleView()
 
-                // Service categories
+                // Service categories + hardware details
                 let cats = statusManager.categories(schedules: scheduleManager.schedules)
                 if cats.isEmpty && statusManager.isLoading {
                     LoadingView(message: "Checking services…")
@@ -22,11 +22,15 @@ struct StatusScreen: View {
                         ServiceCategoryView(category: category) { service in
                             Task { await statusManager.retryService(service) }
                         }
+
+                        // Insert hardware-related cards after the Hardware category
+                        if category.name == "Hardware" {
+                            processingCard
+                            calibrationCard
+                            networkDiscoveryCard
+                        }
                     }
                 }
-
-                // Network discovery
-                networkDiscoveryCard
 
                 // Logs
                 LogsView()
@@ -45,6 +49,224 @@ struct StatusScreen: View {
         .task {
             statusManager.startPolling()
             await scheduleManager.fetchSchedules()
+        }
+    }
+
+    // MARK: - Calibration
+
+    @State private var isCalibrationExpanded = false
+
+    private var calibrationCard: some View {
+        VStack(spacing: 0) {
+            Button {
+                Haptics.light()
+                withAnimation(.easeInOut(duration: 0.2)) { isCalibrationExpanded.toggle() }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "tuningfork")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.cyan)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.cyan.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    Text("Calibration")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.white)
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundColor(Theme.amber)
+                        Text("0/2")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "222222"))
+                    .clipShape(Capsule())
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                        .rotationEffect(.degrees(isCalibrationExpanded ? 90 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isCalibrationExpanded {
+                Divider().background(Theme.cardBorder).padding(.vertical, 8)
+
+                VStack(spacing: 8) {
+                    calibrationRow("Left sensor", status: "Not calibrated")
+                    calibrationRow("Right sensor", status: "Not calibrated")
+
+                    Button {
+                        Haptics.medium()
+                        // TODO: Call calibration endpoint (core#138)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "tuningfork")
+                            Text("Run Calibration")
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Theme.cyan)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Theme.cyan.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
+
+                    Text("Requires someone in bed for ~5 minutes to measure baseline sensor readings.")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                }
+            }
+        }
+        .padding(16)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func calibrationRow(_ label: String, status: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sensor.fill")
+                .font(.system(size: 11))
+                .foregroundColor(Theme.amber)
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.white)
+            Spacer()
+            Text(status)
+                .font(.caption)
+                .foregroundColor(Theme.amber)
+        }
+    }
+
+    // MARK: - Processing
+
+    @State private var isMLExpanded = false
+
+    private var processingCard: some View {
+        VStack(spacing: 0) {
+            Button {
+                Haptics.light()
+                withAnimation(.easeInOut(duration: 0.2)) { isMLExpanded.toggle() }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "brain")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.purple)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.purple.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("On-Device Intelligence")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.white)
+                        Text("Core ML pipeline")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption2)
+                            .foregroundColor(Theme.healthy)
+                        Text("3/3")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "222222"))
+                    .clipShape(Capsule())
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                        .rotationEffect(.degrees(isMLExpanded ? 90 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isMLExpanded {
+                Divider().background(Theme.cardBorder).padding(.vertical, 8)
+
+                VStack(spacing: 6) {
+                    modelRow(
+                        name: "Sleep Stage Classifier",
+                        type: "Rule-based",
+                        status: "Active",
+                        icon: "moon.zzz.fill",
+                        color: Theme.purple
+                    )
+                    modelRow(
+                        name: "Outlier Filter",
+                        type: "Boundary (HR>200, HRV>300)",
+                        status: "Active",
+                        icon: "line.3.crossed.swirl.circle.fill",
+                        color: Theme.accent
+                    )
+                    modelRow(
+                        name: "HRV Trend Analysis",
+                        type: "EMA baseline comparison",
+                        status: "Active",
+                        icon: "chart.xyaxis.line",
+                        color: Theme.healthy
+                    )
+
+                    Divider().background(Theme.cardBorder).padding(.vertical, 4)
+
+                    // Future models
+                    modelRow(
+                        name: "Sleep Stage CNN",
+                        type: "Core ML · Requires training data",
+                        status: "Not trained",
+                        icon: "brain.head.profile.fill",
+                        color: Theme.textMuted
+                    )
+                    modelRow(
+                        name: "Anomaly Detection",
+                        type: "Core ML · Requires baseline",
+                        status: "Not trained",
+                        icon: "exclamationmark.bubble.fill",
+                        color: Theme.textMuted
+                    )
+                }
+            }
+        }
+        .padding(16)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func modelRow(name: String, type: String, status: String, icon: String, color: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundColor(color)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name)
+                    .font(.caption)
+                    .foregroundColor(.white)
+                Text(type)
+                    .font(.caption2)
+                    .foregroundColor(Theme.textMuted)
+            }
+            Spacer()
+            Text(status)
+                .font(.caption2)
+                .foregroundColor(color == Theme.textMuted ? Theme.textMuted : Theme.healthy)
         }
     }
 

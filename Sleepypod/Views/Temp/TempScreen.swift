@@ -7,49 +7,45 @@ struct TempScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             if deviceManager.isConnected {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Priming alert
-                        if deviceManager.deviceStatus?.isPriming == true {
-                            AlertBanner(
-                                icon: "drop.fill",
-                                title: "Pod is Priming",
-                                message: "Water is being circulated through the system",
-                                style: .info
-                            )
-                        }
-
-                        // Alarm banner
-                        if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
-                            AlarmBanner(side: side) {
-                                deviceManager.stopAlarm()
-                            }
-                        }
-
-                        // Temperature dial (tap to toggle power)
-                        TemperatureDialView()
-                            .onTapGesture {
-                                Haptics.medium()
-                                deviceManager.togglePower()
-                            }
-
-                        // Controls (+/- and OFF)
-                        TempControlsView()
-
-                        // Environment info (water + ambient temp)
-                        EnvironmentInfoView()
-                            .padding(.top, 4)
+                // Alerts at top (only when needed)
+                VStack(spacing: 8) {
+                    if deviceManager.deviceStatus?.isPriming == true {
+                        AlertBanner(
+                            icon: "drop.fill",
+                            title: "Pod is Priming",
+                            message: "Water is being circulated through the system",
+                            style: .info
+                        )
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
+                        AlarmBanner(side: side) {
+                            deviceManager.stopAlarm()
+                        }
+                    }
                 }
+                .padding(.horizontal, 16)
+
+                // Centered content between top and side selector
+                Spacer(minLength: 0)
+
+                VStack(spacing: 24) {
+                    TemperatureDialView()
+                        .onTapGesture {
+                            Haptics.medium()
+                            deviceManager.togglePower()
+                        }
+
+                    TempControlsView()
+
+                    EnvironmentInfoView()
+                }
+                .padding(.horizontal, 16)
 
                 Spacer(minLength: 0)
 
-                // Side selector pinned between content and tab bar
+                // Side selector pinned at bottom
                 SideSelectorView()
                     .padding(.horizontal, 16)
-                    .padding(.top, 8)
                     .padding(.bottom, 16)
             } else {
                 DisconnectedTabView(tab: "Temp")

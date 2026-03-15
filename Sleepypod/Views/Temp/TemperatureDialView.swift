@@ -41,36 +41,36 @@ struct TemperatureDialView: View {
 
     private var ringColor: Color {
         guard isOn else { return Color(hex: "333333") }
-        return TempColor.forOffset(targetOffset)
+        return TempColor.forDelta(target: targetTempF, current: currentTempF)
     }
 
     private var tempColor: Color {
         guard isOn else { return Theme.textMuted }
-        return TempColor.forOffset(targetOffset)
+        return TempColor.forDelta(target: targetTempF, current: currentTempF)
     }
 
     private var glowColor: Color {
         guard isOn else { return Color.gray.opacity(0.2) }
-        return TempColor.glowForOffset(targetOffset)
+        return TempColor.glowForDelta(target: targetTempF, current: currentTempF)
     }
 
     private var directionLabel: String? {
         guard isOn else { return nil }
-        if targetOffset > 0 { return "WARMING TO" }
-        if targetOffset < 0 { return "COOLING TO" }
+        if targetTempF > currentTempF { return "WARMING TO" }
+        if targetTempF < currentTempF { return "COOLING TO" }
         return nil
     }
 
     /// Normalized progress 0...1 for the target temp within the dial range
     private var targetProgress: Double {
-        let clamped = max(TemperatureConversion.minOffset, min(TemperatureConversion.maxOffset, targetOffset))
-        return Double(clamped - TemperatureConversion.minOffset) / Double(TemperatureConversion.maxOffset - TemperatureConversion.minOffset)
+        let clamped = max(TemperatureConversion.minTempF, min(TemperatureConversion.maxTempF, targetTempF))
+        return Double(clamped - TemperatureConversion.minTempF) / Double(TemperatureConversion.maxTempF - TemperatureConversion.minTempF)
     }
 
     /// Normalized progress for current temp (for the filled arc)
     private var currentProgress: Double {
-        let clamped = max(TemperatureConversion.minOffset, min(TemperatureConversion.maxOffset, currentOffset))
-        return Double(clamped - TemperatureConversion.minOffset) / Double(TemperatureConversion.maxOffset - TemperatureConversion.minOffset)
+        let clamped = max(TemperatureConversion.minTempF, min(TemperatureConversion.maxTempF, currentTempF))
+        return Double(clamped - TemperatureConversion.minTempF) / Double(TemperatureConversion.maxTempF - TemperatureConversion.minTempF)
     }
 
     var body: some View {
@@ -117,10 +117,14 @@ struct TemperatureDialView: View {
                         .padding(.top, 2)
 
                     if let remaining = sideStatus?.secondsRemaining, remaining > 0 {
-                        Text(formatRemaining(remaining))
-                            .font(.caption2)
-                            .foregroundColor(Theme.textMuted)
-                            .padding(.top, 2)
+                        HStack(spacing: 4) {
+                            Image(systemName: "timer")
+                                .font(.system(size: 10))
+                            Text(formatRemaining(remaining))
+                        }
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                        .padding(.top, 2)
                     }
                 } else {
                     Text("OFF")
@@ -189,14 +193,14 @@ struct TemperatureDialView: View {
 
         guard progress >= 0, progress <= 1 else { return }
 
-        // Map progress to offset
-        let newOffset = TemperatureConversion.minOffset + Int(round(progress * Double(TemperatureConversion.maxOffset - TemperatureConversion.minOffset)))
-        let clampedOffset = max(TemperatureConversion.minOffset, min(TemperatureConversion.maxOffset, newOffset))
+        // Map progress to temperature
+        let range = TemperatureConversion.maxTempF - TemperatureConversion.minTempF
+        let newTempF = TemperatureConversion.minTempF + Int(round(progress * Double(range)))
+        let clamped = max(TemperatureConversion.minTempF, min(TemperatureConversion.maxTempF, newTempF))
 
-        if clampedOffset != targetOffset {
+        if clamped != targetTempF {
             Haptics.light()
-            let newTempF = TemperatureConversion.offsetToTempF(clampedOffset)
-            deviceManager.setTemperature(newTempF)
+            deviceManager.setTemperature(clamped)
         }
     }
 
@@ -213,8 +217,8 @@ struct TemperatureDialView: View {
     private func formatRemaining(_ seconds: Int) -> String {
         let hours = seconds / 3600
         let minutes = (seconds % 3600) / 60
-        if hours > 0 { return "Turns off in \(hours)h \(minutes)m" }
-        return "Turns off in \(minutes)m"
+        if hours > 0 { return "Auto-off in \(hours)h \(minutes)m" }
+        return "Auto-off in \(minutes)m"
     }
 }
 

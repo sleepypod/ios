@@ -2,17 +2,17 @@ import SwiftUI
 
 enum TemperatureConversion {
     static let baseTempF = 80
-    static let minOffset = -10
-    static let maxOffset = 10
+    static let minOffset = -20
+    static let maxOffset = 20
     static let minTempF = 55
     static let maxTempF = 110
 
     static func tempFToOffset(_ tempF: Int) -> Int {
-        (tempF - baseTempF) / 2
+        tempF - baseTempF
     }
 
     static func offsetToTempF(_ offset: Int) -> Int {
-        baseTempF + offset * 2
+        baseTempF + offset
     }
 
     static func tempFToC(_ tempF: Int) -> Double {
@@ -43,16 +43,43 @@ enum TemperatureConversion {
 // MARK: - Temperature Colors
 
 enum TempColor {
-    static func forOffset(_ offset: Int) -> Color {
-        if offset < 0 { return Theme.cooling }
-        if offset > 0 { return Theme.warming }
-        return Theme.textSecondary
+    // Deep blue → soft blue → neutral → soft orange → deep red
+    private static let coldDeep = Color(hex: "2563eb")   // -10°F+
+    private static let coldMid  = Color(hex: "4a90d9")   // -5°F
+    private static let coldSoft = Color(hex: "7ab5e0")   // -2°F
+    private static let neutral  = Color(hex: "9ca3af")   // 0°F
+    private static let warmSoft = Color(hex: "e0976a")   // +2°F
+    private static let warmMid  = Color(hex: "dc6646")   // +5°F
+    private static let warmDeep = Color(hex: "dc2626")   // +10°F+
+
+    /// Gradient color based on delta between target and current temp.
+    /// Intensity scales with how far apart they are.
+    static func forDelta(target: Int, current: Int) -> Color {
+        let delta = target - current  // positive = warming, negative = cooling
+        return colorForDelta(delta)
     }
 
-    static func glowForOffset(_ offset: Int) -> Color {
-        if offset < 0 { return Theme.cooling.opacity(0.6) }
-        if offset > 0 { return Theme.warming.opacity(0.6) }
-        return Color.gray.opacity(0.3)
+    static func glowForDelta(target: Int, current: Int) -> Color {
+        let delta = target - current
+        let intensity = min(abs(Double(delta)) / 10.0, 1.0) * 0.6
+        return colorForDelta(delta).opacity(max(intensity, 0.15))
+    }
+
+    /// Offset-based color for side selector (relative to 80°F base)
+    static func forOffset(_ offset: Int) -> Color {
+        colorForDelta(offset)
+    }
+
+    private static func colorForDelta(_ delta: Int) -> Color {
+        switch delta {
+        case ...(-8): return coldDeep
+        case -7...(-5): return coldMid
+        case -4...(-2): return coldSoft
+        case -1...1: return neutral
+        case 2...4: return warmSoft
+        case 5...7: return warmMid
+        default: return warmDeep
+        }
     }
 }
 

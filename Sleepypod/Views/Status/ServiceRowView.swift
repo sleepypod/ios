@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ServiceRowView: View {
     let service: StatusInfo
+    var onRetry: (() -> Void)?
 
     private var statusColor: Color {
         switch service.status {
@@ -13,6 +14,19 @@ struct ServiceRowView: View {
             Theme.amber
         case .notStarted:
             Theme.textMuted
+        }
+    }
+
+    private var statusIcon: String {
+        switch service.status {
+        case .healthy, .started:
+            "checkmark.circle.fill"
+        case .failed:
+            "exclamationmark.circle.fill"
+        case .restarting, .retrying:
+            "exclamationmark.triangle.fill"
+        case .notStarted:
+            "minus.circle.fill"
         }
     }
 
@@ -38,10 +52,26 @@ struct ServiceRowView: View {
 
             Spacer()
 
-            // Status indicator
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
+            // Retry button for failed services
+            if service.status == .failed, let onRetry {
+                Button {
+                    Haptics.medium()
+                    onRetry()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Theme.accent.opacity(0.3))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Status icon
+            Image(systemName: statusIcon)
+                .font(.system(size: 14))
+                .foregroundColor(statusColor)
         }
         .padding(.vertical, 4)
     }

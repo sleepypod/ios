@@ -45,6 +45,7 @@
 		A0F4BEF942158DB8DFA4A5BA /* LogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4849B345B1C029B80DB86F /* LogsView.swift */; };
 		A510F6C3ACD796739DB48BEC /* FreeSleepAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8330503AC6FDE01A58EF90 /* FreeSleepAPI.swift */; };
 		A723A40EBCB30E4352F9D4B1 /* ProfilePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */; };
+		AF368CE52344A599C020EA68 /* PodDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C803665AE72E33B8B50730E9 /* PodDiscovery.swift */; };
 		B19E23F89C20C6BCB36E6787 /* UpdateCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */; };
 		B315E300474396FF502E7D0B /* HeartRateChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */; };
 		B709C74417DEA75FDA8BFA97 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */; };
@@ -102,8 +103,10 @@
 		B15950D49CE8BFE7FF628BDB /* SleepStagesTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepStagesTimelineView.swift; sourceTree = "<group>"; };
 		B7C94AEB5A7EF2FE53231869 /* VitalsRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsRecord.swift; sourceTree = "<group>"; };
 		BED50F23F24049CF0324CF1B /* DeviceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatus.swift; sourceTree = "<group>"; };
+		C1287F50609E837343ABE038 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C5A1999947F6DB7202489B6C /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyBarChartView.swift; sourceTree = "<group>"; };
+		C803665AE72E33B8B50730E9 /* PodDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodDiscovery.swift; sourceTree = "<group>"; };
 		CB85BC15DC6D3030C728B6FC /* Side.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Side.swift; sourceTree = "<group>"; };
 		D2495028E884905FC457615E /* VitalsReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsReport.swift; sourceTree = "<group>"; };
 		D3AB3B17FD36D878C2457E20 /* HealthCircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCircleView.swift; sourceTree = "<group>"; };
@@ -231,6 +234,7 @@
 			children = (
 				2941CA088FC1C77B69F36D60 /* DeviceManager.swift */,
 				D7A651EEB721EF0EFD1B2D16 /* MetricsManager.swift */,
+				C803665AE72E33B8B50730E9 /* PodDiscovery.swift */,
 				A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */,
 				68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */,
 				4F4EAF0885B4206D02501DC8 /* StatusManager.swift */,
@@ -253,6 +257,7 @@
 			isa = PBXGroup;
 			children = (
 				9E902CB9201C2AE527A6C49F /* Assets.xcassets */,
+				C1287F50609E837343ABE038 /* Info.plist */,
 				54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */,
 				B59E5A73B7775D671213BDBD /* Models */,
 				791A521FE16A196430F60B8B /* Networking */,
@@ -351,6 +356,7 @@
 				75C07CF3E25E008754ECA924 /* MovementCardView.swift in Sources */,
 				3F3CA68DBFC6398C218DB8D0 /* MovementRecord.swift in Sources */,
 				F43BB4E4BD6341C7700A6480 /* PhaseBlockView.swift in Sources */,
+				AF368CE52344A599C020EA68 /* PodDiscovery.swift in Sources */,
 				A723A40EBCB30E4352F9D4B1 /* ProfilePickerView.swift in Sources */,
 				89CC786871A5B3B08D0EC3C4 /* Schedule.swift in Sources */,
 				4B76AE90EF4105BC911F5102 /* ScheduleManager.swift in Sources */,
@@ -394,6 +400,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Sleepypod/Info.plist;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sleepypod needs local network access to communicate with your pod";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -478,6 +485,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Sleepypod/Info.plist;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sleepypod needs local network access to communicate with your pod";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;

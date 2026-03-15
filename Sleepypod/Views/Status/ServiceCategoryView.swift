@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ServiceCategoryView: View {
     let category: ServiceCategory
+    var onRetry: ((StatusInfo) -> Void)?
     @State private var isExpanded = false
 
     var body: some View {
@@ -30,15 +31,22 @@ struct ServiceCategoryView: View {
                         Text(category.description)
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
+                        if let subtitle = category.subtitle {
+                            Text(subtitle)
+                                .font(.caption2)
+                                .foregroundColor(Theme.accent)
+                                .lineLimit(1)
+                        }
                     }
 
                     Spacer()
 
                     // Status badge
                     HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
+                        let allHealthy = category.healthyCount == category.services.count
+                        Image(systemName: allHealthy ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                             .font(.caption2)
-                            .foregroundColor(category.healthyCount == category.services.count ? Theme.healthy : Theme.amber)
+                            .foregroundColor(allHealthy ? Theme.healthy : Theme.amber)
                         Text("\(category.healthyCount)/\(category.services.count)")
                             .font(.caption.weight(.medium))
                             .foregroundColor(Theme.textSecondary)
@@ -65,7 +73,9 @@ struct ServiceCategoryView: View {
 
                 VStack(spacing: 8) {
                     ForEach(category.services) { service in
-                        ServiceRowView(service: service)
+                        ServiceRowView(service: service) {
+                            onRetry?(service)
+                        }
                     }
                 }
             }

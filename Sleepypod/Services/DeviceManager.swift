@@ -11,6 +11,7 @@ final class DeviceManager {
     var selectedSide: SideSelection = .left
     var isLinked = false
     var error: String?
+    var lastUpdated: Date?
 
     /// Show spinner for first 3 attempts, then show failed state
     var showConnectionFailed: Bool {
@@ -81,7 +82,7 @@ final class DeviceManager {
                     await fetchStatus()
                 }
                 // Retry faster when disconnected, normal interval when connected
-                let interval: Duration = isConnected ? .seconds(30) : .seconds(5)
+                let interval: Duration = isConnected ? .seconds(10) : .seconds(5)
                 try? await Task.sleep(for: interval)
             }
         }
@@ -103,6 +104,7 @@ final class DeviceManager {
             isConnecting = false
             retryCount = 0
             error = nil
+            lastUpdated = Date()
         } catch {
             isConnected = false
             isConnecting = false
@@ -216,6 +218,9 @@ final class DeviceManager {
         isLinked.toggle()
         if isLinked {
             selectedSide = .both
+        } else {
+            // Fall back to the primary side when unlinking
+            selectedSide = .left
         }
     }
 

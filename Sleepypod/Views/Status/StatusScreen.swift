@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StatusScreen: View {
     @Environment(StatusManager.self) private var statusManager
+    @Environment(ScheduleManager.self) private var scheduleManager
 
     var body: some View {
         ScrollView {
@@ -10,13 +11,16 @@ struct StatusScreen: View {
                 HealthCircleView()
 
                 // Service categories
-                if statusManager.categories.isEmpty && statusManager.isLoading {
+                let cats = statusManager.categories(schedules: scheduleManager.schedules)
+                if cats.isEmpty && statusManager.isLoading {
                     ProgressView()
                         .tint(Theme.accent)
                         .padding(40)
                 } else {
-                    ForEach(statusManager.categories) { category in
-                        ServiceCategoryView(category: category)
+                    ForEach(cats) { category in
+                        ServiceCategoryView(category: category) { service in
+                            Task { await statusManager.retryService(service) }
+                        }
                     }
                 }
 
@@ -53,6 +57,7 @@ struct StatusScreen: View {
         .background(Theme.background)
         .task {
             statusManager.startPolling()
+            await scheduleManager.fetchSchedules()
         }
     }
 

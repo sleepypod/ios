@@ -37,8 +37,8 @@ struct ServerStatus: Codable, Sendable {
     var alarmSchedule: StatusInfo
     var database: StatusInfo
     var express: StatusInfo
-    var franken: StatusInfo
-    var frankenMonitor: StatusInfo
+    var podSocket: StatusInfo
+    var podSocketMonitor: StatusInfo
     var jobs: StatusInfo
     var logger: StatusInfo
     var powerSchedule: StatusInfo
@@ -53,9 +53,20 @@ struct ServerStatus: Codable, Sendable {
     var biometricsCalibrationLeft: StatusInfo?
     var biometricsCalibrationRight: StatusInfo?
 
+    enum CodingKeys: String, CodingKey {
+        case alarmSchedule, database, express
+        case podSocket = "franken"
+        case podSocketMonitor = "frankenMonitor"
+        case jobs, logger, powerSchedule, primeSchedule, rebootSchedule
+        case systemDate, temperatureSchedule
+        case analyzeSleepLeft, analyzeSleepRight
+        case biometricsInstallation, biometricsStream
+        case biometricsCalibrationLeft, biometricsCalibrationRight
+    }
+
     var allStatuses: [StatusInfo] {
         var statuses = [
-            alarmSchedule, database, express, franken, frankenMonitor,
+            alarmSchedule, database, express, podSocket, podSocketMonitor,
             jobs, logger, powerSchedule, primeSchedule, rebootSchedule,
             systemDate, temperatureSchedule
         ]
@@ -82,9 +93,19 @@ struct ServiceCategory: Identifiable, Sendable {
     let id = UUID()
     let name: String
     let description: String
+    let subtitle: String?
     let iconName: String
     let iconColorHex: String
     let services: [StatusInfo]
+
+    init(name: String, description: String, subtitle: String? = nil, iconName: String, iconColorHex: String, services: [StatusInfo]) {
+        self.name = name
+        self.description = description
+        self.subtitle = subtitle
+        self.iconName = iconName
+        self.iconColorHex = iconColorHex
+        self.services = services
+    }
 
     var healthyCount: Int {
         services.filter(\.status.isHealthy).count

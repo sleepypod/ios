@@ -38,15 +38,27 @@ struct TempScreen: View {
                     TempControlsView()
 
                     EnvironmentInfoView()
+
+                    // Last updated — tap to refresh
+                    if let lastUpdated = deviceManager.lastUpdated {
+                        Button {
+                            Haptics.light()
+                            Task { await deviceManager.fetchStatus() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 10))
+                                Text("Updated \(lastUpdated, format: .relative(presentation: .named))")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(Theme.textMuted)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal, 16)
 
                 Spacer(minLength: 0)
-
-                // Side selector pinned at bottom
-                SideSelectorView()
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
             } else {
                 DisconnectedTabView(tab: "Temp")
             }

@@ -8,6 +8,7 @@ struct SleepypodApp: App {
     @State private var statusManager: StatusManager
     @State private var settingsManager: SettingsManager
     @State private var updateChecker = UpdateChecker()
+    @State private var podDiscovery = PodDiscovery()
 
     init() {
         let client = APIBackend.current.createClient()
@@ -33,6 +34,7 @@ struct SleepypodApp: App {
                 .environment(statusManager)
                 .environment(settingsManager)
                 .environment(updateChecker)
+                .environment(podDiscovery)
                 .preferredColorScheme(.dark)
         }
     }
@@ -50,6 +52,13 @@ struct ContentView: View {
         TabView(selection: $selectedTab) {
             Tab("Temp", systemImage: "thermometer.medium", value: "temp") {
                 TempScreen()
+                    .safeAreaInset(edge: .bottom) {
+                        if isConnected {
+                            SideSelectorView()
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                        }
+                    }
             }
             Tab("Schedule", systemImage: "calendar", value: "schedule") {
                 if isConnected {

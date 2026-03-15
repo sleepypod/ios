@@ -44,12 +44,9 @@ jobs:
       - name: Install core dependencies
         run: cd core-checkout && pnpm install --frozen-lockfile
 
-      - name: Build core
-        run: cd core-checkout && pnpm build
-
-      - name: Start core server
+      - name: Start core server (dev mode)
         run: |
-          cd core-checkout && pnpm start &
+          cd core-checkout && pnpm dev &
           echo "SERVER_PID=$!" >> "$GITHUB_ENV"
 
       - name: Wait for server

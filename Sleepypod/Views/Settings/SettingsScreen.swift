@@ -193,7 +193,7 @@ struct SettingsScreen: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                wifiIndicator
+                connectionIndicator
             }
         }
         .padding(12)
@@ -244,11 +244,15 @@ struct SettingsScreen: View {
     }
 
     @ViewBuilder
-    private var wifiIndicator: some View {
-        let strength = deviceManager.deviceStatus?.wifiStrength ?? 0
+    private var connectionIndicator: some View {
         let connected = deviceManager.isConnected
 
-        if connected {
+        if deviceManager.isConnecting {
+            ProgressView()
+                .tint(Theme.accent)
+                .scaleEffect(0.7)
+        } else if connected {
+            let strength = deviceManager.deviceStatus?.wifiStrength ?? 0
             HStack(spacing: 4) {
                 Image(systemName: "wifi")
                     .font(.system(size: 12))
@@ -258,9 +262,9 @@ struct SettingsScreen: View {
                     .foregroundColor(wifiColor(strength))
             }
         } else {
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 12))
-                .foregroundColor(Theme.error)
+            Circle()
+                .fill(Theme.error)
+                .frame(width: 8, height: 8)
         }
     }
 

@@ -19,36 +19,38 @@ struct TempScreen: View {
                         ConnectingView()
                     }
 
-                    // Priming alert
-                    if deviceManager.deviceStatus?.isPriming == true {
-                        AlertBanner(
-                            icon: "drop.fill",
-                            title: "Pod is Priming",
-                            message: "Water is being circulated through the system",
-                            style: .info
-                        )
-                    }
-
-                    // Alarm banner
-                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
-                        AlarmBanner(side: side) {
-                            deviceManager.stopAlarm()
-                        }
-                    }
-
-                    // Temperature dial (tap to toggle power)
-                    TemperatureDialView()
-                        .onTapGesture {
-                            Haptics.medium()
-                            deviceManager.togglePower()
+                    if deviceManager.isConnected {
+                        // Priming alert
+                        if deviceManager.deviceStatus?.isPriming == true {
+                            AlertBanner(
+                                icon: "drop.fill",
+                                title: "Pod is Priming",
+                                message: "Water is being circulated through the system",
+                                style: .info
+                            )
                         }
 
-                    // Controls (+/- and OFF)
-                    TempControlsView()
+                        // Alarm banner
+                        if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
+                            AlarmBanner(side: side) {
+                                deviceManager.stopAlarm()
+                            }
+                        }
 
-                    // Environment info (water + ambient temp)
-                    EnvironmentInfoView()
-                        .padding(.top, 4)
+                        // Temperature dial (tap to toggle power)
+                        TemperatureDialView()
+                            .onTapGesture {
+                                Haptics.medium()
+                                deviceManager.togglePower()
+                            }
+
+                        // Controls (+/- and OFF)
+                        TempControlsView()
+
+                        // Environment info (water + ambient temp)
+                        EnvironmentInfoView()
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)

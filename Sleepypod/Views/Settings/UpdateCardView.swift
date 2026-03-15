@@ -9,7 +9,7 @@ struct UpdateCardView: View {
     }
 
     private var runningBranch: String {
-        deviceManager.deviceStatus?.freeSleep.branch ?? "—"
+        updateChecker.trackingBranch
     }
 
     var body: some View {

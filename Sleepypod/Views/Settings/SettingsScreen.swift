@@ -5,7 +5,10 @@ struct SettingsScreen: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(UpdateChecker.self) private var updateChecker
     @FocusState private var isIPFieldFocused: Bool
+    @FocusState private var isBranchFieldFocused: Bool
     @State private var selectedBackend = APIBackend.current
+    @State private var selectedBranch = UserDefaults.standard.string(forKey: "podBranch") ?? "main"
+    @State private var isCustomBranch = false
 
     var body: some View {
         ScrollView {
@@ -35,7 +38,7 @@ struct SettingsScreen: View {
         }
         .background(Theme.background)
         .scrollDismissesKeyboard(.interactively)
-        .onTapGesture { isIPFieldFocused = false }
+        .onTapGesture { isIPFieldFocused = false; isBranchFieldFocused = false }
         .task {
             await settingsManager.fetchSettings()
             updateChecker.runningVersion = deviceManager.deviceStatus?.freeSleep.version
@@ -87,6 +90,92 @@ struct SettingsScreen: View {
                 .font(.caption)
                 .foregroundColor(Theme.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Branch picker
+            HStack {
+                Text("Branch")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.white)
+                Spacer()
+                Menu {
+                    Button { setBranch("main") } label: {
+                        HStack {
+                            Text("main")
+                            if selectedBranch == "main" && !isCustomBranch {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    Button { setBranch("dev") } label: {
+                        HStack {
+                            Text("dev")
+                            if selectedBranch == "dev" && !isCustomBranch {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    Divider()
+                    Button {
+                        Haptics.tap()
+                        isCustomBranch = true
+                        isBranchFieldFocused = true
+                    } label: {
+                        HStack {
+                            Text("Custom…")
+                            if isCustomBranch {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.triangle.branch")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                        Text(selectedBranch)
+                            .font(.subheadline)
+                            .foregroundColor(Theme.accent)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textMuted)
+                    }
+                }
+            }
+
+            if isCustomBranch {
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.triangle.branch")
+                        .foregroundColor(Theme.accent)
+                    TextField("Branch name", text: $selectedBranch)
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                        .textFieldStyle(.plain)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .focused($isBranchFieldFocused)
+                        .submitLabel(.done)
+                        .onSubmit {
+                            isBranchFieldFocused = false
+                            saveBranch()
+                        }
+
+                    if isBranchFieldFocused {
+                        Button {
+                            Haptics.light()
+                            isBranchFieldFocused = false
+                            saveBranch()
+                        } label: {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(Theme.healthy)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(12)
+                .background(Theme.cardElevated)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
 
             Divider().background(Theme.cardBorder)
 
@@ -173,6 +262,21 @@ struct SettingsScreen: View {
         if strength >= 50 { return Theme.healthy }
         if strength >= 25 { return Theme.amber }
         return Theme.error
+    }
+
+    private func setBranch(_ branch: String) {
+        Haptics.tap()
+        selectedBranch = branch
+        isCustomBranch = false
+        saveBranch()
+    }
+
+    private func saveBranch() {
+        let trimmed = selectedBranch.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        selectedBranch = trimmed
+        UserDefaults.standard.set(trimmed, forKey: "podBranch")
+        updateChecker.trackingBranch = trimmed
     }
 
     // MARK: - Device Info

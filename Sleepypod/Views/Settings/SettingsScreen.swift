@@ -76,15 +76,6 @@ struct SettingsScreen: View {
                         Text(selectedBackend.displayName)
                             .font(.subheadline)
                             .foregroundColor(Theme.accent)
-                        if selectedBackend.isRecommended {
-                            Text("Recommended")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Theme.healthy)
-                                .clipShape(Capsule())
-                        }
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.caption2)
                             .foregroundColor(Theme.textMuted)

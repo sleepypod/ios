@@ -13,8 +13,8 @@ enum APIBackend: String, CaseIterable, Sendable {
 
     var description: String {
         switch self {
-        case .freeSleep: "Legacy server — some features may be incomplete or unsupported"
-        case .sleepypodCore: "Built for reliability with full feature support"
+        case .freeSleep: "Legacy server — some features may be incomplete or unsupported. Consider switching to Sleepypod for smarter schedules, faster syncing, and better sleep insights."
+        case .sleepypodCore: "✨ You're on the best experience — smarter schedules, faster syncing, and deeper sleep insights."
         }
     }
 

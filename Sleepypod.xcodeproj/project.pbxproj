@@ -36,6 +36,7 @@
 		7225E391367AFFDAA7450354 /* SleepypodProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0144EC2C3B96839B69D7A14A /* SleepypodProtocol.swift */; };
 		75C07CF3E25E008754ECA924 /* MovementCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 452905BE65E698AC3C3419A6 /* MovementCardView.swift */; };
 		76BE44719ADE65F1F800F35D /* SleepypodApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */; };
+		783B095FE1D933AE14D94C97 /* RawDataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50BD72013CAB411F125A77BC /* RawDataSheet.swift */; };
 		7B18A3F8BC4258895EBEE279 /* ServiceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE210E5A8FC6945D3DE384C /* ServiceRowView.swift */; };
 		7ECF8266BF6DB9733BB31DDF /* ServiceCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6E2D8EB06314CC264F24D1 /* ServiceCategoryView.swift */; };
 		80473DBF0C206E692C09E07B /* StatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F4EAF0885B4206D02501DC8 /* StatusManager.swift */; };
@@ -95,6 +96,7 @@
 		4A8BAD843B5F8A9CD181A2AE /* TempScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempScreen.swift; sourceTree = "<group>"; };
 		4BE210E5A8FC6945D3DE384C /* ServiceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceRowView.swift; sourceTree = "<group>"; };
 		4F4EAF0885B4206D02501DC8 /* StatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusManager.swift; sourceTree = "<group>"; };
+		50BD72013CAB411F125A77BC /* RawDataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawDataSheet.swift; sourceTree = "<group>"; };
 		537D551820017038203719E1 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodApp.swift; sourceTree = "<group>"; };
 		62E924A9B264056469B99997 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
@@ -146,6 +148,7 @@
 				0370A4FF64B61475AC0C1125 /* HealthScreen.swift */,
 				0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */,
 				452905BE65E698AC3C3419A6 /* MovementCardView.swift */,
+				50BD72013CAB411F125A77BC /* RawDataSheet.swift */,
 				A22017869B6697F13244EF76 /* ShareSheet.swift */,
 				B15950D49CE8BFE7FF628BDB /* SleepStagesTimelineView.swift */,
 				021A79157277D6B7C8DF4639 /* SleepSummaryCardView.swift */,
@@ -389,6 +392,7 @@
 				F43BB4E4BD6341C7700A6480 /* PhaseBlockView.swift in Sources */,
 				AF368CE52344A599C020EA68 /* PodDiscovery.swift in Sources */,
 				A723A40EBCB30E4352F9D4B1 /* ProfilePickerView.swift in Sources */,
+				783B095FE1D933AE14D94C97 /* RawDataSheet.swift in Sources */,
 				89CC786871A5B3B08D0EC3C4 /* Schedule.swift in Sources */,
 				4B76AE90EF4105BC911F5102 /* ScheduleManager.swift in Sources */,
 				0B484FB88EA2286B4B2B83EB /* ScheduleScreen.swift in Sources */,

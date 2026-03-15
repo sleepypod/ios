@@ -96,8 +96,37 @@ struct HealthScreen: View {
                     // Movement
                     MovementCardView()
 
-                    // Raw data section
-                    rawDataSection
+                    // Raw data button → opens bottom sheet
+                    Button {
+                        Haptics.light()
+                        showRawData = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 14))
+                                .foregroundColor(Theme.textSecondary)
+                                .frame(width: 32, height: 32)
+                                .background(Theme.textSecondary.opacity(0.2))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Raw Data")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundColor(.white)
+                                Text("\(vitals.count) vitals · \(metricsManager.sleepRecords.count) sleep · \(metricsManager.selectedSide.displayName) side")
+                                    .font(.caption)
+                                    .foregroundColor(Theme.textSecondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "arrow.up.doc")
+                                .font(.system(size: 14))
+                                .foregroundColor(Theme.accent)
+                        }
+                        .cardStyle()
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 16)
@@ -106,6 +135,18 @@ struct HealthScreen: View {
         .background(Theme.background)
         .refreshable { await refresh() }
         .task { await refresh() }
+        .sheet(isPresented: $showRawData) {
+            RawDataSheet(
+                vitals: vitals,
+                smoothedVitals: smoothedVitals,
+                metricsManager: metricsManager
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .onChange(of: metricsManager.selectedSide) {
+            Task { await fetchVitals() }
+        }
     }
 
     // MARK: - Smoothed Vitals
@@ -194,177 +235,6 @@ struct HealthScreen: View {
         }
     }
 
-    // MARK: - Raw Data Section
-
-    @State private var isExporting = false
-    @State private var exportURL: URL?
-    @State private var showShareSheet = false
-
-    private var rawDataSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                Haptics.light()
-                withAnimation(.easeInOut(duration: 0.2)) { showRawData.toggle() }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "doc.text")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.textSecondary.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Raw Data")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
-                        Text("\(vitals.count) vitals · \(metricsManager.sleepRecords.count) sleep records")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(Theme.textMuted)
-                        .rotationEffect(.degrees(showRawData ? 90 : 0))
-                }
-            }
-            .buttonStyle(.plain)
-
-            if showRawData {
-                VStack(spacing: 8) {
-                    // Stats
-                    let filtered = smoothedVitals.count
-                    let total = vitals.count
-                    let dropped = total - filtered
-
-                    rawStatRow("Vitals records", "\(total)")
-                    rawStatRow("After filtering", "\(filtered)")
-                    if dropped > 0 {
-                        rawStatRow("Outliers removed", "\(dropped)", color: Theme.amber)
-                    }
-                    rawStatRow("Sleep sessions", "\(metricsManager.sleepRecords.count)")
-                    rawStatRow("Movement records", "\(metricsManager.movementRecords.count)")
-
-                    Divider().background(Theme.cardBorder).padding(.vertical, 4)
-
-                    // File list
-                    dataFileRow(
-                        name: "vitals-\(metricsManager.selectedSide.rawValue).csv",
-                        size: "\(vitals.count) rows",
-                        icon: "heart.text.clipboard"
-                    ) { exportVitalsCSV() }
-
-                    dataFileRow(
-                        name: "sleep-\(metricsManager.selectedSide.rawValue).csv",
-                        size: "\(metricsManager.sleepRecords.count) rows",
-                        icon: "bed.double"
-                    ) { exportSleepCSV() }
-
-                    dataFileRow(
-                        name: "movement-\(metricsManager.selectedSide.rawValue).csv",
-                        size: "\(metricsManager.movementRecords.count) rows",
-                        icon: "figure.walk"
-                    ) { exportMovementCSV() }
-
-                    // Export all
-                    Button {
-                        Haptics.medium()
-                        exportAllCSV()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "square.and.arrow.up")
-                            Text(isExporting ? "Exporting…" : "Export All Data")
-                        }
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(Theme.accent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Theme.accent.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isExporting)
-                    .padding(.top, 4)
-                }
-                .padding(.leading, 44)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .cardStyle()
-        .sheet(isPresented: $showShareSheet) {
-            if let url = exportURL {
-                ShareSheet(items: [url])
-            }
-        }
-    }
-
-    private func rawStatRow(_ label: String, _ value: String, color: Color = Theme.textSecondary) -> some View {
-        HStack {
-            Text(label).font(.caption).foregroundColor(Theme.textMuted)
-            Spacer()
-            Text(value).font(.caption.monospaced()).foregroundColor(color)
-        }
-    }
-
-    private func dataFileRow(name: String, size: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 11))
-                    .foregroundColor(Theme.accent)
-                Text(name)
-                    .font(.caption.monospaced())
-                    .foregroundColor(.white)
-                Spacer()
-                Text(size)
-                    .font(.caption2)
-                    .foregroundColor(Theme.textMuted)
-                Image(systemName: "arrow.down.circle")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.accent)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - CSV Export
-
-    private func exportVitalsCSV() {
-        let csv = "id,side,timestamp,heartRate,hrv,breathingRate\n" +
-            vitals.map { "\($0.id),\($0.side),\($0.date.ISO8601Format()),\($0.heartRate ?? 0),\($0.hrv ?? 0),\($0.breathingRate ?? 0)" }
-                .joined(separator: "\n")
-        shareCSV(csv, filename: "vitals-\(metricsManager.selectedSide.rawValue).csv")
-    }
-
-    private func exportSleepCSV() {
-        let csv = "id,side,enteredBed,leftBed,durationSeconds,timesExited\n" +
-            metricsManager.sleepRecords.map { "\($0.id),\($0.side),\($0.enteredBedDate.ISO8601Format()),\($0.leftBedDate.ISO8601Format()),\($0.sleepPeriodSeconds),\($0.timesExitedBed)" }
-                .joined(separator: "\n")
-        shareCSV(csv, filename: "sleep-\(metricsManager.selectedSide.rawValue).csv")
-    }
-
-    private func exportMovementCSV() {
-        let csv = "timestamp,movement\n" +
-            metricsManager.movementRecords.map { "\($0.timestamp),\($0.totalMovement)" }
-                .joined(separator: "\n")
-        shareCSV(csv, filename: "movement-\(metricsManager.selectedSide.rawValue).csv")
-    }
-
-    private func exportAllCSV() {
-        isExporting = true
-        exportVitalsCSV()
-    }
-
-    private func shareCSV(_ content: String, filename: String) {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? content.write(to: url, atomically: true, encoding: .utf8)
-        exportURL = url
-        showShareSheet = true
-        isExporting = false
-    }
 
     // MARK: - Sleep Analysis Card
 

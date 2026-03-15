@@ -52,7 +52,7 @@ struct SettingsScreen: View {
     private var backendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Server")
+                Text("Pod Server")
                     .font(.subheadline.weight(.medium))
                     .foregroundColor(.white)
                 Spacer()
@@ -76,6 +76,15 @@ struct SettingsScreen: View {
                         Text(selectedBackend.displayName)
                             .font(.subheadline)
                             .foregroundColor(Theme.accent)
+                        if selectedBackend.isRecommended {
+                            Text("Recommended")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Theme.healthy)
+                                .clipShape(Capsule())
+                        }
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.caption2)
                             .foregroundColor(Theme.textMuted)
@@ -86,6 +95,7 @@ struct SettingsScreen: View {
             Text(selectedBackend.description)
                 .font(.caption)
                 .foregroundColor(Theme.textMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .cardStyle()
     }

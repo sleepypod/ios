@@ -14,8 +14,12 @@ enum APIBackend: String, CaseIterable, Sendable {
     var description: String {
         switch self {
         case .freeSleep: "Legacy server — some features may be incomplete or unsupported"
-        case .sleepypodCore: "Recommended — built for reliability with full feature support"
+        case .sleepypodCore: "Built for reliability with full feature support"
         }
+    }
+
+    var isRecommended: Bool {
+        self == .sleepypodCore
     }
 
     func createClient() -> FreeSleepAPIProtocol {

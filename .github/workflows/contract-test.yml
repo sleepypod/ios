@@ -2,6 +2,7 @@ name: Contract Test
 
 on:
   pull_request:
+  workflow_dispatch:
   schedule:
     # Run daily to catch core-side drift
     - cron: '0 6 * * *'

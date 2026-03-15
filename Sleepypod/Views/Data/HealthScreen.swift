@@ -121,18 +121,54 @@ struct HealthScreen: View {
     // MARK: - Vitals Summary
 
     private var vitalsSummaryCard: some View {
-        HStack(spacing: 0) {
-            let hrs = smoothedVitals.compactMap(\.heartRate)
-            let hrvs = smoothedVitals.compactMap(\.hrv)
-            let brs = smoothedVitals.compactMap(\.breathingRate)
+        VStack(spacing: 10) {
+            HStack(spacing: 0) {
+                let hrs = smoothedVitals.compactMap(\.heartRate)
+                let hrvs = smoothedVitals.compactMap(\.hrv)
+                let brs = smoothedVitals.compactMap(\.breathingRate)
 
-            summaryItem(icon: "heart.fill", value: avg(hrs), unit: "BPM", color: Theme.error)
-            Spacer()
-            summaryItem(icon: "waveform.path.ecg", value: avg(hrvs), unit: "ms", color: Theme.accent)
-            Spacer()
-            summaryItem(icon: "lungs.fill", value: avg(brs), unit: "BR", color: Theme.healthy)
+                summaryItem(icon: "heart.fill", value: avg(hrs), unit: "BPM", color: Theme.error)
+                Spacer()
+                summaryItem(icon: "waveform.path.ecg", value: avg(hrvs), unit: "ms", color: Theme.accent)
+                Spacer()
+                summaryItem(icon: "lungs.fill", value: avg(brs), unit: "BR", color: Theme.healthy)
+            }
+
+            // Trend analysis
+            if let trend = trendText {
+                HStack(spacing: 6) {
+                    Image(systemName: trend.icon)
+                        .font(.system(size: 10))
+                    Text(trend.text)
+                        .font(.caption2)
+                }
+                .foregroundColor(trend.color)
+            }
         }
         .cardStyle()
+    }
+
+    private var trendText: (text: String, icon: String, color: Color)? {
+        let values = smoothedVitals.compactMap(\.hrv)
+        guard values.count >= 10 else { return nil }
+
+        let mid = values.count / 2
+        let recent = Array(values[mid...])
+        let older = Array(values[..<mid])
+        guard !recent.isEmpty, !older.isEmpty else { return nil }
+
+        let recentAvg = recent.reduce(0, +) / Double(recent.count)
+        let olderAvg = older.reduce(0, +) / Double(older.count)
+        guard olderAvg > 0 else { return nil }
+
+        let delta = ((recentAvg - olderAvg) / olderAvg) * 100
+
+        if delta > 10 {
+            return ("HRV improving +\(Int(delta))%", "arrow.up.right", Theme.healthy)
+        } else if delta < -10 {
+            return ("HRV declining \(Int(delta))%", "arrow.down.right", Theme.amber)
+        }
+        return ("HRV stable", "equal", Theme.textSecondary)
     }
 
     private func avg(_ values: [Double]) -> String {
@@ -261,11 +297,15 @@ struct HealthScreen: View {
 
     private func refresh() async {
         await metricsManager.fetchAll()
+        await fetchVitals()
+    }
+
+    private func fetchVitals() async {
         isLoadingVitals = vitals.isEmpty
-        let end = Date()
-        let start = Calendar.current.date(byAdding: .day, value: -1, to: end)!
+        let end = metricsManager.selectedWeekEnd
+        let start = metricsManager.selectedWeekStart
         do {
-            vitals = try await api.getVitals(side: selectedSide, start: start, end: end)
+            vitals = try await api.getVitals(side: metricsManager.selectedSide, start: start, end: end)
         } catch {
             Log.network.error("Failed to fetch vitals: \(error)")
         }

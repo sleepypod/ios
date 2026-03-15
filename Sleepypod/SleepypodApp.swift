@@ -103,7 +103,7 @@ struct DisconnectedTabView: View {
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
             } else {
-                Image(systemName: "wifi.exclamationmark")
+                Image(systemName: "icloud.slash")
                     .font(.system(size: 36))
                     .foregroundColor(Theme.error)
                     .padding(.bottom, 4)

@@ -46,6 +46,7 @@
 		A723A40EBCB30E4352F9D4B1 /* ProfilePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */; };
 		B19E23F89C20C6BCB36E6787 /* UpdateCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */; };
 		B315E300474396FF502E7D0B /* HeartRateChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */; };
+		B709C74417DEA75FDA8BFA97 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */; };
 		B990D1A5EA2F7863E0206A1F /* SleepSummaryCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 021A79157277D6B7C8DF4639 /* SleepSummaryCardView.swift */; };
 		BA94451123ED98F30EAC7AF8 /* Side.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB85BC15DC6D3030C728B6FC /* Side.swift */; };
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
@@ -89,6 +90,7 @@
 		87060AD52798647A518FA8BE /* SleepypodCoreClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodCoreClient.swift; sourceTree = "<group>"; };
 		9604F6662B2AB6363AECF42A /* MovementRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementRecord.swift; sourceTree = "<group>"; };
 		970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeSleepClient.swift; sourceTree = "<group>"; };
+		9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		9E902CB9201C2AE527A6C49F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleManager.swift; sourceTree = "<group>"; };
 		A42ACA637081CABD4502D011 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
@@ -229,6 +231,7 @@
 				A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */,
 				68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */,
 				4F4EAF0885B4206D02501DC8 /* StatusManager.swift */,
+				9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -370,6 +373,7 @@
 				1558A064C84FC3F65897D129 /* TemperatureConversion.swift in Sources */,
 				6C5D7826E1BC087A04338FF2 /* TemperatureDialView.swift in Sources */,
 				B19E23F89C20C6BCB36E6787 /* UpdateCardView.swift in Sources */,
+				B709C74417DEA75FDA8BFA97 /* UpdateChecker.swift in Sources */,
 				1F1DB7FE924C1EC257BE8FE1 /* VitalsRecord.swift in Sources */,
 				E6661819B24B1F3364F913AF /* VitalsReport.swift in Sources */,
 				2D211849929D856169991F7B /* WeekNavigatorView.swift in Sources */,

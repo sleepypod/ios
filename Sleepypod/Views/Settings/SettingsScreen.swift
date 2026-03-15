@@ -3,23 +3,18 @@ import SwiftUI
 struct SettingsScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
     @Environment(DeviceManager.self) private var deviceManager
+    @Environment(UpdateChecker.self) private var updateChecker
     @FocusState private var isIPFieldFocused: Bool
     @State private var selectedBackend = APIBackend.current
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Backend selector
-                backendCard
+                // Combined pod connection card
+                podCard
 
-                // Pod IP + reboot
-                podIPCard
-
-                // Update card (right under connection)
-                UpdateCardView(
-                    currentVersion: deviceManager.deviceStatus?.freeSleep.version ?? "1.0.0",
-                    currentBranch: deviceManager.deviceStatus?.freeSleep.branch ?? "main"
-                )
+                // Update card
+                UpdateCardView()
 
                 // Device settings
                 if settingsManager.settings != nil {
@@ -43,14 +38,19 @@ struct SettingsScreen: View {
         .onTapGesture { isIPFieldFocused = false }
         .task {
             await settingsManager.fetchSettings()
+            updateChecker.runningVersion = deviceManager.deviceStatus?.freeSleep.version
+            updateChecker.runningBranch = deviceManager.deviceStatus?.freeSleep.branch
+            await updateChecker.checkForUpdate()
         }
     }
 
-    // MARK: - Backend Selector
+    // MARK: - Combined Pod Card
 
     @ViewBuilder
-    private var backendCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private var podCard: some View {
+        @Bindable var manager = settingsManager
+        VStack(alignment: .leading, spacing: 14) {
+            // Pod Server row
             HStack {
                 Text("Pod Server")
                     .font(.subheadline.weight(.medium))
@@ -87,20 +87,10 @@ struct SettingsScreen: View {
                 .font(.caption)
                 .foregroundColor(Theme.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .cardStyle()
-    }
 
-    // MARK: - Pod IP Card
+            Divider().background(Theme.cardBorder)
 
-    @ViewBuilder
-    private var podIPCard: some View {
-        @Bindable var manager = settingsManager
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Pod Connection")
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
-
+            // IP Address row
             HStack(spacing: 12) {
                 Image(systemName: "network")
                     .foregroundColor(Theme.accent)
@@ -119,7 +109,6 @@ struct SettingsScreen: View {
                 .submitLabel(.done)
                 .onSubmit { isIPFieldFocused = false }
 
-                // Done / WiFi indicator
                 if isIPFieldFocused {
                     Button {
                         Haptics.light()
@@ -138,11 +127,7 @@ struct SettingsScreen: View {
             .background(Theme.cardElevated)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            Text("Enter the IP address of your pod (e.g., 192.168.1.88)")
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
-
-            // Reboot button right below IP
+            // Reboot
             Button {
                 Haptics.heavy()
                 Task { await settingsManager.reboot() }
@@ -170,7 +155,7 @@ struct SettingsScreen: View {
 
         if connected {
             HStack(spacing: 4) {
-                Image(systemName: wifiIcon(strength))
+                Image(systemName: "wifi")
                     .font(.system(size: 12))
                     .foregroundColor(wifiColor(strength))
                 Text("\(strength)%")
@@ -182,12 +167,6 @@ struct SettingsScreen: View {
                 .font(.system(size: 12))
                 .foregroundColor(Theme.error)
         }
-    }
-
-    private func wifiIcon(_ strength: Int) -> String {
-        if strength >= 60 { return "wifi" }
-        if strength >= 30 { return "wifi" }
-        return "wifi.weak"
     }
 
     private func wifiColor(_ strength: Int) -> Color {

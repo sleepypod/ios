@@ -7,6 +7,7 @@ struct SleepypodApp: App {
     @State private var metricsManager: MetricsManager
     @State private var statusManager: StatusManager
     @State private var settingsManager: SettingsManager
+    @State private var updateChecker = UpdateChecker()
 
     init() {
         let client = APIBackend.current.createClient()
@@ -31,6 +32,7 @@ struct SleepypodApp: App {
                 .environment(metricsManager)
                 .environment(statusManager)
                 .environment(settingsManager)
+                .environment(updateChecker)
                 .preferredColorScheme(.dark)
         }
     }

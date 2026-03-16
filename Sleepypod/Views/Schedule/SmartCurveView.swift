@@ -87,34 +87,25 @@ struct SmartCurveView: View {
                     GeometryReader { geo in
                         let plotArea = geo[proxy.plotFrame!]
 
-                        // Min drag zone (bottom half of chart)
+                        // Full chart drag — top half = max, bottom half = min
                         Rectangle()
                             .fill(Color.clear)
-                            .frame(height: plotArea.height / 2)
-                            .offset(y: plotArea.minY + plotArea.height / 2)
+                            .frame(width: plotArea.width, height: plotArea.height)
+                            .offset(x: plotArea.minX, y: plotArea.minY)
                             .contentShape(Rectangle())
                             .gesture(
                                 DragGesture(minimumDistance: 1)
                                     .onChanged { value in
                                         let localY = value.location.y - plotArea.minY
-                                        if let offset = proxy.value(atY: localY) as Int? {
+                                        guard let offset = proxy.value(atY: localY) as Int? else { return }
+
+                                        let midY = plotArea.height / 2
+                                        if value.startLocation.y - plotArea.minY > midY {
+                                            // Started in bottom half — adjust min
                                             let temp = max(55, min(Double(Int(maxTemp) - 2), Double(80 + offset)))
                                             minTemp = temp.rounded()
-                                        }
-                                    }
-                            )
-
-                        // Max drag zone (top half of chart)
-                        Rectangle()
-                            .fill(Color.clear)
-                            .frame(height: plotArea.height / 2)
-                            .offset(y: plotArea.minY)
-                            .contentShape(Rectangle())
-                            .gesture(
-                                DragGesture(minimumDistance: 1)
-                                    .onChanged { value in
-                                        let localY = value.location.y - plotArea.minY
-                                        if let offset = proxy.value(atY: localY) as Int? {
+                                        } else {
+                                            // Started in top half — adjust max
                                             let temp = min(110, max(Double(Int(minTemp) + 2), Double(80 + offset)))
                                             maxTemp = temp.rounded()
                                         }
@@ -125,7 +116,10 @@ struct SmartCurveView: View {
                 .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            // Min / Max temp controls — centered below chart
+            // Phase legend
+            phaseLegend
+
+            // Min / Max temp controls
             HStack(spacing: 24) {
                 tempStepper(
                     label: "Coolest",
@@ -150,9 +144,6 @@ struct SmartCurveView: View {
             }
             .frame(maxWidth: .infinity)
 
-
-            // Phase legend
-            phaseLegend
 
             // Apply button
             Button {

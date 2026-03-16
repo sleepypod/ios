@@ -779,11 +779,11 @@ struct CalibrationSensor: Decodable, Sendable {
 }
 
 struct CalibrationStatus: Decodable, Sendable {
-    let capacitance: CalibrationSensor
-    let piezo: CalibrationSensor
-    let temperature: CalibrationSensor
+    let capacitance: CalibrationSensor?
+    let piezo: CalibrationSensor?
+    let temperature: CalibrationSensor?
 
-    var sensors: [CalibrationSensor] { [capacitance, piezo, temperature] }
+    var sensors: [CalibrationSensor] { [capacitance, piezo, temperature].compactMap { $0 } }
     var healthyCount: Int { sensors.filter { $0.status == "completed" }.count }
 }
 

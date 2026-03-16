@@ -168,28 +168,37 @@ struct CalibrationSheet: View {
     private func pollUntilDone(sides: [Side]) async {
         let api = APIBackend.current.createClient()
 
-        for attempt in 1...30 {  // max 90 seconds
-            try? await Task.sleep(for: .seconds(3))
+        // Initial delay — give the calibrator time to start
+        try? await Task.sleep(for: .seconds(2))
+        statusText = "Checking sensors…"
 
-            var allDone = true
+        for _ in 1...20 {  // max 60 seconds
+            var pending = 0
             var summaryParts: [String] = []
 
             for side in sides {
-                guard let cal = try? await api.getCalibrationStatus(side: side) else { continue }
+                guard let cal = try? await api.getCalibrationStatus(side: side) else {
+                    statusText = "Waiting for \(side.displayName)…"
+                    pending += 1
+                    continue
+                }
                 for sensor in cal.sensors {
-                    if sensor.status == "pending" || sensor.status == "running" {
-                        allDone = false
-                        statusText = "\(side.displayName) \(sensor.sensorType)… \(sensor.status)"
-                    } else if sensor.status == "completed" {
+                    switch sensor.status {
+                    case "pending", "running":
+                        pending += 1
+                        statusText = "\(side.displayName) \(sensorShortName(sensor.sensorType))… \(sensor.status)"
+                    case "completed":
                         let q = Int((sensor.qualityScore ?? 0) * 100)
-                        summaryParts.append("\(sensor.sensorType) \(q)%")
-                    } else if sensor.status == "failed" {
-                        summaryParts.append("\(sensor.sensorType) failed")
+                        summaryParts.append("\(sensorShortName(sensor.sensorType)) \(q)%")
+                    case "failed":
+                        summaryParts.append("\(sensorShortName(sensor.sensorType)) failed")
+                    default:
+                        summaryParts.append("\(sensorShortName(sensor.sensorType)) \(sensor.status)")
                     }
                 }
             }
 
-            if allDone {
+            if pending == 0 {
                 let summary = summaryParts.joined(separator: " · ")
                 result = summary.isEmpty ? "Calibration complete" : summary
                 isCalibrating = false
@@ -199,12 +208,22 @@ struct CalibrationSheet: View {
                 Haptics.heavy()
                 return
             }
+
+            try? await Task.sleep(for: .seconds(3))
         }
 
-        // Timeout
-        result = "Calibration timed out — check status"
+        result = "Calibration timed out — check status page"
         isCalibrating = false
         statusText = nil
         Haptics.medium()
+    }
+
+    private func sensorShortName(_ type: String) -> String {
+        switch type.lowercased() {
+        case "piezo": "Piezo"
+        case "temperature": "Temp"
+        case "capacitance": "Cap"
+        default: type
+        }
     }
 }

@@ -55,6 +55,10 @@ struct CalibrationSheet: View {
                 // Side selection buttons
                 if !isCalibrating && result == nil {
                     VStack(spacing: 12) {
+                        Text("Left and right are from the foot of the bed looking up")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textMuted)
+
                         HStack(spacing: 12) {
                             sideButton(.left)
                             sideButton(.right)

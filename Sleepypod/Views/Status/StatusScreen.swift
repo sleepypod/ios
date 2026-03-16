@@ -64,7 +64,11 @@ struct StatusScreen: View {
     @State private var showCalibrationSheet = false
 
     private var calHealthy: Int {
-        (leftCalibration?.healthyCount ?? 0) + (rightCalibration?.healthyCount ?? 0)
+        func goodSensors(_ cal: CalibrationStatus?) -> Int {
+            guard let cal else { return 0 }
+            return cal.sensors.filter { $0.status == "completed" && ($0.qualityScore ?? 0) >= 0.5 }.count
+        }
+        return goodSensors(leftCalibration) + goodSensors(rightCalibration)
     }
 
     private var calibrationCard: some View {
@@ -183,9 +187,9 @@ struct StatusScreen: View {
             ForEach(cal.sensors, id: \.id) { sensor in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
-                        Image(systemName: sensor.status == "completed" ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        Image(systemName: sensorIcon(sensor))
                             .font(.system(size: 11))
-                            .foregroundColor(sensor.status == "completed" ? Theme.healthy : Theme.error)
+                            .foregroundColor(sensorColor(sensor))
                         Text(sensorDisplayName(sensor.sensorType))
                             .font(.caption)
                             .foregroundColor(.white)
@@ -227,6 +231,19 @@ struct StatusScreen: View {
         if pct >= 40 { return Theme.amber }
         if pct > 0 { return Theme.error }
         return Theme.textMuted
+    }
+
+    private func sensorIcon(_ sensor: CalibrationSensor) -> String {
+        if sensor.status != "completed" { return "xmark.circle.fill" }
+        let q = (sensor.qualityScore ?? 0) * 100
+        if q >= 50 { return "checkmark.circle.fill" }
+        if q > 0 { return "exclamationmark.circle.fill" }
+        return "exclamationmark.circle.fill"
+    }
+
+    private func sensorColor(_ sensor: CalibrationSensor) -> Color {
+        if sensor.status != "completed" { return Theme.error }
+        return qualityColor((sensor.qualityScore ?? 0) * 100)
     }
 
     // MARK: - Processing

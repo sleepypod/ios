@@ -134,6 +134,7 @@ struct CalibrationSheet: View {
     private func triggerSide(_ side: Side) {
         selectedSide = side
         isCalibrating = true
+        Haptics.medium()
         Task {
             let api = APIBackend.current.createClient()
             for sensor in ["piezo", "temperature", "capacitance"] {
@@ -141,6 +142,7 @@ struct CalibrationSheet: View {
             }
             result = "Calibration queued for \(side.displayName) side"
             isCalibrating = false
+            Haptics.heavy(); Haptics.heavy()
             onComplete()
         }
     }
@@ -148,11 +150,13 @@ struct CalibrationSheet: View {
     private func triggerFull() {
         selectedSide = nil
         isCalibrating = true
+        Haptics.medium()
         Task {
             let api = APIBackend.current.createClient()
             _ = try? await api.triggerFullCalibration()
             result = "Full calibration queued for all sensors on both sides"
             isCalibrating = false
+            Haptics.heavy(); Haptics.heavy()
             onComplete()
         }
     }

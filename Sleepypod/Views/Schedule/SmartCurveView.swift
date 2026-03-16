@@ -160,15 +160,6 @@ struct SmartCurveView: View {
                 .interpolationMethod(.catmullRom)
             }
 
-            // Phase markers
-            ForEach(curve) { point in
-                PointMark(
-                    x: .value("Time", point.time),
-                    y: .value("Offset", point.tempOffset)
-                )
-                .foregroundStyle(.white)
-                .symbolSize(20)
-            }
         }
         .chartYScale(domain: -10...10)
         .chartYAxis {

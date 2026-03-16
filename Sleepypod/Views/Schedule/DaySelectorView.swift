@@ -6,9 +6,14 @@ struct DaySelectorView: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(DayOfWeek.weekdays) { day in
-                let isSelected = scheduleManager.selectedDay == day
+                let isSelected = scheduleManager.selectedDays.contains(day)
                 Button {
                     Haptics.tap()
+                    if isSelected && scheduleManager.selectedDays.count > 1 {
+                        scheduleManager.selectedDays.remove(day)
+                    } else if !isSelected {
+                        scheduleManager.selectedDays.insert(day)
+                    }
                     scheduleManager.selectedDay = day
                 } label: {
                     Text(day.shortLabel)

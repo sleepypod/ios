@@ -26,28 +26,6 @@ struct SmartCurveView: View {
                 timePicker("Wake", icon: "sun.max.fill", color: Theme.amber, date: $wakeTime)
             }
 
-            // Import from Health
-            Button {
-                Haptics.light()
-                importFromHealth()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: healthSynced ? "checkmark.circle.fill" : "heart.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(healthSynced ? Theme.healthy : Theme.error)
-                    Text(healthSynced ? "Synced from Health" : "Import from Health")
-                        .font(.caption.weight(.medium))
-                        .foregroundColor(healthSynced ? Theme.healthy : Theme.accent)
-                }
-            }
-            .buttonStyle(.plain)
-
-            if let err = healthError {
-                Text(err)
-                    .font(.caption2)
-                    .foregroundColor(Theme.textMuted)
-            }
-
             // Intensity picker
             HStack(spacing: 0) {
                 ForEach(CoolingIntensity.allCases) { level in
@@ -71,9 +49,35 @@ struct SmartCurveView: View {
             .background(Theme.card)
             .clipShape(RoundedRectangle(cornerRadius: 11))
 
-            Text(intensity.description)
-                .font(.caption2)
-                .foregroundColor(Theme.textMuted)
+            // Health sync + intensity description
+            HStack {
+                Text(intensity.description)
+                    .font(.caption2)
+                    .foregroundColor(Theme.textMuted)
+
+                Spacer()
+
+                Button {
+                    Haptics.light()
+                    importFromHealth()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: healthSynced ? "checkmark.circle.fill" : "heart.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(healthSynced ? Theme.healthy : .red)
+                        Text(healthSynced ? "Synced" : "Sync from Apple Health")
+                            .font(.caption2.weight(.medium))
+                            .foregroundColor(healthSynced ? Theme.healthy : Theme.accent)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            if let err = healthError {
+                Text(err)
+                    .font(.caption2)
+                    .foregroundColor(Theme.error)
+            }
 
             // Curve chart
             curveChart

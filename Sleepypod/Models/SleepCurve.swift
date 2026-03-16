@@ -48,29 +48,41 @@ struct SleepCurve {
         // Wind down: bedtime -30min → bedtime (warm slightly)
         let windDownStart = bedtime.addingTimeInterval(-30 * 60)
         points.append(Point(time: windDownStart, tempOffset: 0, phase: .warmUp))
+        points.append(Point(time: bedtime.addingTimeInterval(-15 * 60), tempOffset: offsets.warmUp / 2, phase: .warmUp))
         points.append(Point(time: bedtime, tempOffset: offsets.warmUp, phase: .warmUp))
 
-        // Fall asleep: bedtime → +30min (cool down)
-        let fallAsleepEnd = bedtime.addingTimeInterval(30 * 60)
-        points.append(Point(time: fallAsleepEnd, tempOffset: offsets.fallAsleep, phase: .coolDown))
+        // Fall asleep: bedtime → +45min (cool down gradually)
+        points.append(Point(time: bedtime.addingTimeInterval(15 * 60), tempOffset: offsets.fallAsleep / 2, phase: .coolDown))
+        points.append(Point(time: bedtime.addingTimeInterval(30 * 60), tempOffset: offsets.fallAsleep, phase: .coolDown))
+        points.append(Point(time: bedtime.addingTimeInterval(45 * 60), tempOffset: (offsets.fallAsleep + offsets.deepSleep) / 2, phase: .coolDown))
 
-        // Deep sleep: +30min → +3h (coldest)
+        // Deep sleep: +1h → +3h (coldest, with slight variation)
         let deepSleepEnd = bedtime.addingTimeInterval(min(3 * 3600, sleepDuration * 0.4))
         points.append(Point(time: bedtime.addingTimeInterval(60 * 60), tempOffset: offsets.deepSleep, phase: .deepSleep))
+        let deepMid = bedtime.addingTimeInterval((60 * 60 + deepSleepEnd.timeIntervalSince(bedtime)) / 2)
+        points.append(Point(time: deepMid, tempOffset: offsets.deepSleep, phase: .deepSleep))
         points.append(Point(time: deepSleepEnd, tempOffset: offsets.deepSleep, phase: .deepSleep))
 
-        // Maintain: deep sleep end → wake -30min
-        let preWakeStart = wake.addingTimeInterval(-30 * 60)
-        if preWakeStart > deepSleepEnd {
-            points.append(Point(time: preWakeStart, tempOffset: offsets.maintain, phase: .maintain))
-        }
+        // Transition to maintain
+        let transitionEnd = deepSleepEnd.addingTimeInterval(30 * 60)
+        points.append(Point(time: transitionEnd, tempOffset: offsets.maintain, phase: .maintain))
 
-        // Pre-wake: wake -30min → wake (warm up)
-        points.append(Point(time: preWakeStart, tempOffset: offsets.maintain, phase: .preWake))
+        // Maintain: flat until pre-wake
+        let preWakeStart = wake.addingTimeInterval(-30 * 60)
+        if preWakeStart > transitionEnd.addingTimeInterval(30 * 60) {
+            let maintainMid = transitionEnd.addingTimeInterval(preWakeStart.timeIntervalSince(transitionEnd) / 2)
+            points.append(Point(time: maintainMid, tempOffset: offsets.maintain, phase: .maintain))
+        }
+        points.append(Point(time: preWakeStart, tempOffset: offsets.maintain, phase: .maintain))
+
+        // Pre-wake: gradual warm up
+        points.append(Point(time: preWakeStart.addingTimeInterval(10 * 60), tempOffset: offsets.preWake / 2, phase: .preWake))
+        points.append(Point(time: wake.addingTimeInterval(-5 * 60), tempOffset: offsets.preWake, phase: .preWake))
         points.append(Point(time: wake, tempOffset: offsets.preWake, phase: .preWake))
 
-        // Wake
-        points.append(Point(time: wake.addingTimeInterval(15 * 60), tempOffset: 0, phase: .wake))
+        // Wake: return to neutral
+        points.append(Point(time: wake.addingTimeInterval(10 * 60), tempOffset: offsets.preWake / 2, phase: .wake))
+        points.append(Point(time: wake.addingTimeInterval(20 * 60), tempOffset: 0, phase: .wake))
 
         return points.sorted { $0.time < $1.time }
     }

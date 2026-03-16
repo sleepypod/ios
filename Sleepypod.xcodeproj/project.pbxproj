@@ -161,6 +161,7 @@
 		EA55E7C1AA8D071C2D7FACA9 /* TemperatureDialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureDialView.swift; sourceTree = "<group>"; };
 		ED53C388A9A1BE8B0FB0382E /* SideSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideSelectorView.swift; sourceTree = "<group>"; };
 		F9EC58AFC994E2BF0036D0D8 /* ServerStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStatus.swift; sourceTree = "<group>"; };
+		FBA4405DF0EC4CF53F4890DE /* Sleepypod.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Sleepypod.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -329,6 +330,7 @@
 				9E902CB9201C2AE527A6C49F /* Assets.xcassets */,
 				C1287F50609E837343ABE038 /* Info.plist */,
 				B881147C7D2F0ADEBAD1AD02 /* openapi.json */,
+				FBA4405DF0EC4CF53F4890DE /* Sleepypod.entitlements */,
 				54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */,
 				B59E5A73B7775D671213BDBD /* Models */,
 				791A521FE16A196430F60B8B /* Networking */,
@@ -520,9 +522,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sleepypod/Sleepypod.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sleepypod needs local network access to communicate with your pod";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -605,9 +609,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sleepypod/Sleepypod.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sleepypod needs local network access to communicate with your pod";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;

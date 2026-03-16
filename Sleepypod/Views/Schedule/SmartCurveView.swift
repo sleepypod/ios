@@ -13,9 +13,17 @@ struct SmartCurveView: View {
     @State private var showSuccess = false
     @State private var healthSynced = false
     @State private var healthError: String?
+    @State private var minTemp: Double = 68
+    @State private var maxTemp: Double = 86
 
     private var curve: [SleepCurve.Point] {
-        SleepCurve.generate(bedtime: bedtime, wakeTime: wakeTime, coolingIntensity: intensity)
+        SleepCurve.generate(
+            bedtime: bedtime,
+            wakeTime: wakeTime,
+            coolingIntensity: intensity,
+            minTempF: Int(minTemp),
+            maxTempF: Int(maxTemp)
+        )
     }
 
     var body: some View {
@@ -49,35 +57,42 @@ struct SmartCurveView: View {
             .background(Theme.card)
             .clipShape(RoundedRectangle(cornerRadius: 11))
 
-            // Health sync + intensity description
-            HStack {
-                Text(intensity.description)
-                    .font(.caption2)
-                    .foregroundColor(Theme.textMuted)
+            Text(intensity.description)
+                .font(.caption2)
+                .foregroundColor(Theme.textMuted)
 
-                Spacer()
+            // Temperature range
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Temp Range")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(Theme.textSecondary)
+                    Spacer()
+                    Text("\(Int(minTemp))° – \(Int(maxTemp))°F")
+                        .font(.caption.monospaced())
+                        .foregroundColor(.white)
+                }
 
-                Button {
-                    Haptics.light()
-                    importFromHealth()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: healthSynced ? "checkmark.circle.fill" : "heart.fill")
-                            .font(.system(size: 10))
-                            .foregroundColor(healthSynced ? Theme.healthy : .red)
-                        Text(healthSynced ? "Synced" : "Sync from Apple Health")
-                            .font(.caption2.weight(.medium))
-                            .foregroundColor(healthSynced ? Theme.healthy : Theme.accent)
+                HStack(spacing: 16) {
+                    VStack(spacing: 2) {
+                        Text("Coolest")
+                            .font(.system(size: 9))
+                            .foregroundColor(Theme.cooling)
+                        Slider(value: $minTemp, in: 55...78, step: 1)
+                            .tint(Theme.cooling)
+                    }
+                    VStack(spacing: 2) {
+                        Text("Warmest")
+                            .font(.system(size: 9))
+                            .foregroundColor(Theme.warming)
+                        Slider(value: $maxTemp, in: 78...110, step: 1)
+                            .tint(Theme.warming)
                     }
                 }
-                .buttonStyle(.plain)
             }
-
-            if let err = healthError {
-                Text(err)
-                    .font(.caption2)
-                    .foregroundColor(Theme.error)
-            }
+            .padding(12)
+            .background(Theme.cardElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
 
             // Curve chart
             curveChart
@@ -161,7 +176,7 @@ struct SmartCurveView: View {
             }
 
         }
-        .chartYScale(domain: -10...10)
+        .chartYScale(domain: (Int(minTemp) - 80)...(Int(maxTemp) - 80))
         .chartYAxis {
             AxisMarks(position: .leading, values: [-8, -4, 0, 4, 8]) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))

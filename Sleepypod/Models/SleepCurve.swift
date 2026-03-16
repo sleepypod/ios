@@ -31,17 +31,42 @@ struct SleepCurve {
     static func generate(
         bedtime: Date,
         wakeTime: Date,
-        coolingIntensity: CoolingIntensity = .balanced
+        coolingIntensity: CoolingIntensity = .balanced,
+        minTempF: Int = 68,
+        maxTempF: Int = 86
     ) -> [Point] {
         let calendar = Calendar.current
         var wake = wakeTime
-        // Handle wake time being next day
         if wake <= bedtime {
             wake = calendar.date(byAdding: .day, value: 1, to: wake) ?? wake
         }
 
         let sleepDuration = wake.timeIntervalSince(bedtime)
-        let offsets = coolingIntensity.offsets
+        let baseOffsets = coolingIntensity.offsets
+
+        // Scale offsets to the user's temp range
+        let baseTempF = 80
+        let coolRoom = baseTempF - minTempF  // how much cooling is available
+        let warmRoom = maxTempF - baseTempF  // how much warming is available
+
+        func scale(_ offset: Int) -> Int {
+            if offset < 0 {
+                // Cooling: scale to available cool range
+                return -min(abs(offset) * coolRoom / 10, coolRoom)
+            } else if offset > 0 {
+                // Warming: scale to available warm range
+                return min(offset * warmRoom / 8, warmRoom)
+            }
+            return 0
+        }
+
+        let offsets = (
+            warmUp: scale(baseOffsets.warmUp),
+            fallAsleep: scale(baseOffsets.fallAsleep),
+            deepSleep: scale(baseOffsets.deepSleep),
+            maintain: scale(baseOffsets.maintain),
+            preWake: scale(baseOffsets.preWake)
+        )
 
         var points: [Point] = []
 

@@ -337,6 +337,14 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         try await query("calibration.getStatus", input: ["side": side.rawValue])
     }
 
+    func triggerCalibration(side: Side, sensorType: String) async throws -> CalibrationTriggerResponse {
+        try await mutate("calibration.triggerCalibration", input: ["side": side.rawValue, "sensorType": sensorType])
+    }
+
+    func triggerFullCalibration() async throws -> CalibrationTriggerResponse {
+        try await mutate("calibration.triggerFullCalibration", input: [:] as [String: String])
+    }
+
     func getDiskUsage() async throws -> DiskUsage {
         try await query("system.getDiskUsage")
     }

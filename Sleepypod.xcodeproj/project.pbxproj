@@ -60,6 +60,7 @@
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
 		D81EAE0FD3DA1C07FC06B43F /* DeviceSettingsCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677BD56179BBE15ACC5E97C1 /* DeviceSettingsCardView.swift */; };
 		DA978EC7B69BEC856EF30085 /* TapGestureConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */; };
+		DACBAF12C6747C2C8CBDE0B7 /* CalibrationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB34C326BB9C97E9A3E686C6 /* CalibrationSheet.swift */; };
 		E41AEAF67CA5F7801B5A13EB /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1999947F6DB7202489B6C /* Haptics.swift */; };
 		E6661819B24B1F3364F913AF /* VitalsReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2495028E884905FC457615E /* VitalsReport.swift */; };
 		ED1BA2E1F213040F5DDAEC30 /* DeviceStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = BED50F23F24049CF0324CF1B /* DeviceStatus.swift */; };
@@ -112,6 +113,7 @@
 		A22017869B6697F13244EF76 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		A42ACA637081CABD4502D011 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
 		A9FF9D7BA24408A31A5A650C /* DaySelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaySelectorView.swift; sourceTree = "<group>"; };
+		AB34C326BB9C97E9A3E686C6 /* CalibrationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationSheet.swift; sourceTree = "<group>"; };
 		AD6E2D8EB06314CC264F24D1 /* ServiceCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceCategoryView.swift; sourceTree = "<group>"; };
 		B15950D49CE8BFE7FF628BDB /* SleepStagesTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepStagesTimelineView.swift; sourceTree = "<group>"; };
 		B7C94AEB5A7EF2FE53231869 /* VitalsRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsRecord.swift; sourceTree = "<group>"; };
@@ -155,6 +157,7 @@
 		2DEF8A5BC7D34C09B45E9E80 /* Status */ = {
 			isa = PBXGroup;
 			children = (
+				AB34C326BB9C97E9A3E686C6 /* CalibrationSheet.swift */,
 				D3AB3B17FD36D878C2457E20 /* HealthCircleView.swift */,
 				8F4849B345B1C029B80DB86F /* LogsView.swift */,
 				AD6E2D8EB06314CC264F24D1 /* ServiceCategoryView.swift */,
@@ -365,6 +368,7 @@
 				6C2843125C47D323DAB695BC /* APIBackend.swift in Sources */,
 				00F44793F97313509F4C9400 /* APIEndpoint.swift in Sources */,
 				8DDF8FDD9FE7688543CA8831 /* APIError.swift in Sources */,
+				DACBAF12C6747C2C8CBDE0B7 /* CalibrationSheet.swift in Sources */,
 				973184378E3DE691E858EC2E /* DaySelectorView.swift in Sources */,
 				9D7F9E63ABF049359432DF0F /* DeviceManager.swift in Sources */,
 				D81EAE0FD3DA1C07FC06B43F /* DeviceSettingsCardView.swift in Sources */,

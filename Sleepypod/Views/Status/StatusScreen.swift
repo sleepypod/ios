@@ -61,6 +61,7 @@ struct StatusScreen: View {
     @State private var isCalibrationExpanded = false
     @State private var leftCalibration: CalibrationStatus?
     @State private var rightCalibration: CalibrationStatus?
+    @State private var showCalibrationSheet = false
 
     private var calHealthy: Int {
         (leftCalibration?.healthyCount ?? 0) + (rightCalibration?.healthyCount ?? 0)
@@ -119,7 +120,7 @@ struct StatusScreen: View {
             if isCalibrationExpanded {
                 Divider().background(Theme.cardBorder).padding(.vertical, 8)
 
-                VStack(spacing: 6) {
+                VStack(spacing: 8) {
                     if let left = leftCalibration {
                         sideCalibrationSection("Left", cal: left)
                     }
@@ -133,12 +134,44 @@ struct StatusScreen: View {
                             Text("Loading…").font(.caption).foregroundColor(Theme.textMuted)
                         }
                     }
+
+                    // Single calibration button
+                    Button {
+                        Haptics.medium()
+                        showCalibrationSheet = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "tuningfork")
+                            Text("Run Calibration")
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Theme.cyan)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Theme.cyan.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
                 }
             }
         }
         .padding(16)
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .sheet(isPresented: $showCalibrationSheet) {
+            CalibrationSheet(
+                onComplete: {
+                    Task {
+                        let api = APIBackend.current.createClient()
+                        leftCalibration = try? await api.getCalibrationStatus(side: .left)
+                        rightCalibration = try? await api.getCalibrationStatus(side: .right)
+                    }
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     private func sideCalibrationSection(_ side: String, cal: CalibrationStatus) -> some View {
@@ -153,14 +186,15 @@ struct StatusScreen: View {
                         Image(systemName: sensor.status == "completed" ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .font(.system(size: 11))
                             .foregroundColor(sensor.status == "completed" ? Theme.healthy : Theme.error)
-                        Text(sensor.sensorType.capitalized)
+                        Text(sensorDisplayName(sensor.sensorType))
                             .font(.caption)
                             .foregroundColor(.white)
                         Spacer()
                         if let score = sensor.qualityScore {
-                            Text(String(format: "%.0f%%", score * 100))
-                                .font(.caption2.monospaced())
-                                .foregroundColor(Theme.textMuted)
+                            let pct = score * 100
+                            Text(String(format: "%.0f%%", pct))
+                                .font(.caption2.weight(.medium).monospaced())
+                                .foregroundColor(qualityColor(pct))
                         }
                         if let samples = sensor.samplesUsed {
                             Text("\(samples) samples")
@@ -176,26 +210,23 @@ struct StatusScreen: View {
                     }
                 }
             }
-
-            // Recalibrate button
-            Button {
-                Haptics.medium()
-                // TODO: Call calibration.run endpoint when available
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "tuningfork")
-                    Text("Recalibrate \(side)")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundColor(Theme.cyan)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(Theme.cyan.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
         }
+    }
+
+    private func sensorDisplayName(_ type: String) -> String {
+        switch type.lowercased() {
+        case "piezo": "Piezo (heartbeat)"
+        case "temperature": "Temperature (body heat)"
+        case "capacitance": "Capacitance (presence)"
+        default: type.capitalized
+        }
+    }
+
+    private func qualityColor(_ pct: Double) -> Color {
+        if pct >= 70 { return Theme.healthy }
+        if pct >= 40 { return Theme.amber }
+        if pct > 0 { return Theme.error }
+        return Theme.textMuted
     }
 
     // MARK: - Processing

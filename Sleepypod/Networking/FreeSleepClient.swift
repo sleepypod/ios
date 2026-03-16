@@ -100,6 +100,14 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
         throw APIError.invalidResponse(statusCode: 404)
     }
 
+    func triggerCalibration(side: Side, sensorType: String) async throws -> CalibrationTriggerResponse {
+        throw APIError.invalidResponse(statusCode: 404)
+    }
+
+    func triggerFullCalibration() async throws -> CalibrationTriggerResponse {
+        throw APIError.invalidResponse(statusCode: 404)
+    }
+
     func getDiskUsage() async throws -> DiskUsage {
         throw APIError.invalidResponse(statusCode: 404)
     }

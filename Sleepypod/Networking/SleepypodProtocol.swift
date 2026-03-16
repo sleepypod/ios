@@ -20,4 +20,11 @@ protocol SleepypodProtocol: Sendable {
     func getCalibrationStatus(side: Side) async throws -> CalibrationStatus
     func getDiskUsage() async throws -> DiskUsage
     func getFileCount() async throws -> FileCount
+    func triggerCalibration(side: Side, sensorType: String) async throws -> CalibrationTriggerResponse
+    func triggerFullCalibration() async throws -> CalibrationTriggerResponse
+}
+
+struct CalibrationTriggerResponse: Decodable, Sendable {
+    let triggered: Bool
+    let message: String
 }

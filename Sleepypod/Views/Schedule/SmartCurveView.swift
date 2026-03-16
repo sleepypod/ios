@@ -336,17 +336,17 @@ struct SmartCurveView: View {
     // MARK: - Legend
 
     private var phaseLegend: some View {
-        let phases: [(String, Color, String)] = [
-            ("Wind Down", Theme.warming, "+warm"),
-            ("Fall Asleep", Theme.cooling, "cool"),
-            ("Deep Sleep", Color(hex: "2563eb"), "coldest"),
-            ("Pre-Wake", Theme.amber, "+warm"),
+        let phases: [(name: String, color: Color)] = [
+            ("Wind Down", Theme.warming),
+            ("Fall Asleep", Theme.cooling),
+            ("Deep Sleep", Color(hex: "2563eb")),
+            ("Pre-Wake", Theme.amber),
         ]
         return HStack(spacing: 12) {
-            ForEach(phases, id: \.0) { name, color, label in
+            ForEach(phases, id: \.name) { phase in
                 HStack(spacing: 4) {
-                    Circle().fill(color).frame(width: 6, height: 6)
-                    Text(name)
+                    Circle().fill(phase.color).frame(width: 6, height: 6)
+                    Text(phase.name)
                         .font(.system(size: 9))
                         .foregroundColor(Theme.textSecondary)
                 }

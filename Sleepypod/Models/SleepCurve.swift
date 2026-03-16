@@ -126,7 +126,8 @@ struct SleepCurve {
         return points.sorted { $0.time < $1.time }
     }
 
-    /// Convert curve points to schedule set points (HH:mm → tempF pairs)
+    /// Convert curve points to schedule set points (HH:mm → tempF pairs).
+    /// If multiple points share the same HH:mm timestamp, the last one wins.
     static func toScheduleTemperatures(_ points: [Point], baseTempF: Int = 80) -> [String: Int] {
         var result: [String: Int] = [:]
         let formatter = DateFormatter()

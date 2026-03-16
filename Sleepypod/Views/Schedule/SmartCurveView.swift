@@ -25,6 +25,14 @@ struct SmartCurveView: View {
     @State private var minTemp: Double = 68
     @State private var maxTemp: Double = 86
 
+    /// Y-axis adapts to the actual curve range with padding
+    private var yDomain: ClosedRange<Int> {
+        let offsets = curve.map(\.tempOffset)
+        let lo = (offsets.min() ?? -10) - 3
+        let hi = (offsets.max() ?? 10) + 3
+        return lo...hi
+    }
+
     private var curve: [SleepCurve.Point] {
         SleepCurve.generate(
             bedtime: bedtime,
@@ -227,8 +235,8 @@ struct SmartCurveView: View {
                 RectangleMark(
                     xStart: .value("Start", t.time),
                     xEnd: .value("End", nextTime),
-                    yStart: .value("Min", -20),
-                    yEnd: .value("Max", 20)
+                    yStart: .value("Min", yDomain.lowerBound),
+                    yEnd: .value("Max", yDomain.upperBound)
                 )
                 .foregroundStyle(t.color.opacity(0.06))
             }
@@ -260,7 +268,7 @@ struct SmartCurveView: View {
             }
 
         }
-        .chartYScale(domain: -20...20)
+        .chartYScale(domain: yDomain)
         .chartYAxis {
             AxisMarks(position: .leading, values: [-8, -4, 0, 4, 8]) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))

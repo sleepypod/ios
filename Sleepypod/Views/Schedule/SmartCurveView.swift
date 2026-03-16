@@ -25,11 +25,14 @@ struct SmartCurveView: View {
     @State private var minTemp: Double = 68
     @State private var maxTemp: Double = 86
 
-    /// Y-axis adapts to the actual curve range with padding
+    /// Y-axis adapts to include curve range AND min/max lines with padding
     private var yDomain: ClosedRange<Int> {
-        let offsets = curve.map(\.tempOffset)
-        let lo = (offsets.min() ?? -10) - 3
-        let hi = (offsets.max() ?? 10) + 3
+        let curveOffsets = curve.map(\.tempOffset)
+        let minLine = Int(minTemp) - 80
+        let maxLine = Int(maxTemp) - 80
+        let allValues = curveOffsets + [minLine, maxLine, 0]
+        let lo = (allValues.min() ?? -10) - 2
+        let hi = (allValues.max() ?? 10) + 2
         return lo...hi
     }
 

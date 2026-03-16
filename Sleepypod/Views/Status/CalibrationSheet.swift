@@ -8,6 +8,7 @@ struct CalibrationSheet: View {
     @State private var isCalibrating = false
     @State private var result: String?
     @State private var statusText: String?
+    @State private var terminalLines: [String] = []
 
     var body: some View {
         NavigationStack {
@@ -51,7 +52,31 @@ struct CalibrationSheet: View {
                         .padding(.horizontal, 24)
                 }
 
-                Spacer()
+                // Terminal output
+                if !terminalLines.isEmpty {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 2) {
+                                ForEach(Array(terminalLines.enumerated()), id: \.offset) { i, line in
+                                    Text(line)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundColor(terminalColor(line))
+                                        .id(i)
+                                }
+                            }
+                            .padding(10)
+                        }
+                        .frame(maxHeight: .infinity)
+                        .background(Color(hex: "0a0a0f"))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding(.horizontal, 16)
+                        .onChange(of: terminalLines.count) {
+                            withAnimation { proxy.scrollTo(terminalLines.count - 1, anchor: .bottom) }
+                        }
+                    }
+                }
+
+                Spacer(minLength: 0)
 
                 // Side selection buttons
                 if !isCalibrating && result == nil {
@@ -141,13 +166,16 @@ struct CalibrationSheet: View {
     private func triggerSide(_ side: Side) {
         selectedSide = side
         isCalibrating = true
-        statusText = "Triggering…"
+        terminalLines = []
         Haptics.medium()
+        log("Triggering \(side.displayName) side calibration…")
         Task {
             let api = APIBackend.current.createClient()
             for sensor in ["piezo", "temperature", "capacitance"] {
+                log("  → \(sensor)")
                 _ = try? await api.triggerCalibration(side: side, sensorType: sensor)
             }
+            log("All sensors triggered. Polling for completion…")
             await pollUntilDone(sides: [side])
         }
     }
@@ -155,11 +183,13 @@ struct CalibrationSheet: View {
     private func triggerFull() {
         selectedSide = nil
         isCalibrating = true
-        statusText = "Triggering…"
+        terminalLines = []
         Haptics.medium()
+        log("Triggering full calibration (both sides, all sensors)…")
         Task {
             let api = APIBackend.current.createClient()
             _ = try? await api.triggerFullCalibration()
+            log("Triggered. Polling for completion…")
             await pollUntilDone(sides: [.left, .right])
             onComplete()
         }
@@ -168,31 +198,37 @@ struct CalibrationSheet: View {
     private func pollUntilDone(sides: [Side]) async {
         let api = APIBackend.current.createClient()
 
-        // Initial delay — give the calibrator time to start
         try? await Task.sleep(for: .seconds(2))
-        statusText = "Checking sensors…"
+        log("Polling calibration status…")
 
-        for _ in 1...20 {  // max 60 seconds
+        for attempt in 1...20 {
             var pending = 0
             var summaryParts: [String] = []
 
             for side in sides {
                 guard let cal = try? await api.getCalibrationStatus(side: side) else {
-                    statusText = "Waiting for \(side.displayName)…"
+                    log("  \(side.displayName): waiting for response…")
                     pending += 1
                     continue
                 }
                 for sensor in cal.sensors {
+                    let name = "\(side.displayName) \(sensorShortName(sensor.sensorType))"
                     switch sensor.status {
-                    case "pending", "running":
+                    case "pending":
                         pending += 1
-                        statusText = "\(side.displayName) \(sensorShortName(sensor.sensorType))… \(sensor.status)"
+                        log("  \(name): pending")
+                    case "running":
+                        pending += 1
+                        log("  \(name): running…")
                     case "completed":
                         let q = Int((sensor.qualityScore ?? 0) * 100)
+                        log("  ✓ \(name): completed (\(q)% quality, \(sensor.samplesUsed ?? 0) samples)")
                         summaryParts.append("\(sensorShortName(sensor.sensorType)) \(q)%")
                     case "failed":
+                        log("  ✗ \(name): failed — \(sensor.errorMessage ?? "unknown error")")
                         summaryParts.append("\(sensorShortName(sensor.sensorType)) failed")
                     default:
+                        log("  \(name): \(sensor.status)")
                         summaryParts.append("\(sensorShortName(sensor.sensorType)) \(sensor.status)")
                     }
                 }
@@ -200,22 +236,36 @@ struct CalibrationSheet: View {
 
             if pending == 0 {
                 let summary = summaryParts.joined(separator: " · ")
+                log("")
+                log("Done: \(summary.isEmpty ? "all complete" : summary)")
                 result = summary.isEmpty ? "Calibration complete" : summary
                 isCalibrating = false
-                statusText = nil
                 Haptics.heavy()
                 try? await Task.sleep(for: .milliseconds(200))
                 Haptics.heavy()
                 return
             }
 
+            log("  … \(pending) sensor(s) still processing (poll \(attempt)/20)")
             try? await Task.sleep(for: .seconds(3))
         }
 
+        log("Timed out after 60 seconds")
         result = "Calibration timed out — check status page"
         isCalibrating = false
-        statusText = nil
         Haptics.medium()
+    }
+
+    private func log(_ text: String) {
+        let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+        terminalLines.append("[\(time)] \(text)")
+    }
+
+    private func terminalColor(_ line: String) -> Color {
+        if line.contains("✓") || line.contains("completed") || line.contains("done") { return Theme.healthy }
+        if line.contains("✗") || line.contains("failed") || line.contains("error") { return Theme.error }
+        if line.contains("pending") || line.contains("running") || line.contains("…") { return Theme.amber }
+        return Theme.textSecondary
     }
 
     private func sensorShortName(_ type: String) -> String {

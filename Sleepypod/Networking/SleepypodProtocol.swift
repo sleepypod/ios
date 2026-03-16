@@ -22,6 +22,16 @@ protocol SleepypodProtocol: Sendable {
     func getFileCount() async throws -> FileCount
     func triggerCalibration(side: Side, sensorType: String) async throws -> CalibrationTriggerResponse
     func triggerFullCalibration() async throws -> CalibrationTriggerResponse
+
+    // Beta features (PR #193)
+    func getVersion() async throws -> SystemVersion
+    func snoozeAlarm(side: Side, duration: Int) async throws -> SnoozeResponse
+    func getWaterLevelLatest() async throws -> WaterLevelReading?
+    func getWaterLevelTrend(hours: Int) async throws -> WaterLevelTrend
+    func getAmbientLightLatest() async throws -> AmbientLightReading?
+    func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws
+    func deleteSleepRecord(id: Int) async throws
+    func dismissPrimeNotification() async throws
 }
 
 struct CalibrationTriggerResponse: Decodable, Sendable {

@@ -182,6 +182,21 @@ private struct AlarmBanner: View {
                     .foregroundColor(Color(hex: "e0c080").opacity(0.7))
             }
             Spacer()
+            Button {
+                Haptics.medium()
+                Task {
+                    _ = try? await APIBackend.current.createClient().snoozeAlarm(side: side, duration: 300)
+                }
+            } label: {
+                Text("Snooze")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(Color(hex: "e0c080"))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(hex: "e0c080").opacity(0.2))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
             Button("Stop") {
                 Haptics.heavy()
                 onStop()
@@ -211,6 +226,7 @@ private struct AlarmBanner: View {
 private struct EnvironmentInfoView: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(SettingsManager.self) private var settingsManager
+    @State private var ambientLight: AmbientLightReading?
 
     private var ambientTempF: Int {
         deviceManager.currentSideStatus?.currentTemperatureF ?? 0
@@ -247,6 +263,20 @@ private struct EnvironmentInfoView: View {
                         .foregroundColor(Theme.textSecondary)
                 }
             }
+
+            if let light = ambientLight {
+                HStack(spacing: 6) {
+                    Image(systemName: light.lux < 10 ? "moon.fill" : "sun.max.fill")
+                        .font(.caption)
+                        .foregroundColor(light.lux < 10 ? Theme.purple : Theme.amber)
+                    Text("\(Int(light.lux)) lux")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+            }
+        }
+        .task {
+            ambientLight = try? await APIBackend.current.createClient().getAmbientLightLatest()
         }
     }
 }

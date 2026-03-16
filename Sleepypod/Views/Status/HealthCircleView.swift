@@ -7,6 +7,7 @@ struct HealthCircleView: View {
     @State private var showSerials = false
     @State private var showInternetSheet = false
     @State private var diskUsage: DiskUsage?
+    @State private var version: SystemVersion?
 
     private var progress: Double { statusManager.healthProgress }
     private var status: DeviceStatus? { deviceManager.deviceStatus }
@@ -125,8 +126,13 @@ struct HealthCircleView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.triangle.branch")
                             .font(.system(size: 9))
-                        Text(status.freeSleep.branch)
+                        Text(version?.branch ?? status.freeSleep.branch)
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        if let v = version {
+                            Text(v.shortHash)
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundColor(Theme.textMuted)
+                        }
                     }
                     .foregroundColor(Theme.textSecondary)
                     .padding(.horizontal, 8)
@@ -207,7 +213,9 @@ struct HealthCircleView: View {
         }
         .cardStyle()
         .task {
-            diskUsage = try? await APIBackend.current.createClient().getDiskUsage()
+            let api = APIBackend.current.createClient()
+            diskUsage = try? await api.getDiskUsage()
+            version = try? await api.getVersion()
         }
         .sheet(isPresented: $showInternetSheet) {
             InternetAccessSheet(isBlocked: isInternetBlocked)

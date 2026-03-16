@@ -116,6 +116,16 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
         throw APIError.invalidResponse(statusCode: 404)
     }
 
+    // Beta features — not available on free-sleep
+    func getVersion() async throws -> SystemVersion { throw APIError.invalidResponse(statusCode: 404) }
+    func snoozeAlarm(side: Side, duration: Int) async throws -> SnoozeResponse { throw APIError.invalidResponse(statusCode: 404) }
+    func getWaterLevelLatest() async throws -> WaterLevelReading? { nil }
+    func getWaterLevelTrend(hours: Int) async throws -> WaterLevelTrend { throw APIError.invalidResponse(statusCode: 404) }
+    func getAmbientLightLatest() async throws -> AmbientLightReading? { nil }
+    func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws { throw APIError.invalidResponse(statusCode: 404) }
+    func deleteSleepRecord(id: Int) async throws { throw APIError.invalidResponse(statusCode: 404) }
+    func dismissPrimeNotification() async throws {}
+
     // MARK: - Private Helpers
 
     private func buildRequest(_ endpoint: APIEndpoint) throws -> URLRequest {

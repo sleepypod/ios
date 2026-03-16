@@ -345,6 +345,51 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         try await mutate("calibration.triggerFullCalibration", input: [:] as [String: String])
     }
 
+    // MARK: - Beta Features (PR #193)
+
+    func getVersion() async throws -> SystemVersion {
+        try await query("system.getVersion")
+    }
+
+    func snoozeAlarm(side: Side, duration: Int = 300) async throws -> SnoozeResponse {
+        try await mutate("device.snoozeAlarm", input: [
+            "side": side.rawValue,
+            "duration": duration,
+        ])
+    }
+
+    func getWaterLevelLatest() async throws -> WaterLevelReading? {
+        try await query("waterLevel.getLatest")
+    }
+
+    func getWaterLevelTrend(hours: Int = 24) async throws -> WaterLevelTrend {
+        try await query("waterLevel.getTrend", input: ["hours": hours])
+    }
+
+    func getAmbientLightLatest() async throws -> AmbientLightReading? {
+        try await query("environment.getLatestAmbientLight")
+    }
+
+    func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {
+        var input: [String: Any] = ["id": id]
+        let fmt = ISO8601DateFormatter()
+        if let d = enteredBedAt { input["enteredBedAt"] = fmt.string(from: d) }
+        if let d = leftBedAt { input["leftBedAt"] = fmt.string(from: d) }
+        var dateKeys: [String] = []
+        if enteredBedAt != nil { dateKeys.append("enteredBedAt") }
+        if leftBedAt != nil { dateKeys.append("leftBedAt") }
+        // Use mutation — the endpoint is biometrics.updateSleepRecord
+        let _: SleepRecord = try await mutate("biometrics.updateSleepRecord", input: input)
+    }
+
+    func deleteSleepRecord(id: Int) async throws {
+        let _: TRPCSuccess = try await mutate("biometrics.deleteSleepRecord", input: ["id": id])
+    }
+
+    func dismissPrimeNotification() async throws {
+        let _: TRPCSuccess = try await mutate("device.dismissPrimeNotification", input: [:] as [String: String])
+    }
+
     func getDiskUsage() async throws -> DiskUsage {
         try await query("system.getDiskUsage")
     }

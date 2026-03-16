@@ -51,43 +51,6 @@ struct SmartCurveView: View {
                 timePicker("Wake", icon: "sun.max.fill", color: Theme.amber, date: $wakeTime)
             }
 
-            // Temp range chips
-            HStack(spacing: 8) {
-                HStack(spacing: 4) {
-                    Image(systemName: "snowflake")
-                        .font(.system(size: 9))
-                    Text(TemperatureConversion.displayTemp(Int(minTemp), format: settingsManager.temperatureFormat))
-                        .font(.caption2.weight(.semibold).monospaced())
-                }
-                .foregroundColor(Theme.cooling)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Theme.cooling.opacity(0.12))
-                .clipShape(Capsule())
-
-                Text("–")
-                    .font(.caption)
-                    .foregroundColor(Theme.textMuted)
-
-                HStack(spacing: 4) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 9))
-                    Text(TemperatureConversion.displayTemp(Int(maxTemp), format: settingsManager.temperatureFormat))
-                        .font(.caption2.weight(.semibold).monospaced())
-                }
-                .foregroundColor(Theme.warming)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Theme.warming.opacity(0.12))
-                .clipShape(Capsule())
-
-                Spacer()
-
-                Text("Drag lines on chart")
-                    .font(.system(size: 9))
-                    .foregroundColor(Theme.textMuted)
-            }
-
             // Intensity picker
             HStack(spacing: 0) {
                 ForEach(CoolingIntensity.allCases) { level in
@@ -115,49 +78,35 @@ struct SmartCurveView: View {
                 .font(.caption2)
                 .foregroundColor(Theme.textMuted)
 
-            // Curve chart with draggable min/max lines
+            // Curve chart (clean — no overlays)
             curveChart
-                .chartOverlay { proxy in
-                    GeometryReader { geo in
-                        let plotArea = geo[proxy.plotFrame!]
-
-                        // Min line
-                        if let minY = proxy.position(forY: Int(minTemp) - 80) {
-                            dragLine(color: Theme.cooling)
-                                .offset(y: plotArea.minY + minY)
-                                .padding(.leading, plotArea.minX)
-                                .gesture(
-                                    DragGesture(minimumDistance: 1)
-                                        .onChanged { value in
-                                            let localY = value.location.y - plotArea.minY
-                                            if let offset = proxy.value(atY: localY) as Int? {
-                                                let temp = max(55, min(Double(Int(maxTemp) - 2), Double(80 + offset)))
-                                                minTemp = temp.rounded()
-                                            }
-                                        }
-                                )
-                        }
-
-                        // Max line
-                        if let maxY = proxy.position(forY: Int(maxTemp) - 80) {
-                            dragLine(color: Theme.warming)
-                                .offset(y: plotArea.minY + maxY)
-                                .padding(.leading, plotArea.minX)
-                                .gesture(
-                                    DragGesture(minimumDistance: 1)
-                                        .onChanged { value in
-                                            let localY = value.location.y - plotArea.minY
-                                            if let offset = proxy.value(atY: localY) as Int? {
-                                                let temp = min(110, max(Double(Int(minTemp) + 2), Double(80 + offset)))
-                                                maxTemp = temp.rounded()
-                                            }
-                                        }
-                                )
-                        }
-                    }
-                }
-                .frame(height: 220)
+                .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            // Min / Max temp controls — centered below chart
+            HStack(spacing: 24) {
+                tempStepper(
+                    label: "Coolest",
+                    icon: "snowflake",
+                    color: Theme.cooling,
+                    value: $minTemp,
+                    range: 55...Double(Int(maxTemp) - 2)
+                )
+
+                // Divider
+                Rectangle()
+                    .fill(Theme.cardBorder)
+                    .frame(width: 1, height: 36)
+
+                tempStepper(
+                    label: "Warmest",
+                    icon: "flame.fill",
+                    color: Theme.warming,
+                    value: $maxTemp,
+                    range: Double(Int(minTemp) + 2)...110
+                )
+            }
+            .frame(maxWidth: .infinity)
 
 
             // Phase legend
@@ -192,11 +141,50 @@ struct SmartCurveView: View {
     }
 
 
-    private func dragLine(color: Color) -> some View {
-        Rectangle()
-            .fill(color.opacity(0.4))
-            .frame(height: 1)
-            .contentShape(Rectangle().inset(by: -15))
+    private func tempStepper(label: String, icon: String, color: Color, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        VStack(spacing: 4) {
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundColor(Theme.textMuted)
+
+            HStack(spacing: 12) {
+                Button {
+                    Haptics.light()
+                    value.wrappedValue = max(range.lowerBound, value.wrappedValue - 1)
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Theme.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(Theme.cardElevated)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: 3) {
+                    Image(systemName: icon)
+                        .font(.system(size: 10))
+                        .foregroundColor(color)
+                    Text(TemperatureConversion.displayTemp(Int(value.wrappedValue), format: settingsManager.temperatureFormat))
+                        .font(.subheadline.weight(.semibold).monospaced())
+                        .foregroundColor(.white)
+                }
+                .frame(minWidth: 60)
+
+                Button {
+                    Haptics.light()
+                    value.wrappedValue = min(range.upperBound, value.wrappedValue + 1)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Theme.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(Theme.cardElevated)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     // MARK: - Phase Transitions
@@ -229,6 +217,16 @@ struct SmartCurveView: View {
             RuleMark(y: .value("Base", 0))
                 .foregroundStyle(Theme.textMuted.opacity(0.3))
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+            // Min temp line
+            RuleMark(y: .value("Min", Int(minTemp) - 80))
+                .foregroundStyle(Theme.cooling.opacity(0.4))
+                .lineStyle(StrokeStyle(lineWidth: 1))
+
+            // Max temp line
+            RuleMark(y: .value("Max", Int(maxTemp) - 80))
+                .foregroundStyle(Theme.warming.opacity(0.4))
+                .lineStyle(StrokeStyle(lineWidth: 1))
 
             // Phase background fills
             ForEach(Array(phaseTransitions.enumerated()), id: \.offset) { i, t in

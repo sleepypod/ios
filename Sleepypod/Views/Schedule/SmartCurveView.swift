@@ -170,6 +170,8 @@ struct SmartCurveView: View {
             .buttonStyle(.plain)
             .disabled(isSaving)
         }
+        .onAppear { loadFromSchedule() }
+        .onChange(of: scheduleManager.selectedDay) { loadFromSchedule() }
         .cardStyle()
     }
 
@@ -515,6 +517,38 @@ struct SmartCurveView: View {
     }
 
     // MARK: - Apply
+
+    private func loadFromSchedule() {
+        guard let daily = scheduleManager.currentDailySchedule else { return }
+        let calendar = Calendar.current
+        let now = Date()
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+
+        // Load bedtime from power schedule
+        if daily.power.enabled, let date = fmt.date(from: daily.power.on) {
+            let c = calendar.dateComponents([.hour, .minute], from: date)
+            var today = calendar.dateComponents([.year, .month, .day], from: now)
+            today.hour = c.hour; today.minute = c.minute
+            if let d = calendar.date(from: today) { bedtime = d }
+        }
+
+        // Load wake from alarm
+        if daily.alarm.enabled, let date = fmt.date(from: daily.alarm.time) {
+            let c = calendar.dateComponents([.hour, .minute], from: date)
+            var tomorrow = calendar.dateComponents([.year, .month, .day], from: now)
+            tomorrow.day = (tomorrow.day ?? 0) + 1
+            tomorrow.hour = c.hour; tomorrow.minute = c.minute
+            if let d = calendar.date(from: tomorrow) { wakeTime = d }
+        }
+
+        // Infer min/max from existing temperature set points
+        let temps = daily.temperatures.values
+        if !temps.isEmpty {
+            minTemp = Double(temps.min() ?? 68)
+            maxTemp = Double(temps.max() ?? 86)
+        }
+    }
 
     private func applyToSchedule() {
         isSaving = true

@@ -157,6 +157,7 @@ struct SmartCurveView: View {
                     }
                 }
                 .frame(height: 220)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
 
 
             // Phase legend
@@ -270,7 +271,7 @@ struct SmartCurveView: View {
         }
         .chartYScale(domain: yDomain)
         .chartYAxis {
-            AxisMarks(position: .leading, values: [-8, -4, 0, 4, 8]) { value in
+            AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))
                     .foregroundStyle(Theme.cardBorder)
                 AxisValueLabel {

@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import HealthKit
 
 struct SmartCurveView: View {
     @Environment(ScheduleManager.self) private var scheduleManager
@@ -10,6 +11,8 @@ struct SmartCurveView: View {
     @State private var intensity: CoolingIntensity = .balanced
     @State private var isSaving = false
     @State private var showSuccess = false
+    @State private var healthSynced = false
+    @State private var healthError: String?
 
     private var curve: [SleepCurve.Point] {
         SleepCurve.generate(bedtime: bedtime, wakeTime: wakeTime, coolingIntensity: intensity)
@@ -21,6 +24,28 @@ struct SmartCurveView: View {
             HStack(spacing: 12) {
                 timePicker("Bedtime", icon: "moon.fill", color: Theme.purple, date: $bedtime)
                 timePicker("Wake", icon: "sun.max.fill", color: Theme.amber, date: $wakeTime)
+            }
+
+            // Import from Health
+            Button {
+                Haptics.light()
+                importFromHealth()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: healthSynced ? "checkmark.circle.fill" : "heart.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(healthSynced ? Theme.healthy : Theme.error)
+                    Text(healthSynced ? "Synced from Health" : "Import from Health")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(healthSynced ? Theme.healthy : Theme.accent)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if let err = healthError {
+                Text(err)
+                    .font(.caption2)
+                    .foregroundColor(Theme.textMuted)
             }
 
             // Intensity picker
@@ -148,9 +173,16 @@ struct SmartCurveView: View {
                     .foregroundStyle(Theme.cardBorder)
                 AxisValueLabel {
                     if let v = value.as(Int.self) {
-                        Text(v > 0 ? "+\(v)" : "\(v)")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(Theme.textMuted)
+                        let format = settingsManager.temperatureFormat
+                        if format == .relative {
+                            Text(v > 0 ? "+\(v)" : "\(v)")
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundStyle(Theme.textMuted)
+                        } else {
+                            Text(TemperatureConversion.displayTemp(80 + v, format: format))
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundStyle(Theme.textMuted)
+                        }
                     }
                 }
             }
@@ -239,6 +271,91 @@ struct SmartCurveView: View {
         .padding(12)
         .background(Theme.cardElevated)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    // MARK: - HealthKit Import
+
+    private func importFromHealth() {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            healthError = "Health data not available on this device"
+            return
+        }
+
+        let store = HKHealthStore()
+        let sleepType = HKCategoryType(.sleepAnalysis)
+
+        store.requestAuthorization(toShare: nil, read: [sleepType]) { success, error in
+            guard success else {
+                DispatchQueue.main.async {
+                    healthError = "Health access denied — enable in Settings → Privacy → Health"
+                }
+                return
+            }
+
+            // Query the most recent sleep schedule / sleep analysis to find bed + wake pattern
+            let calendar = Calendar.current
+            let now = Date()
+            let weekAgo = calendar.date(byAdding: .day, value: -7, to: now)!
+
+            let predicate = HKQuery.predicateForSamples(withStart: weekAgo, end: now)
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: 20,
+                sortDescriptors: [sortDescriptor]
+            ) { _, samples, queryError in
+                guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
+                    DispatchQueue.main.async {
+                        healthError = "No recent sleep data found in Health"
+                    }
+                    return
+                }
+
+                // Find the most recent "in bed" period
+                // inBed = 0, asleep/asleepUnspecified = 1, awake = 2, asleepCore = 3, asleepDeep = 4, asleepREM = 5
+                let inBedSamples = samples.filter { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
+                let sleepSamples = samples.filter {
+                    [HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+                     HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                     HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                     HKCategoryValueSleepAnalysis.asleepREM.rawValue].contains($0.value)
+                }
+
+                let recentSession = inBedSamples.first ?? sleepSamples.first
+                guard let session = recentSession else {
+                    DispatchQueue.main.async {
+                        healthError = "No sleep sessions found"
+                    }
+                    return
+                }
+
+                // Extract bed and wake times (just the hour:minute, applied to today)
+                let bedComponents = calendar.dateComponents([.hour, .minute], from: session.startDate)
+                let wakeComponents = calendar.dateComponents([.hour, .minute], from: session.endDate)
+
+                DispatchQueue.main.async {
+                    if let bedHour = bedComponents.hour, let bedMin = bedComponents.minute {
+                        var c = calendar.dateComponents([.year, .month, .day], from: now)
+                        c.hour = bedHour
+                        c.minute = bedMin
+                        bedtime = calendar.date(from: c) ?? bedtime
+                    }
+                    if let wakeHour = wakeComponents.hour, let wakeMin = wakeComponents.minute {
+                        var c = calendar.dateComponents([.year, .month, .day], from: now)
+                        c.hour = wakeHour
+                        c.minute = wakeMin
+                        wakeTime = calendar.date(from: c) ?? wakeTime
+                    }
+                    healthSynced = true
+                    healthError = nil
+                    Haptics.medium()
+                }
+            }
+
+            store.execute(query)
+        }
     }
 
     // MARK: - Apply

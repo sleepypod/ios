@@ -18,13 +18,16 @@ struct ScheduleScreen: View {
                 // Smart curve
                 SmartCurveView()
 
-                // Advanced toggle
+                // Schedule toggle
+                scheduleToggle
+
+                // Manual set points (advanced)
                 Button {
                     Haptics.light()
                     withAnimation(.easeInOut(duration: 0.2)) { showAdvanced.toggle() }
                 } label: {
                     HStack {
-                        Text("Advanced Settings")
+                        Text("Manual Set Points")
                             .font(.caption.weight(.medium))
                             .foregroundColor(Theme.textMuted)
                         Spacer()
@@ -35,17 +38,6 @@ struct ScheduleScreen: View {
                     }
                 }
                 .buttonStyle(.plain)
-
-                if showAdvanced {
-                    // Profile picker
-                    ProfilePickerView()
-
-                    // Sleep time card
-                    SleepTimeCardView()
-
-                    // Schedule active toggle
-                    scheduleToggle
-                }
 
                 // Phase blocks
                 if scheduleManager.schedules != nil {

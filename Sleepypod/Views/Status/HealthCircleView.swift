@@ -11,9 +11,8 @@ struct HealthCircleView: View {
     private var progress: Double { statusManager.healthProgress }
     private var status: DeviceStatus? { deviceManager.deviceStatus }
 
-    /// Internet blocked status — pulled from the "Internet" service in Core category
     private var isInternetBlocked: Bool {
-        statusManager.serverStatus?.logger.status == .failed
+        statusManager.isInternetBlocked
     }
 
     var body: some View {

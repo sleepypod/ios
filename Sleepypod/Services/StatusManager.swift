@@ -9,6 +9,7 @@ final class StatusManager {
     var isLoading = false
     var error: String?
     var lastUpdated: Date?
+    var isInternetBlocked = false
 
     private let api: SleepypodProtocol
     private var pollingTask: Task<Void, Never>?
@@ -133,7 +134,8 @@ final class StatusManager {
 
         async let statusTask: () = fetchServerStatus()
         async let servicesTask: () = fetchServices()
-        _ = await (statusTask, servicesTask)
+        async let internetTask: () = fetchInternetStatus()
+        _ = await (statusTask, servicesTask, internetTask)
 
         lastUpdated = Date()
         isLoading = false
@@ -181,10 +183,12 @@ final class StatusManager {
     // MARK: - Internet Access
 
     func setInternetAccess(blocked: Bool) async {
+        isInternetBlocked = blocked  // Optimistic update
         do {
             try await api.setInternetAccess(blocked: blocked)
             await fetchAll()
         } catch {
+            isInternetBlocked = !blocked  // Revert
             self.error = error.localizedDescription
         }
     }
@@ -203,6 +207,25 @@ final class StatusManager {
             serverStatus = try await api.getServerStatus()
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    private func fetchInternetStatus() async {
+        do {
+            struct InternetStatus: Decodable { var blocked: Bool }
+            let result: InternetStatus = try await {
+                let base = UserDefaults.standard.string(forKey: "podIPAddress") ?? ""
+                guard !base.isEmpty,
+                      let url = URL(string: "http://\(base):3000/api/trpc/system.internetStatus?input=%7B%22json%22%3A%7B%7D%7D") else { return InternetStatus(blocked: false) }
+                let (data, _) = try await URLSession.shared.data(from: url)
+                struct E<T: Decodable>: Decodable { let result: R<T> }
+                struct R<T: Decodable>: Decodable { let data: D<T> }
+                struct D<T: Decodable>: Decodable { let json: T }
+                return try JSONDecoder().decode(E<InternetStatus>.self, from: data).result.data.json
+            }()
+            isInternetBlocked = result.blocked
+        } catch {
+            // Keep previous value
         }
     }
 

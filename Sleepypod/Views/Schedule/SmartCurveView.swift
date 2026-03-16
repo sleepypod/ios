@@ -16,6 +16,14 @@ struct SmartCurveView: View {
     @State private var minTemp: Double = 68
     @State private var maxTemp: Double = 86
 
+    /// Adaptive slider range — zooms in around the current midpoint for more resolution
+    private var sliderRange: ClosedRange<Double> {
+        let mid = (minTemp + maxTemp) / 2
+        let lo = max(55, mid - 15)
+        let hi = min(110, mid + 15)
+        return lo...hi
+    }
+
     private var curve: [SleepCurve.Point] {
         SleepCurve.generate(
             bedtime: bedtime,
@@ -61,7 +69,11 @@ struct SmartCurveView: View {
                 .font(.caption2)
                 .foregroundColor(Theme.textMuted)
 
-            // Temperature range — dual slider
+            // Curve chart
+            curveChart
+                .frame(height: 200)
+
+            // Temperature range — dual slider (below chart so dragging doesn't cover it)
             VStack(spacing: 8) {
                 HStack {
                     Text("Temp Range")
@@ -79,20 +91,17 @@ struct SmartCurveView: View {
                         .foregroundColor(Theme.warming)
                 }
 
+                // Adaptive range: center on midpoint ±15°F for more resolution
                 RangeSlider(
                     low: $minTemp,
                     high: $maxTemp,
-                    range: 55...110,
+                    range: sliderRange,
                     step: 1
                 )
             }
             .padding(12)
             .background(Theme.cardElevated)
             .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            // Curve chart
-            curveChart
-                .frame(height: 200)
 
             // Phase legend
             phaseLegend

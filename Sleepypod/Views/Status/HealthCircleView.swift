@@ -6,6 +6,7 @@ struct HealthCircleView: View {
     @Environment(SettingsManager.self) private var settingsManager
     @State private var showSerials = false
     @State private var showInternetSheet = false
+    @State private var diskUsage: DiskUsage?
 
     private var progress: Double { statusManager.healthProgress }
     private var status: DeviceStatus? { deviceManager.deviceStatus }
@@ -135,6 +136,39 @@ struct HealthCircleView: View {
                     .clipShape(Capsule())
                 }
 
+                // Disk usage
+                if let disk = diskUsage {
+                    Divider().background(Theme.cardBorder).padding(.vertical, 10)
+
+                    VStack(spacing: 4) {
+                        HStack {
+                            HStack(spacing: 4) {
+                                Image(systemName: "internaldrive")
+                                    .font(.system(size: 10))
+                                Text("\(disk.usedGB) / \(disk.totalGB) GB")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(Theme.textSecondary)
+                            Spacer()
+                            Text("\(Int(disk.usedPercent))%")
+                                .font(.caption2.weight(.medium))
+                                .foregroundColor(disk.usedPercent > 90 ? Theme.error : disk.usedPercent > 75 ? Theme.amber : Theme.textMuted)
+                        }
+
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color(hex: "222222"))
+                                    .frame(height: 4)
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(disk.usedPercent > 90 ? Theme.error : disk.usedPercent > 75 ? Theme.amber : Theme.accent)
+                                    .frame(width: geo.size.width * disk.usedPercent / 100, height: 4)
+                            }
+                        }
+                        .frame(height: 4)
+                    }
+                }
+
                 // Serials (collapsible)
                 Divider().background(Theme.cardBorder).padding(.vertical, 10)
 
@@ -173,6 +207,9 @@ struct HealthCircleView: View {
             }
         }
         .cardStyle()
+        .task {
+            diskUsage = try? await APIBackend.current.createClient().getDiskUsage()
+        }
         .sheet(isPresented: $showInternetSheet) {
             InternetAccessSheet(isBlocked: isInternetBlocked)
                 .presentationDetents([.medium])

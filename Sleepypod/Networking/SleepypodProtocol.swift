@@ -18,4 +18,6 @@ protocol SleepypodProtocol: Sendable {
     func reboot() async throws
     func setInternetAccess(blocked: Bool) async throws
     func getCalibrationStatus(side: Side) async throws -> CalibrationStatus
+    func getDiskUsage() async throws -> DiskUsage
+    func getFileCount() async throws -> FileCount
 }

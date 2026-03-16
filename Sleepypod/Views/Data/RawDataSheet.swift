@@ -8,6 +8,7 @@ struct RawDataSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var exportURL: URL?
     @State private var showShareSheet = false
+    @State private var fileCount: FileCount?
 
     private var side: String { metricsManager.selectedSide.rawValue }
     private var dropped: Int { vitals.count - smoothedVitals.count }
@@ -25,6 +26,13 @@ struct RawDataSheet: View {
                         }
                         statRow("Sleep sessions", "\(metricsManager.sleepRecords.count)")
                         statRow("Movement records", "\(metricsManager.movementRecords.count)")
+
+                        if let fc = fileCount {
+                            Divider().background(Theme.cardBorder).padding(.vertical, 2)
+                            statRow("Raw files (left)", "\(fc.rawFiles.left)")
+                            statRow("Raw files (right)", "\(fc.rawFiles.right)")
+                            statRow("Total size", fc.sizeDisplay)
+                        }
                     }
                     .cardStyle()
 
@@ -91,6 +99,9 @@ struct RawDataSheet: View {
                 if let url = exportURL {
                     ShareSheet(items: [url])
                 }
+            }
+            .task {
+                fileCount = try? await APIBackend.current.createClient().getFileCount()
             }
         }
     }

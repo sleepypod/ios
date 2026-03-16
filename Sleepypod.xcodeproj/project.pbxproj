@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -112,7 +112,7 @@
 		2EFD212CB1C1A249CAD940C8 /* PhaseBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseBlockView.swift; sourceTree = "<group>"; };
 		2F0AFD07A8CB0082733ACB36 /* SleepRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepRecord.swift; sourceTree = "<group>"; };
 		30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureConversion.swift; sourceTree = "<group>"; };
-		3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sleepypod.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sleepypod.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		452905BE65E698AC3C3419A6 /* MovementCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementCardView.swift; sourceTree = "<group>"; };
 		4A8BAD843B5F8A9CD181A2AE /* TempScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempScreen.swift; sourceTree = "<group>"; };
 		4BE210E5A8FC6945D3DE384C /* ServiceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceRowView.swift; sourceTree = "<group>"; };
@@ -409,7 +409,6 @@
 			);
 			mainGroup = 3B37E02D8C926F0693D831AD;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -533,6 +532,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sleepypod/Sleepypod.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sleepypod needs local network access to communicate with your pod";
@@ -620,6 +620,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sleepypod/Sleepypod.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sleepypod needs local network access to communicate with your pod";

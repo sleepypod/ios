@@ -37,6 +37,9 @@ struct HealthScreen: View {
                     // Sleep summary
                     SleepSummaryCardView()
 
+                    // Sleep stages hypnogram
+                    SleepStagesTimelineView(stages: sleepAnalyzer.stages)
+
                     // On-device sleep analysis (ML)
                     if !sleepAnalyzer.stages.isEmpty {
                         sleepAnalysisCard
@@ -90,9 +93,6 @@ struct HealthScreen: View {
                         ],
                         average: metricsManager.vitalsSummary?.avgBreathingRate
                     )
-
-                    // Sleep stages timeline
-                    SleepStagesTimelineView()
 
                     // Weekly bar chart
                     WeeklyBarChartView()

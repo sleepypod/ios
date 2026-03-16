@@ -70,53 +70,76 @@ private struct LogsSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Service picker
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                // Filters row
+                HStack(spacing: 10) {
+                    // Service menu
+                    Menu {
                         ForEach(services, id: \.0) { id, label in
                             Button {
                                 Haptics.tap()
                                 selectedService = id
                                 Task { await fetchLogs() }
                             } label: {
-                                Text(label)
-                                    .font(.caption.weight(.medium))
-                                    .foregroundColor(selectedService == id ? .white : Theme.textSecondary)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .background(selectedService == id ? Theme.cooling : Theme.cardElevated)
-                                    .clipShape(Capsule())
+                                HStack {
+                                    Text(label)
+                                    if selectedService == id { Image(systemName: "checkmark") }
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "server.rack")
+                                .font(.system(size: 10))
+                            Text(services.first { $0.0 == selectedService }?.1 ?? "Core")
+                                .font(.caption.weight(.medium))
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Theme.cooling)
+                        .clipShape(Capsule())
                     }
-                    .padding(.horizontal, 16)
-                }
-                .padding(.vertical, 10)
 
-                // Priority filter
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
+                    // Priority menu
+                    Menu {
                         ForEach(priorities, id: \.1) { value, label in
                             Button {
                                 Haptics.tap()
                                 selectedPriority = value
                                 Task { await fetchLogs() }
                             } label: {
-                                Text(label)
-                                    .font(.caption2.weight(.medium))
-                                    .foregroundColor(selectedPriority == value ? .white : Theme.textMuted)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(selectedPriority == value ? Theme.textSecondary.opacity(0.5) : Theme.cardElevated)
-                                    .clipShape(Capsule())
+                                HStack {
+                                    Text(label)
+                                    if selectedPriority == value { Image(systemName: "checkmark") }
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "line.3.horizontal.decrease")
+                                .font(.system(size: 10))
+                            Text(priorities.first { $0.0 == selectedPriority }?.1 ?? "All")
+                                .font(.caption.weight(.medium))
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Theme.cardElevated)
+                        .clipShape(Capsule())
                     }
-                    .padding(.horizontal, 16)
+
+                    Spacer()
+
+                    Text("\(logs.count) entries")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
                 }
-                .padding(.bottom, 6)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
 
                 Divider().background(Theme.cardBorder)
 
@@ -180,21 +203,39 @@ private struct LogsSheet: View {
 
     private func logRow(_ entry: LogEntry) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            // Level indicator
             Circle()
                 .fill(entry.levelColor)
                 .frame(width: 6, height: 6)
                 .padding(.top, 5)
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(entry.message)
                     .font(.system(size: 12))
                     .foregroundColor(.white)
                     .textSelection(.enabled)
 
-                Text(entry.time)
-                    .font(.system(size: 9))
-                    .foregroundColor(Theme.textMuted)
+                // Pretty-printed JSON payload if present
+                if let json = entry.jsonPayload {
+                    Text(json)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(Theme.accent.opacity(0.7))
+                        .padding(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(hex: "0f0f1a"))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .textSelection(.enabled)
+                }
+
+                HStack(spacing: 6) {
+                    Text(entry.time)
+                        .font(.system(size: 9))
+                        .foregroundColor(Theme.textMuted)
+                    if let tag = entry.levelTag {
+                        Text(tag)
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundColor(entry.levelColor)
+                    }
+                }
             }
         }
         .padding(.vertical, 4)
@@ -253,6 +294,8 @@ private struct LogEntry: Identifiable {
     let time: String
     let level: Level
     let message: String
+    let jsonPayload: String?
+    let levelTag: String?
 
     enum Level {
         case info, warn, error, debug
@@ -269,54 +312,65 @@ private struct LogEntry: Identifiable {
 
     var levelColor: Color { level.color }
 
-    /// Parse a journalctl line like:
-    /// "2026-03-15T14:30:00+0000 sleepypod[123]: [INFO] Server started on port 3000"
     static func parse(_ line: String, index: Int) -> LogEntry {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
 
-        // Try to extract timestamp from start
+        // Extract timestamp
         var time = ""
         var rest = trimmed
 
-        // ISO timestamp prefix
         if trimmed.count > 19, trimmed[trimmed.index(trimmed.startIndex, offsetBy: 4)] == "-" {
             let tsEnd = trimmed.index(trimmed.startIndex, offsetBy: min(19, trimmed.count))
             let ts = String(trimmed[..<tsEnd])
-            // Format to just time
             if let tIdx = ts.firstIndex(of: "T") {
                 time = String(ts[ts.index(after: tIdx)...])
             } else {
                 time = ts
             }
-            // Find message after unit name
             if let colonIdx = trimmed[tsEnd...].firstIndex(of: ":") {
                 rest = String(trimmed[trimmed.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
             }
         }
 
         // Detect level
-        let level: Level
         let lower = rest.lowercased()
-        if lower.contains("[error]") || lower.contains("error:") || lower.contains("err ") {
-            level = .error
+        let level: Level
+        let tag: String?
+        if lower.contains("[error]") || lower.contains("error:") {
+            level = .error; tag = "ERROR"
         } else if lower.contains("[warn]") || lower.contains("warning:") {
-            level = .warn
-        } else if lower.contains("[debug]") || lower.contains("debug:") {
-            level = .debug
+            level = .warn; tag = "WARN"
+        } else if lower.contains("[debug]") {
+            level = .debug; tag = "DEBUG"
         } else {
-            level = .info
+            level = .info; tag = nil
         }
 
-        // Clean up level tags from message
+        // Clean level tags
         var msg = rest
-            .replacingOccurrences(of: "[INFO]", with: "")
-            .replacingOccurrences(of: "[WARN]", with: "")
-            .replacingOccurrences(of: "[ERROR]", with: "")
-            .replacingOccurrences(of: "[DEBUG]", with: "")
+            .replacingOccurrences(of: "[INFO] ", with: "")
+            .replacingOccurrences(of: "[WARN] ", with: "")
+            .replacingOccurrences(of: "[ERROR] ", with: "")
+            .replacingOccurrences(of: "[DEBUG] ", with: "")
             .trimmingCharacters(in: .whitespaces)
+
+        // Extract and prettify JSON
+        var jsonPayload: String?
+        if let jsonStart = msg.firstIndex(of: "{"),
+           let jsonData = String(msg[jsonStart...]).data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: jsonData),
+           let pretty = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
+           let prettyStr = String(data: pretty, encoding: .utf8) {
+            jsonPayload = prettyStr
+            msg = String(msg[..<jsonStart]).trimmingCharacters(in: .whitespaces)
+            // Clean trailing punctuation
+            if msg.hasSuffix(":") || msg.hasSuffix("-") {
+                msg = String(msg.dropLast()).trimmingCharacters(in: .whitespaces)
+            }
+        }
 
         if msg.isEmpty { msg = trimmed }
 
-        return LogEntry(id: index, time: time, level: level, message: msg)
+        return LogEntry(id: index, time: time, level: level, message: msg, jsonPayload: jsonPayload, levelTag: tag)
     }
 }

@@ -6,6 +6,7 @@ struct HealthCircleView: View {
     @Environment(SettingsManager.self) private var settingsManager
     @State private var showSerials = false
     @State private var showInternetSheet = false
+    @State private var showWaterSheet = false
     @State private var diskUsage: DiskUsage?
     @State private var version: SystemVersion?
 
@@ -110,15 +111,21 @@ struct HealthCircleView: View {
 
                 // Stats row: water + branch/version chip
                 HStack(spacing: 0) {
-                    // Water level
-                    HStack(spacing: 5) {
-                        Image(systemName: "drop.fill")
-                            .font(.system(size: 10))
-                            .foregroundColor(waterColor(status.waterLevel))
-                        Text(status.waterLevel.capitalized)
-                            .font(.caption2)
-                            .foregroundColor(waterColor(status.waterLevel))
+                    // Water level — tappable
+                    Button {
+                        Haptics.light()
+                        showWaterSheet = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "drop.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(waterColor(status.waterLevel))
+                            Text(waterLabel(status.waterLevel))
+                                .font(.caption2)
+                                .foregroundColor(waterColor(status.waterLevel))
+                        }
                     }
+                    .buttonStyle(.plain)
 
                     Spacer()
 
@@ -217,6 +224,11 @@ struct HealthCircleView: View {
             diskUsage = try? await api.getDiskUsage()
             version = try? await api.getVersion()
         }
+        .sheet(isPresented: $showWaterSheet) {
+            WaterLevelSheet(currentLevel: status?.waterLevel ?? "unknown")
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showInternetSheet) {
             InternetAccessSheet(isBlocked: isInternetBlocked)
                 .presentationDetents([.medium])
@@ -238,6 +250,14 @@ struct HealthCircleView: View {
         if strength >= 50 { return Theme.healthy }
         if strength >= 25 { return Theme.amber }
         return Theme.error
+    }
+
+    private func waterLabel(_ level: String) -> String {
+        switch level.lowercased() {
+        case "true", "ok", "full", "good": "Water OK"
+        case "false", "low", "empty": "Water Low"
+        default: "Water: \(level)"
+        }
     }
 
     private func waterColor(_ level: String) -> Color {

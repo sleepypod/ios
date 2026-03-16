@@ -6,8 +6,17 @@ struct SmartCurveView: View {
     @Environment(ScheduleManager.self) private var scheduleManager
     @Environment(SettingsManager.self) private var settingsManager
 
-    @State private var bedtime = Calendar.current.date(from: DateComponents(hour: 22, minute: 0)) ?? Date()
-    @State private var wakeTime = Calendar.current.date(from: DateComponents(hour: 7, minute: 0)) ?? Date()
+    @State private var bedtime: Date = {
+        var c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        c.hour = 22; c.minute = 0
+        return Calendar.current.date(from: c) ?? Date()
+    }()
+    @State private var wakeTime: Date = {
+        var c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        c.day = (c.day ?? 0) + 1
+        c.hour = 7; c.minute = 0
+        return Calendar.current.date(from: c) ?? Date()
+    }()
     @State private var intensity: CoolingIntensity = .balanced
     @State private var isSaving = false
     @State private var showSuccess = false
@@ -15,14 +24,6 @@ struct SmartCurveView: View {
     @State private var healthError: String?
     @State private var minTemp: Double = 68
     @State private var maxTemp: Double = 86
-
-    /// Adaptive slider range — zooms in around the current midpoint for more resolution
-    private var sliderRange: ClosedRange<Double> {
-        let mid = (minTemp + maxTemp) / 2
-        let lo = max(55, mid - 15)
-        let hi = min(110, mid + 15)
-        return lo...hi
-    }
 
     private var curve: [SleepCurve.Point] {
         SleepCurve.generate(
@@ -69,39 +70,36 @@ struct SmartCurveView: View {
                 .font(.caption2)
                 .foregroundColor(Theme.textMuted)
 
-            // Curve chart
-            curveChart
-                .frame(height: 200)
+            // Curve chart with draggable min/max lines
+            ZStack {
+                curveChart
+                    .frame(height: 220)
 
-            // Temperature range — dual slider (below chart so dragging doesn't cover it)
-            VStack(spacing: 8) {
-                HStack {
-                    Text("Temp Range")
-                        .font(.caption.weight(.medium))
-                        .foregroundColor(Theme.textSecondary)
-                    Spacer()
-                    Text(TemperatureConversion.displayTemp(Int(minTemp), format: settingsManager.temperatureFormat))
-                        .font(.caption.weight(.medium).monospaced())
-                        .foregroundColor(Theme.cooling)
-                    Text("–")
-                        .font(.caption)
-                        .foregroundColor(Theme.textMuted)
-                    Text(TemperatureConversion.displayTemp(Int(maxTemp), format: settingsManager.temperatureFormat))
-                        .font(.caption.weight(.medium).monospaced())
-                        .foregroundColor(Theme.warming)
-                }
-
-                // Adaptive range: center on midpoint ±15°F for more resolution
-                RangeSlider(
-                    low: $minTemp,
-                    high: $maxTemp,
-                    range: sliderRange,
-                    step: 1
-                )
+                // Draggable temp range lines
+                tempRangeOverlay
+                    .frame(height: 220)
             }
-            .padding(12)
-            .background(Theme.cardElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            // Temp range labels
+            HStack {
+                HStack(spacing: 4) {
+                    Circle().fill(Theme.cooling).frame(width: 6, height: 6)
+                    Text("Min \(TemperatureConversion.displayTemp(Int(minTemp), format: settingsManager.temperatureFormat))")
+                        .font(.caption2)
+                        .foregroundColor(Theme.cooling)
+                }
+                Spacer()
+                Text("Drag lines to adjust")
+                    .font(.system(size: 9))
+                    .foregroundColor(Theme.textMuted)
+                Spacer()
+                HStack(spacing: 4) {
+                    Text("Max \(TemperatureConversion.displayTemp(Int(maxTemp), format: settingsManager.temperatureFormat))")
+                        .font(.caption2)
+                        .foregroundColor(Theme.warming)
+                    Circle().fill(Theme.warming).frame(width: 6, height: 6)
+                }
+            }
 
             // Phase legend
             phaseLegend
@@ -134,21 +132,88 @@ struct SmartCurveView: View {
         .cardStyle()
     }
 
+    // MARK: - Temp Range Overlay
+
+    private let chartRange: ClosedRange<Double> = -20...20
+
+    private func offsetForY(_ y: CGFloat, height: CGFloat) -> Double {
+        let range = chartRange.upperBound - chartRange.lowerBound
+        return chartRange.upperBound - (Double(y) / Double(height)) * range
+    }
+
+    private func yForOffset(_ offset: Double, height: CGFloat) -> CGFloat {
+        let range = chartRange.upperBound - chartRange.lowerBound
+        return CGFloat((chartRange.upperBound - offset) / range) * height
+    }
+
+    private var tempRangeOverlay: some View {
+        GeometryReader { geo in
+            let h = geo.size.height
+            let minOffset = Double(Int(minTemp) - 80)
+            let maxOffset = Double(Int(maxTemp) - 80)
+            let minY = yForOffset(minOffset, height: h)
+            let maxY = yForOffset(maxOffset, height: h)
+
+            ZStack {
+                // Min line (cool — bottom)
+                dragLine(y: minY, color: Theme.cooling, label: "\(Int(minTemp))°")
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                let offset = offsetForY(value.location.y, height: h)
+                                let temp = max(55, min(Double(Int(maxTemp) - 2), 80 + offset))
+                                minTemp = (temp).rounded()
+                                Haptics.light()
+                            }
+                    )
+
+                // Max line (warm — top)
+                dragLine(y: maxY, color: Theme.warming, label: "\(Int(maxTemp))°")
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                let offset = offsetForY(value.location.y, height: h)
+                                let temp = min(110, max(Double(Int(minTemp) + 2), 80 + offset))
+                                maxTemp = (temp).rounded()
+                                Haptics.light()
+                            }
+                    )
+            }
+        }
+        .allowsHitTesting(true)
+    }
+
+    private func dragLine(y: CGFloat, color: Color, label: String) -> some View {
+        ZStack {
+            // Dashed line
+            Rectangle()
+                .fill(color.opacity(0.5))
+                .frame(height: 1)
+                .overlay(
+                    Rectangle()
+                        .stroke(color, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                )
+                .offset(y: y)
+
+            // Drag handle on right edge
+            HStack {
+                Spacer()
+                Text(label)
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(color)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+            .offset(y: y)
+        }
+    }
+
     // MARK: - Chart
 
     private var curveChart: some View {
         Chart {
-            // Phase background colors
-            ForEach(phaseRanges, id: \.phase) { range in
-                RectangleMark(
-                    xStart: .value("Start", range.start),
-                    xEnd: .value("End", range.end),
-                    yStart: .value("Min", -10),
-                    yEnd: .value("Max", 10)
-                )
-                .foregroundStyle(range.color.opacity(0.06))
-            }
-
             // Zero line (base temp)
             RuleMark(y: .value("Base", 0))
                 .foregroundStyle(Theme.textMuted.opacity(0.3))

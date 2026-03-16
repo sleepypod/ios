@@ -4,6 +4,8 @@ struct ScheduleScreen: View {
     @Environment(ScheduleManager.self) private var scheduleManager
     @Environment(SettingsManager.self) private var settingsManager
 
+    @State private var showAdvanced = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -13,14 +15,37 @@ struct ScheduleScreen: View {
                 // Day selector
                 DaySelectorView()
 
-                // Profile picker
-                ProfilePickerView()
+                // Smart curve
+                SmartCurveView()
 
-                // Sleep time card
-                SleepTimeCardView()
+                // Advanced toggle
+                Button {
+                    Haptics.light()
+                    withAnimation(.easeInOut(duration: 0.2)) { showAdvanced.toggle() }
+                } label: {
+                    HStack {
+                        Text("Advanced Settings")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(Theme.textMuted)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textMuted)
+                            .rotationEffect(.degrees(showAdvanced ? 90 : 0))
+                    }
+                }
+                .buttonStyle(.plain)
 
-                // Schedule active toggle
-                scheduleToggle
+                if showAdvanced {
+                    // Profile picker
+                    ProfilePickerView()
+
+                    // Sleep time card
+                    SleepTimeCardView()
+
+                    // Schedule active toggle
+                    scheduleToggle
+                }
 
                 // Phase blocks
                 if scheduleManager.schedules != nil {

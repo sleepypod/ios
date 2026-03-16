@@ -10,6 +10,7 @@ final class StatusManager {
     var error: String?
     var lastUpdated: Date?
     var isInternetBlocked = false
+    private var internetCooldownUntil: Date?
 
     private let api: SleepypodProtocol
     private var pollingTask: Task<Void, Never>?
@@ -183,12 +184,13 @@ final class StatusManager {
     // MARK: - Internet Access
 
     func setInternetAccess(blocked: Bool) async {
-        isInternetBlocked = blocked  // Optimistic update
+        isInternetBlocked = blocked
+        internetCooldownUntil = Date().addingTimeInterval(10) // Don't let polls override for 10s
         do {
             try await api.setInternetAccess(blocked: blocked)
-            await fetchAll()
         } catch {
-            isInternetBlocked = !blocked  // Revert
+            isInternetBlocked = !blocked
+            internetCooldownUntil = nil
             self.error = error.localizedDescription
         }
     }
@@ -211,6 +213,9 @@ final class StatusManager {
     }
 
     private func fetchInternetStatus() async {
+        // Don't override optimistic update during cooldown
+        if let cooldown = internetCooldownUntil, Date() < cooldown { return }
+        internetCooldownUntil = nil
         do {
             struct InternetStatus: Decodable { var blocked: Bool }
             let result: InternetStatus = try await {

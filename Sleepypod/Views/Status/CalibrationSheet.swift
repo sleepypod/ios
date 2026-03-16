@@ -9,6 +9,7 @@ struct CalibrationSheet: View {
     @State private var result: String?
     @State private var statusText: String?
     @State private var terminalLines: [String] = []
+    @State private var showSuccess = false
 
     var body: some View {
         NavigationStack {
@@ -107,15 +108,38 @@ struct CalibrationSheet: View {
                     }
                 }
 
-                Button(result != nil ? "Done" : "Cancel") { dismiss() }
-                    .font(.subheadline.weight(result != nil ? .semibold : .regular))
-                    .foregroundColor(result != nil ? Theme.accent : Theme.textMuted)
-                    .padding(.bottom, 20)
+                if !isCalibrating && result == nil && !showSuccess {
+                    Button("Cancel") { dismiss() }
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textMuted)
+                        .padding(.bottom, 20)
+                }
             }
             .background(Theme.background)
             .navigationTitle("Calibration")
             .navigationBarTitleDisplayMode(.inline)
+            .overlay {
+                if showSuccess {
+                    successOverlay
+                }
+            }
         }
+    }
+
+    private var successOverlay: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 64))
+                .foregroundColor(Theme.healthy)
+                .symbolEffect(.bounce, value: showSuccess)
+
+            Text("Calibration Complete")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.white)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.background.opacity(0.95))
+        .transition(.opacity)
     }
 
     private func explanationRow(icon: String, text: LocalizedStringKey) -> some View {
@@ -224,12 +248,17 @@ struct CalibrationSheet: View {
             if pending == 0 {
                 let summary = summaryParts.joined(separator: " · ")
                 log("")
-                log("Done: \(summary.isEmpty ? "all complete" : summary)")
-                result = summary.isEmpty ? "Calibration complete" : summary
+                log("✓ Done: \(summary.isEmpty ? "all complete" : summary)")
+                result = summary
                 isCalibrating = false
                 Haptics.heavy()
                 try? await Task.sleep(for: .milliseconds(200))
                 Haptics.heavy()
+
+                // Show success and auto-dismiss
+                withAnimation(.easeInOut(duration: 0.3)) { showSuccess = true }
+                try? await Task.sleep(for: .seconds(2))
+                dismiss()
                 return
             }
 

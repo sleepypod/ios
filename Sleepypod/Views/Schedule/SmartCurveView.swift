@@ -170,6 +170,9 @@ struct SmartCurveView: View {
             .buttonStyle(.plain)
             .disabled(isSaving)
         }
+        .onAppear { loadFromSchedule() }
+        .onChange(of: scheduleManager.selectedDay) { loadFromSchedule() }
+        .onChange(of: scheduleManager.schedules != nil) { loadFromSchedule() }
         .cardStyle()
     }
 
@@ -515,6 +518,52 @@ struct SmartCurveView: View {
     }
 
     // MARK: - Apply
+
+    private func loadFromSchedule() {
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Reset to defaults first
+        var bed = calendar.dateComponents([.year, .month, .day], from: now)
+        bed.hour = 22; bed.minute = 0
+        bedtime = calendar.date(from: bed) ?? bedtime
+
+        var wake = calendar.dateComponents([.year, .month, .day], from: now)
+        wake.day = (wake.day ?? 0) + 1
+        wake.hour = 7; wake.minute = 0
+        wakeTime = calendar.date(from: wake) ?? wakeTime
+
+        minTemp = 68
+        maxTemp = 86
+
+        guard let daily = scheduleManager.currentDailySchedule else { return }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+
+        // Load bedtime from power schedule
+        if daily.power.enabled, let date = fmt.date(from: daily.power.on) {
+            let c = calendar.dateComponents([.hour, .minute], from: date)
+            var today = calendar.dateComponents([.year, .month, .day], from: now)
+            today.hour = c.hour; today.minute = c.minute
+            if let d = calendar.date(from: today) { bedtime = d }
+        }
+
+        // Load wake from alarm
+        if daily.alarm.enabled, let date = fmt.date(from: daily.alarm.time) {
+            let c = calendar.dateComponents([.hour, .minute], from: date)
+            var tomorrow = calendar.dateComponents([.year, .month, .day], from: now)
+            tomorrow.day = (tomorrow.day ?? 0) + 1
+            tomorrow.hour = c.hour; tomorrow.minute = c.minute
+            if let d = calendar.date(from: tomorrow) { wakeTime = d }
+        }
+
+        // Infer min/max from existing temperature set points
+        let temps = daily.temperatures.values
+        if !temps.isEmpty {
+            minTemp = Double(temps.min() ?? 68)
+            maxTemp = Double(temps.max() ?? 86)
+        }
+    }
 
     private func applyToSchedule() {
         isSaving = true

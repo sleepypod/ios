@@ -240,7 +240,7 @@ struct SmartCurveView: View {
                     yStart: .value("Min", yDomain.lowerBound),
                     yEnd: .value("Max", yDomain.upperBound)
                 )
-                .foregroundStyle(t.color.opacity(0.06))
+                .foregroundStyle(t.color.opacity(0.12))
             }
 
             // Curve line

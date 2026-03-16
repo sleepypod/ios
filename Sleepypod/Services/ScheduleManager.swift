@@ -6,6 +6,7 @@ import Observation
 final class ScheduleManager {
     var schedules: Schedules?
     var selectedDay: DayOfWeek = .monday
+    var selectedDays: Set<DayOfWeek> = [.monday]
     var selectedSide: SideSelection = .left
     var isLoading = false
     var error: String?

@@ -277,80 +277,102 @@ struct SmartCurveView: View {
         }
 
         let store = HKHealthStore()
-        let sleepType = HKCategoryType(.sleepAnalysis)
+        let sleepAnalysis = HKCategoryType(.sleepAnalysis)
+        let typesToRead: Set<HKSampleType> = [sleepAnalysis]
 
-        store.requestAuthorization(toShare: nil, read: [sleepType]) { success, error in
+        store.requestAuthorization(toShare: nil, read: typesToRead) { success, _ in
             guard success else {
-                DispatchQueue.main.async {
-                    healthError = "Health access denied — enable in Settings → Privacy → Health"
-                }
+                Task { @MainActor in healthError = "Health access denied" }
                 return
             }
 
-            // Query the most recent sleep schedule / sleep analysis to find bed + wake pattern
-            let calendar = Calendar.current
-            let now = Date()
-            let weekAgo = calendar.date(byAdding: .day, value: -7, to: now)!
+            Task {
+                // The iOS Sleep Schedule (set in Clock/Health) writes
+                // future-dated "inBed" samples that represent the schedule.
+                // Query for samples starting from now into the future.
+                let calendar = Calendar.current
+                let now = Date()
+                let tomorrow = calendar.date(byAdding: .day, value: 2, to: now)!
 
-            let predicate = HKQuery.predicateForSamples(withStart: weekAgo, end: now)
-            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-
-            let query = HKSampleQuery(
-                sampleType: sleepType,
-                predicate: predicate,
-                limit: 20,
-                sortDescriptors: [sortDescriptor]
-            ) { _, samples, queryError in
-                guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
-                    DispatchQueue.main.async {
-                        healthError = "No recent sleep data found in Health"
-                    }
+                // Try future schedule first (the sleep schedule creates forward-looking samples)
+                if let times = await queryScheduleSamples(store: store, start: now, end: tomorrow) {
+                    await MainActor.run { applyTimes(bed: times.bed, wake: times.wake) }
                     return
                 }
 
-                // Find the most recent "in bed" period
-                // inBed = 0, asleep/asleepUnspecified = 1, awake = 2, asleepCore = 3, asleepDeep = 4, asleepREM = 5
-                let inBedSamples = samples.filter { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
-                let sleepSamples = samples.filter {
+                // Fallback: recent past sleep data
+                let weekAgo = calendar.date(byAdding: .day, value: -7, to: now)!
+                if let times = await queryScheduleSamples(store: store, start: weekAgo, end: now) {
+                    await MainActor.run { applyTimes(bed: times.bed, wake: times.wake) }
+                    return
+                }
+
+                await MainActor.run {
+                    healthError = "No sleep schedule or recent sleep data found"
+                }
+            }
+        }
+    }
+
+    private func queryScheduleSamples(store: HKHealthStore, start: Date, end: Date) async -> (bed: Date, wake: Date)? {
+        let sleepType = HKCategoryType(.sleepAnalysis)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: 50,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
+            ) { _, samples, _ in
+                guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                // Look for inBed samples — the sleep schedule creates these
+                let inBed = samples.filter { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
+                // Also check asleep samples
+                let asleep = samples.filter {
                     [HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
                      HKCategoryValueSleepAnalysis.asleepCore.rawValue,
                      HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
                      HKCategoryValueSleepAnalysis.asleepREM.rawValue].contains($0.value)
                 }
 
-                let recentSession = inBedSamples.first ?? sleepSamples.first
-                guard let session = recentSession else {
-                    DispatchQueue.main.async {
-                        healthError = "No sleep sessions found"
-                    }
-                    return
-                }
-
-                // Extract bed and wake times (just the hour:minute, applied to today)
-                let bedComponents = calendar.dateComponents([.hour, .minute], from: session.startDate)
-                let wakeComponents = calendar.dateComponents([.hour, .minute], from: session.endDate)
-
-                DispatchQueue.main.async {
-                    if let bedHour = bedComponents.hour, let bedMin = bedComponents.minute {
-                        var c = calendar.dateComponents([.year, .month, .day], from: now)
-                        c.hour = bedHour
-                        c.minute = bedMin
-                        bedtime = calendar.date(from: c) ?? bedtime
-                    }
-                    if let wakeHour = wakeComponents.hour, let wakeMin = wakeComponents.minute {
-                        var c = calendar.dateComponents([.year, .month, .day], from: now)
-                        c.hour = wakeHour
-                        c.minute = wakeMin
-                        wakeTime = calendar.date(from: c) ?? wakeTime
-                    }
-                    healthSynced = true
-                    healthError = nil
-                    Haptics.medium()
+                if let session = inBed.first ?? asleep.first {
+                    continuation.resume(returning: (bed: session.startDate, wake: session.endDate))
+                } else {
+                    continuation.resume(returning: nil)
                 }
             }
 
             store.execute(query)
         }
+    }
+
+    @MainActor
+    private func applyTimes(bed: Date, wake: Date) {
+        let calendar = Calendar.current
+        let now = Date()
+
+        let bedC = calendar.dateComponents([.hour, .minute], from: bed)
+        let wakeC = calendar.dateComponents([.hour, .minute], from: wake)
+
+        if let h = bedC.hour, let m = bedC.minute {
+            var c = calendar.dateComponents([.year, .month, .day], from: now)
+            c.hour = h; c.minute = m
+            bedtime = calendar.date(from: c) ?? bedtime
+        }
+        if let h = wakeC.hour, let m = wakeC.minute {
+            var c = calendar.dateComponents([.year, .month, .day], from: now)
+            c.hour = h; c.minute = m
+            wakeTime = calendar.date(from: c) ?? wakeTime
+        }
+
+        healthSynced = true
+        healthError = nil
+        Haptics.medium()
     }
 
     // MARK: - Apply
@@ -366,31 +388,29 @@ struct SmartCurveView: View {
             }
 
             let side = scheduleManager.selectedSide.primarySide
-            var sideSchedule = schedules.schedule(for: side)
-            var daily = sideSchedule[scheduleManager.selectedDay]
-
-            // Replace temperatures
-            daily.temperatures = temps
-
-            // Update power schedule
             let fmt = DateFormatter()
             fmt.dateFormat = "HH:mm"
-            daily.power.on = fmt.string(from: bedtime)
-            daily.power.off = fmt.string(from: wakeTime)
-            daily.power.enabled = true
 
-            // Update alarm
-            daily.alarm.time = fmt.string(from: wakeTime)
-            daily.alarm.enabled = true
+            // Apply to all selected days
+            for day in scheduleManager.selectedDays {
+                var sideSchedule = schedules.schedule(for: side)
+                var daily = sideSchedule[day]
 
-            sideSchedule[scheduleManager.selectedDay] = daily
-            schedules.setSchedule(sideSchedule, for: side)
+                daily.temperatures = temps
+                daily.power.on = fmt.string(from: bedtime)
+                daily.power.off = fmt.string(from: wakeTime)
+                daily.power.enabled = true
+                daily.alarm.time = fmt.string(from: wakeTime)
+                daily.alarm.enabled = true
 
-            // Apply to both sides if linked
-            if scheduleManager.selectedSide == .both {
-                var other = schedules.schedule(for: side == .left ? .right : .left)
-                other[scheduleManager.selectedDay] = daily
-                schedules.setSchedule(other, for: side == .left ? .right : .left)
+                sideSchedule[day] = daily
+                schedules.setSchedule(sideSchedule, for: side)
+
+                if scheduleManager.selectedSide == .both {
+                    var other = schedules.schedule(for: side == .left ? .right : .left)
+                    other[day] = daily
+                    schedules.setSchedule(other, for: side == .left ? .right : .left)
+                }
             }
 
             scheduleManager.schedules = schedules

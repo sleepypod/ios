@@ -29,6 +29,14 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func reboot() async throws {}
     func getDiskUsage() async throws -> DiskUsage { throw APIError.noBaseURL }
     func getFileCount() async throws -> FileCount { throw APIError.noBaseURL }
+    func getVersion() async throws -> SystemVersion { SystemVersion(branch: "main", commitHash: "abc1234", commitTitle: "test", buildDate: "2026-03-16") }
+    func snoozeAlarm(side: Side, duration: Int) async throws -> SnoozeResponse { SnoozeResponse(success: true, snoozeUntil: Int(Date().timeIntervalSince1970) + duration) }
+    func getWaterLevelLatest() async throws -> WaterLevelReading? { nil }
+    func getWaterLevelTrend(hours: Int) async throws -> WaterLevelTrend { WaterLevelTrend(totalReadings: 0, okPercent: 100, lowPercent: 0, trend: "stable", latestLevel: "ok") }
+    func getAmbientLightLatest() async throws -> AmbientLightReading? { nil }
+    func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {}
+    func deleteSleepRecord(id: Int) async throws {}
+    func dismissPrimeNotification() async throws {}
 
     func setInternetAccess(blocked: Bool) async throws {
         if responseDelay > 0 { try? await Task.sleep(for: .seconds(responseDelay)) }

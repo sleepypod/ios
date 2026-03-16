@@ -83,17 +83,27 @@ struct ContentView: View {
             Haptics.tap()
         }
         .task {
-            // Start polling immediately (uses saved IP if available)
             deviceManager.startPolling()
 
             if !settingsManager.podIP.isEmpty {
-                // Try saved IP first — fast path
+                Haptics.light()
+                podDiscovery.status = .found("Saved: \(settingsManager.podIP)")
+                podDiscovery.connectedPodName = settingsManager.podIP
+
+                Haptics.light()
+                podDiscovery.status = .resolving(settingsManager.podIP)
                 await deviceManager.fetchStatus()
-                if deviceManager.isConnected { return }
+
+                if deviceManager.isConnected {
+                    Haptics.medium()
+                    podDiscovery.status = .connected(settingsManager.podIP)
+                    return
+                }
+                Haptics.heavy()
+                podDiscovery.status = .failed
             }
 
-            // Saved IP failed or empty — try mDNS discovery
-            // This runs async; if it finds a different IP it'll update and reconnect
+            // Saved IP failed or empty — try mDNS
             await podDiscovery.autoConnect(settingsManager: settingsManager, deviceManager: deviceManager)
         }
         .onChange(of: deviceManager.isConnected) {

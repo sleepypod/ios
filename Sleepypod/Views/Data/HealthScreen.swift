@@ -11,6 +11,7 @@ struct HealthScreen: View {
     @State private var showRawData = false
     @State private var sleepAnalyzer = SleepAnalyzer()
     @State private var isCalibrated = false
+    @State private var showCalibrationSheet = false
 
     private var api: SleepypodProtocol { APIBackend.current.createClient() }
 
@@ -149,6 +150,13 @@ struct HealthScreen: View {
         }
         .onChange(of: metricsManager.selectedSide) {
             Task { await refresh() }
+        }
+        .sheet(isPresented: $showCalibrationSheet) {
+            CalibrationSheet(onComplete: {
+                Task { await checkCalibration() }
+            })
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -334,7 +342,7 @@ struct HealthScreen: View {
 
             Button {
                 Haptics.medium()
-                // TODO: Call calibration endpoint when available (core#138)
+                showCalibrationSheet = true
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "tuningfork")
@@ -365,8 +373,8 @@ struct HealthScreen: View {
         guard let left = try? await api.getCalibrationStatus(side: .left),
               let right = try? await api.getCalibrationStatus(side: .right) else { return }
         // Consider calibrated if piezo sensors on both sides completed
-        isCalibrated = left.piezo.status == "completed" && right.piezo.status == "completed"
-            && (left.piezo.qualityScore ?? 0) > 0.5 && (right.piezo.qualityScore ?? 0) > 0.5
+        isCalibrated = left.piezo?.status == "completed" && right.piezo?.status == "completed"
+            && (left.piezo?.qualityScore ?? 0) > 0.5 && (right.piezo?.qualityScore ?? 0) > 0.5
     }
 
     private func fetchVitals() async {

@@ -36,3 +36,14 @@ targets:
         TARGETED_DEVICE_FAMILY: 1
         CODE_SIGN_STYLE: Automatic
         PRODUCT_NAME: Sleepypod
+
+  SleepypodTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SleepypodTests
+    dependencies:
+      - target: Sleepypod
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sleepypod.ios.tests

@@ -337,6 +337,22 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         try await query("calibration.getStatus", input: ["side": side.rawValue])
     }
 
+    func triggerCalibration(side: Side, sensorType: String) async throws -> CalibrationTriggerResponse {
+        try await mutate("calibration.triggerCalibration", input: ["side": side.rawValue, "sensorType": sensorType])
+    }
+
+    func triggerFullCalibration() async throws -> CalibrationTriggerResponse {
+        try await mutate("calibration.triggerFullCalibration", input: [:] as [String: String])
+    }
+
+    func getDiskUsage() async throws -> DiskUsage {
+        try await query("system.getDiskUsage")
+    }
+
+    func getFileCount() async throws -> FileCount {
+        try await query("biometrics.getFileCount")
+    }
+
     func setInternetAccess(blocked: Bool) async throws {
         let _: TRPCInternetStatus = try await mutate("system.setInternetAccess", input: ["blocked": blocked])
     }
@@ -725,6 +741,32 @@ private struct TRPCScheduleSet: Decodable {
     let alarm: [TRPCAlarmSchedule]
 }
 
+// Disk usage
+struct DiskUsage: Decodable, Sendable {
+    let totalBytes: Int
+    let usedBytes: Int
+    let availableBytes: Int
+    let usedPercent: Double
+
+    var usedGB: String { String(format: "%.1f", Double(usedBytes) / 1_073_741_824) }
+    var totalGB: String { String(format: "%.1f", Double(totalBytes) / 1_073_741_824) }
+    var freeGB: String { String(format: "%.1f", Double(availableBytes) / 1_073_741_824) }
+}
+
+// File count
+struct FileCount: Decodable, Sendable {
+    let rawFiles: RawFileCount
+    let totalSizeMB: Double
+
+    struct RawFileCount: Decodable, Sendable {
+        let left: Int
+        let right: Int
+    }
+
+    var totalFiles: Int { rawFiles.left + rawFiles.right }
+    var sizeDisplay: String { String(format: "%.0f MB", totalSizeMB) }
+}
+
 // Calibration
 struct CalibrationSensor: Decodable, Sendable {
     let id: Int
@@ -737,11 +779,11 @@ struct CalibrationSensor: Decodable, Sendable {
 }
 
 struct CalibrationStatus: Decodable, Sendable {
-    let capacitance: CalibrationSensor
-    let piezo: CalibrationSensor
-    let temperature: CalibrationSensor
+    let capacitance: CalibrationSensor?
+    let piezo: CalibrationSensor?
+    let temperature: CalibrationSensor?
 
-    var sensors: [CalibrationSensor] { [capacitance, piezo, temperature] }
+    var sensors: [CalibrationSensor] { [capacitance, piezo, temperature].compactMap { $0 } }
     var healthyCount: Int { sensors.filter { $0.status == "completed" }.count }
 }
 

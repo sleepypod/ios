@@ -5,6 +5,7 @@ struct ScheduleScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     @State private var showAdvanced = false
+    @State private var showClearConfirm = false
 
     var body: some View {
         ScrollView {
@@ -53,6 +54,23 @@ struct ScheduleScreen: View {
                         .foregroundColor(Theme.textSecondary)
                         .padding(40)
                 }
+
+                // Clear schedule
+                if scheduleManager.schedules != nil && !scheduleManager.phases.isEmpty {
+                    Button {
+                        Haptics.medium()
+                        showClearConfirm = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                            Text("Clear Schedule")
+                        }
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(Theme.error)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 8)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 20)
@@ -60,6 +78,45 @@ struct ScheduleScreen: View {
         .background(Theme.background)
         .task {
             await scheduleManager.fetchSchedules()
+        }
+        .alert("Clear Schedule", isPresented: $showClearConfirm) {
+            Button("Clear Selected Days", role: .destructive) {
+                Task { await clearSchedule() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove all temperature, power, and alarm schedules for the selected days.")
+        }
+    }
+
+    private func clearSchedule() async {
+        guard var schedules = scheduleManager.schedules else { return }
+        let side = scheduleManager.selectedSide.primarySide
+        let emptyDaily = DailySchedule(
+            temperatures: [:],
+            alarm: AlarmSchedule(vibrationIntensity: 50, vibrationPattern: .rise, duration: 30, time: "07:00", enabled: false, alarmTemperature: 80),
+            power: PowerSchedule(on: "22:00", off: "07:00", onTemperature: 75, enabled: false)
+        )
+
+        for day in scheduleManager.selectedDays {
+            var sideSchedule = schedules.schedule(for: side)
+            sideSchedule[day] = emptyDaily
+            schedules.setSchedule(sideSchedule, for: side)
+
+            if scheduleManager.selectedSide == .both {
+                var other = schedules.schedule(for: side == .left ? .right : .left)
+                other[day] = emptyDaily
+                schedules.setSchedule(other, for: side == .left ? .right : .left)
+            }
+        }
+
+        scheduleManager.schedules = schedules
+        do {
+            let api = APIBackend.current.createClient()
+            scheduleManager.schedules = try await api.updateSchedules(schedules)
+            Haptics.heavy()
+        } catch {
+            Log.general.error("Failed to clear schedule: \(error)")
         }
     }
 

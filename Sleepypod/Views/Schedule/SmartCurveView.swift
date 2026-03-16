@@ -71,14 +71,47 @@ struct SmartCurveView: View {
                 .foregroundColor(Theme.textMuted)
 
             // Curve chart with draggable min/max lines
-            ZStack {
-                curveChart
-                    .frame(height: 220)
+            curveChart
+                .chartOverlay { proxy in
+                    GeometryReader { geo in
+                        let plotArea = geo[proxy.plotFrame!]
 
-                // Draggable temp range lines
-                tempRangeOverlay
-                    .frame(height: 220)
-            }
+                        // Min line
+                        if let minY = proxy.position(forY: Int(minTemp) - 80) {
+                            dragLine(color: Theme.cooling, label: "\(Int(minTemp))°")
+                                .offset(y: plotArea.minY + minY)
+                                .padding(.leading, plotArea.minX)
+                                .gesture(
+                                    DragGesture(minimumDistance: 1)
+                                        .onChanged { value in
+                                            let localY = value.location.y - plotArea.minY
+                                            if let offset = proxy.value(atY: localY) as Int? {
+                                                let temp = max(55, min(Double(Int(maxTemp) - 2), Double(80 + offset)))
+                                                minTemp = temp.rounded()
+                                            }
+                                        }
+                                )
+                        }
+
+                        // Max line
+                        if let maxY = proxy.position(forY: Int(maxTemp) - 80) {
+                            dragLine(color: Theme.warming, label: "\(Int(maxTemp))°")
+                                .offset(y: plotArea.minY + maxY)
+                                .padding(.leading, plotArea.minX)
+                                .gesture(
+                                    DragGesture(minimumDistance: 1)
+                                        .onChanged { value in
+                                            let localY = value.location.y - plotArea.minY
+                                            if let offset = proxy.value(atY: localY) as Int? {
+                                                let temp = min(110, max(Double(Int(minTemp) + 2), Double(80 + offset)))
+                                                maxTemp = temp.rounded()
+                                            }
+                                        }
+                                )
+                        }
+                    }
+                }
+                .frame(height: 220)
 
             // Temp range labels
             HStack {
@@ -132,81 +165,22 @@ struct SmartCurveView: View {
         .cardStyle()
     }
 
-    // MARK: - Temp Range Overlay
 
-    private let chartRange: ClosedRange<Double> = -20...20
+    private func dragLine(color: Color, label: String) -> some View {
+        ZStack(alignment: .trailing) {
+            Rectangle()
+                .fill(color.opacity(0.6))
+                .frame(height: 2)
 
-    private func offsetForY(_ y: CGFloat, height: CGFloat) -> Double {
-        let range = chartRange.upperBound - chartRange.lowerBound
-        return chartRange.upperBound - (Double(y) / Double(height)) * range
-    }
-
-    private func yForOffset(_ offset: Double, height: CGFloat) -> CGFloat {
-        let range = chartRange.upperBound - chartRange.lowerBound
-        return CGFloat((chartRange.upperBound - offset) / range) * height
-    }
-
-    private var tempRangeOverlay: some View {
-        GeometryReader { geo in
-            let h = geo.size.height
-            let minOffset = Double(Int(minTemp) - 80)
-            let maxOffset = Double(Int(maxTemp) - 80)
-            let minY = yForOffset(minOffset, height: h)
-            let maxY = yForOffset(maxOffset, height: h)
-
-            // Min line (cool — lower)
-            dragLine(y: minY, color: Theme.cooling, label: "\(Int(minTemp))°", height: h)
-                .gesture(
-                    DragGesture(minimumDistance: 1)
-                        .onChanged { value in
-                            let offset = offsetForY(value.location.y, height: h)
-                            let temp = max(55, min(Double(Int(maxTemp) - 2), 80 + offset))
-                            minTemp = temp.rounded()
-                        }
-                )
-
-            // Max line (warm — upper)
-            dragLine(y: maxY, color: Theme.warming, label: "\(Int(maxTemp))°", height: h)
-                .gesture(
-                    DragGesture(minimumDistance: 1)
-                        .onChanged { value in
-                            let offset = offsetForY(value.location.y, height: h)
-                            let temp = min(110, max(Double(Int(minTemp) + 2), 80 + offset))
-                            maxTemp = temp.rounded()
-                        }
-                )
+            Text(label)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundColor(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(color)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-    }
-
-    private func dragLine(y: CGFloat, color: Color, label: String, height: CGFloat) -> some View {
-        // Clamp Y to chart bounds with padding for the Y-axis legend area
-        let clampedY = max(0, min(y, height))
-
-        return VStack(spacing: 0) {
-            Spacer(minLength: 0)
-                .frame(height: max(0, clampedY - 1))
-
-            ZStack(alignment: .trailing) {
-                Rectangle()
-                    .fill(color.opacity(0.6))
-                    .frame(height: 2)
-                    // Inset from left to avoid overlapping Y-axis labels
-                    .padding(.leading, 30)
-
-                Text(label)
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(color)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            // Wide tap target for dragging
-            .contentShape(Rectangle().inset(by: -15))
-
-            Spacer(minLength: 0)
-        }
-        .frame(height: height)
+        .contentShape(Rectangle().inset(by: -15))
     }
 
     // MARK: - Chart
@@ -267,7 +241,7 @@ struct SmartCurveView: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 5)) {
+            AxisMarks(values: .stride(by: .hour, count: 2)) {
                 AxisValueLabel(format: .dateTime.hour())
                     .foregroundStyle(Theme.textMuted)
             }

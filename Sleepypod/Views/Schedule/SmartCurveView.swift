@@ -61,34 +61,30 @@ struct SmartCurveView: View {
                 .font(.caption2)
                 .foregroundColor(Theme.textMuted)
 
-            // Temperature range
+            // Temperature range — dual slider
             VStack(spacing: 8) {
                 HStack {
                     Text("Temp Range")
                         .font(.caption.weight(.medium))
                         .foregroundColor(Theme.textSecondary)
                     Spacer()
-                    Text("\(Int(minTemp))° – \(Int(maxTemp))°F")
-                        .font(.caption.monospaced())
-                        .foregroundColor(.white)
+                    Text(TemperatureConversion.displayTemp(Int(minTemp), format: settingsManager.temperatureFormat))
+                        .font(.caption.weight(.medium).monospaced())
+                        .foregroundColor(Theme.cooling)
+                    Text("–")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                    Text(TemperatureConversion.displayTemp(Int(maxTemp), format: settingsManager.temperatureFormat))
+                        .font(.caption.weight(.medium).monospaced())
+                        .foregroundColor(Theme.warming)
                 }
 
-                HStack(spacing: 16) {
-                    VStack(spacing: 2) {
-                        Text("Coolest")
-                            .font(.system(size: 9))
-                            .foregroundColor(Theme.cooling)
-                        Slider(value: $minTemp, in: 55...78, step: 1)
-                            .tint(Theme.cooling)
-                    }
-                    VStack(spacing: 2) {
-                        Text("Warmest")
-                            .font(.system(size: 9))
-                            .foregroundColor(Theme.warming)
-                        Slider(value: $maxTemp, in: 78...110, step: 1)
-                            .tint(Theme.warming)
-                    }
-                }
+                RangeSlider(
+                    low: $minTemp,
+                    high: $maxTemp,
+                    range: 55...110,
+                    step: 1
+                )
             }
             .padding(12)
             .background(Theme.cardElevated)
@@ -176,7 +172,7 @@ struct SmartCurveView: View {
             }
 
         }
-        .chartYScale(domain: (Int(minTemp) - 80)...(Int(maxTemp) - 80))
+        .chartYScale(domain: -20...20)
         .chartYAxis {
             AxisMarks(position: .leading, values: [-8, -4, 0, 4, 8]) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.3))

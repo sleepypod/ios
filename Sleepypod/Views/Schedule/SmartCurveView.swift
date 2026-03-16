@@ -221,16 +221,16 @@ struct SmartCurveView: View {
                 .foregroundStyle(Theme.textMuted.opacity(0.3))
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
 
-            // Phase labels as vertical rule marks at transition points
-            ForEach(phaseTransitions, id: \.label) { t in
-                RuleMark(x: .value("Phase", t.time))
-                    .foregroundStyle(t.color.opacity(0.15))
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-                    .annotation(position: .top, alignment: .leading) {
-                        Text(t.label)
-                            .font(.system(size: 8))
-                            .foregroundColor(t.color.opacity(0.6))
-                    }
+            // Phase background fills
+            ForEach(Array(phaseTransitions.enumerated()), id: \.offset) { i, t in
+                let nextTime = i + 1 < phaseTransitions.count ? phaseTransitions[i + 1].time : curve.last?.time ?? t.time
+                RectangleMark(
+                    xStart: .value("Start", t.time),
+                    xEnd: .value("End", nextTime),
+                    yStart: .value("Min", -20),
+                    yEnd: .value("Max", 20)
+                )
+                .foregroundStyle(t.color.opacity(0.06))
             }
 
             // Curve line

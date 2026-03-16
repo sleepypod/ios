@@ -105,6 +105,7 @@ final class PodDiscovery {
         // Only advance status if we're still scanning (don't regress from later states)
         if let first = pods.first, status == .scanning {
             Log.discovery.info("Found device: \(first.name)")
+            Haptics.light()
             status = .found(first.name)
         }
     }
@@ -126,6 +127,7 @@ final class PodDiscovery {
                 status = .resolving(pod.name)
                 if let ip = await resolve(pod) {
                     Log.discovery.info("Resolved \(pod.name) → \(ip)")
+                    Haptics.medium()
                     status = .connected(ip)
                     connectedPodName = pod.name
                     settingsManager.podIP = ip
@@ -133,6 +135,7 @@ final class PodDiscovery {
                     return ip
                 } else {
                     Log.discovery.error("Failed to resolve \(pod.name)")
+                    Haptics.heavy()
                     status = .failed
                 }
                 return nil

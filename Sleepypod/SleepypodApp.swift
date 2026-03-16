@@ -86,17 +86,20 @@ struct ContentView: View {
             deviceManager.startPolling()
 
             if !settingsManager.podIP.isEmpty {
-                // Show saved-IP connection in the timeline
+                Haptics.light()
                 podDiscovery.status = .found("Saved: \(settingsManager.podIP)")
                 podDiscovery.connectedPodName = settingsManager.podIP
 
+                Haptics.light()
                 podDiscovery.status = .resolving(settingsManager.podIP)
                 await deviceManager.fetchStatus()
 
                 if deviceManager.isConnected {
+                    Haptics.medium()
                     podDiscovery.status = .connected(settingsManager.podIP)
                     return
                 }
+                Haptics.heavy()
                 podDiscovery.status = .failed
             }
 

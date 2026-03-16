@@ -366,7 +366,12 @@ private struct LogEntry: Identifiable {
            let obj = try? JSONSerialization.jsonObject(with: jsonData),
            let pretty = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
            let prettyStr = String(data: pretty, encoding: .utf8) {
-            jsonPayload = prettyStr
+            // Skip empty/trivial JSON
+            let isEmptyJson = prettyStr == "{\n\n}" || prettyStr == "{ }" || prettyStr == "{}" ||
+                prettyStr == "{\n  \"json\" : {\n\n  }\n}" || prettyStr == "{\n  \"json\" : { }\n}"
+            if !isEmptyJson {
+                jsonPayload = prettyStr
+            }
             msg = String(msg[..<jsonStart]).trimmingCharacters(in: .whitespaces)
             if msg.hasSuffix(":") || msg.hasSuffix("-") || msg.hasSuffix("=") {
                 msg = String(msg.dropLast()).trimmingCharacters(in: .whitespaces)

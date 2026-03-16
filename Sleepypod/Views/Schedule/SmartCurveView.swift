@@ -43,6 +43,43 @@ struct SmartCurveView: View {
                 timePicker("Wake", icon: "sun.max.fill", color: Theme.amber, date: $wakeTime)
             }
 
+            // Temp range chips
+            HStack(spacing: 8) {
+                HStack(spacing: 4) {
+                    Image(systemName: "snowflake")
+                        .font(.system(size: 9))
+                    Text(TemperatureConversion.displayTemp(Int(minTemp), format: settingsManager.temperatureFormat))
+                        .font(.caption2.weight(.semibold).monospaced())
+                }
+                .foregroundColor(Theme.cooling)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Theme.cooling.opacity(0.12))
+                .clipShape(Capsule())
+
+                Text("–")
+                    .font(.caption)
+                    .foregroundColor(Theme.textMuted)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 9))
+                    Text(TemperatureConversion.displayTemp(Int(maxTemp), format: settingsManager.temperatureFormat))
+                        .font(.caption2.weight(.semibold).monospaced())
+                }
+                .foregroundColor(Theme.warming)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Theme.warming.opacity(0.12))
+                .clipShape(Capsule())
+
+                Spacer()
+
+                Text("Drag lines on chart")
+                    .font(.system(size: 9))
+                    .foregroundColor(Theme.textMuted)
+            }
+
             // Intensity picker
             HStack(spacing: 0) {
                 ForEach(CoolingIntensity.allCases) { level in
@@ -78,7 +115,7 @@ struct SmartCurveView: View {
 
                         // Min line
                         if let minY = proxy.position(forY: Int(minTemp) - 80) {
-                            dragLine(color: Theme.cooling, label: "\(Int(minTemp))°")
+                            dragLine(color: Theme.cooling)
                                 .offset(y: plotArea.minY + minY)
                                 .padding(.leading, plotArea.minX)
                                 .gesture(
@@ -95,7 +132,7 @@ struct SmartCurveView: View {
 
                         // Max line
                         if let maxY = proxy.position(forY: Int(maxTemp) - 80) {
-                            dragLine(color: Theme.warming, label: "\(Int(maxTemp))°")
+                            dragLine(color: Theme.warming)
                                 .offset(y: plotArea.minY + maxY)
                                 .padding(.leading, plotArea.minX)
                                 .gesture(
@@ -113,26 +150,6 @@ struct SmartCurveView: View {
                 }
                 .frame(height: 220)
 
-            // Temp range labels
-            HStack {
-                HStack(spacing: 4) {
-                    Circle().fill(Theme.cooling).frame(width: 6, height: 6)
-                    Text("Min \(TemperatureConversion.displayTemp(Int(minTemp), format: settingsManager.temperatureFormat))")
-                        .font(.caption2)
-                        .foregroundColor(Theme.cooling)
-                }
-                Spacer()
-                Text("Drag lines to adjust")
-                    .font(.system(size: 9))
-                    .foregroundColor(Theme.textMuted)
-                Spacer()
-                HStack(spacing: 4) {
-                    Text("Max \(TemperatureConversion.displayTemp(Int(maxTemp), format: settingsManager.temperatureFormat))")
-                        .font(.caption2)
-                        .foregroundColor(Theme.warming)
-                    Circle().fill(Theme.warming).frame(width: 6, height: 6)
-                }
-            }
 
             // Phase legend
             phaseLegend
@@ -166,21 +183,33 @@ struct SmartCurveView: View {
     }
 
 
-    private func dragLine(color: Color, label: String) -> some View {
-        ZStack(alignment: .trailing) {
-            Rectangle()
-                .fill(color.opacity(0.6))
-                .frame(height: 2)
+    private func dragLine(color: Color) -> some View {
+        Rectangle()
+            .fill(color.opacity(0.4))
+            .frame(height: 1)
+            .contentShape(Rectangle().inset(by: -15))
+    }
 
-            Text(label)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .foregroundColor(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(color)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+    // MARK: - Phase Transitions
+
+    private var phaseTransitions: [(label: String, time: Date, color: Color)] {
+        var transitions: [(String, Date, Color)] = []
+        var lastPhase: SleepCurve.Phase?
+        for point in curve {
+            if point.phase != lastPhase {
+                let color: Color = switch point.phase {
+                case .warmUp: Theme.warming
+                case .coolDown: Theme.cooling
+                case .deepSleep: Color(hex: "2563eb")
+                case .maintain: Theme.cooling
+                case .preWake: Theme.amber
+                case .wake: Theme.textMuted
+                }
+                transitions.append((point.phase.rawValue, point.time, color))
+                lastPhase = point.phase
+            }
         }
-        .contentShape(Rectangle().inset(by: -15))
+        return transitions
     }
 
     // MARK: - Chart
@@ -191,6 +220,18 @@ struct SmartCurveView: View {
             RuleMark(y: .value("Base", 0))
                 .foregroundStyle(Theme.textMuted.opacity(0.3))
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+            // Phase labels as vertical rule marks at transition points
+            ForEach(phaseTransitions, id: \.label) { t in
+                RuleMark(x: .value("Phase", t.time))
+                    .foregroundStyle(t.color.opacity(0.15))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .annotation(position: .top, alignment: .leading) {
+                        Text(t.label)
+                            .font(.system(size: 8))
+                            .foregroundColor(t.color.opacity(0.6))
+                    }
+            }
 
             // Curve line
             ForEach(curve) { point in

@@ -7,6 +7,7 @@ struct CalibrationSheet: View {
     @State private var selectedSide: Side?
     @State private var isCalibrating = false
     @State private var result: String?
+    @State private var statusText: String?
 
     var body: some View {
         NavigationStack {
@@ -85,6 +86,12 @@ struct CalibrationSheet: View {
                         Text("Calibrating \(selectedSide?.displayName ?? "both sides")…")
                             .font(.caption)
                             .foregroundColor(Theme.textMuted)
+                        if let statusText {
+                            Text(statusText)
+                                .font(.caption2)
+                                .foregroundColor(Theme.accent)
+                                .transition(.opacity)
+                        }
                     }
                 }
 
@@ -134,30 +141,70 @@ struct CalibrationSheet: View {
     private func triggerSide(_ side: Side) {
         selectedSide = side
         isCalibrating = true
+        statusText = "Triggering…"
         Haptics.medium()
         Task {
             let api = APIBackend.current.createClient()
             for sensor in ["piezo", "temperature", "capacitance"] {
                 _ = try? await api.triggerCalibration(side: side, sensorType: sensor)
             }
-            result = "Calibration queued for \(side.displayName) side"
-            isCalibrating = false
-            Haptics.heavy(); Haptics.heavy()
-            onComplete()
+            await pollUntilDone(sides: [side])
         }
     }
 
     private func triggerFull() {
         selectedSide = nil
         isCalibrating = true
+        statusText = "Triggering…"
         Haptics.medium()
         Task {
             let api = APIBackend.current.createClient()
             _ = try? await api.triggerFullCalibration()
-            result = "Full calibration queued for all sensors on both sides"
-            isCalibrating = false
-            Haptics.heavy(); Haptics.heavy()
+            await pollUntilDone(sides: [.left, .right])
             onComplete()
         }
+    }
+
+    private func pollUntilDone(sides: [Side]) async {
+        let api = APIBackend.current.createClient()
+
+        for attempt in 1...30 {  // max 90 seconds
+            try? await Task.sleep(for: .seconds(3))
+
+            var allDone = true
+            var summaryParts: [String] = []
+
+            for side in sides {
+                guard let cal = try? await api.getCalibrationStatus(side: side) else { continue }
+                for sensor in cal.sensors {
+                    if sensor.status == "pending" || sensor.status == "running" {
+                        allDone = false
+                        statusText = "\(side.displayName) \(sensor.sensorType)… \(sensor.status)"
+                    } else if sensor.status == "completed" {
+                        let q = Int((sensor.qualityScore ?? 0) * 100)
+                        summaryParts.append("\(sensor.sensorType) \(q)%")
+                    } else if sensor.status == "failed" {
+                        summaryParts.append("\(sensor.sensorType) failed")
+                    }
+                }
+            }
+
+            if allDone {
+                let summary = summaryParts.joined(separator: " · ")
+                result = summary.isEmpty ? "Calibration complete" : summary
+                isCalibrating = false
+                statusText = nil
+                Haptics.heavy()
+                try? await Task.sleep(for: .milliseconds(200))
+                Haptics.heavy()
+                return
+            }
+        }
+
+        // Timeout
+        result = "Calibration timed out — check status"
+        isCalibrating = false
+        statusText = nil
+        Haptics.medium()
     }
 }

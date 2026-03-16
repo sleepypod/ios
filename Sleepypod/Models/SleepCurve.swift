@@ -44,28 +44,23 @@ struct SleepCurve {
         let sleepDuration = wake.timeIntervalSince(bedtime)
         let baseOffsets = coolingIntensity.offsets
 
-        // Scale offsets to the user's temp range
+        // Map intensity ratios to the user's actual temp range
+        // Deep sleep hits min, pre-wake hits max
         let baseTempF = 80
-        let coolRoom = baseTempF - minTempF  // how much cooling is available
-        let warmRoom = maxTempF - baseTempF  // how much warming is available
+        let coolRange = baseTempF - minTempF  // e.g. 80-70 = 10
+        let warmRange = maxTempF - baseTempF  // e.g. 83-80 = 3
 
-        func scale(_ offset: Int) -> Int {
-            if offset < 0 {
-                // Cooling: scale to available cool range
-                return -min(abs(offset) * coolRoom / 10, coolRoom)
-            } else if offset > 0 {
-                // Warming: scale to available warm range
-                return min(offset * warmRoom / 8, warmRoom)
-            }
-            return 0
-        }
+        // Intensity ratios: how much of the available range each phase uses
+        // deepSleep = 100% of cool range, fallAsleep = 60%, maintain = 50%
+        // preWake = 100% of warm range, warmUp = 30%
+        let ratios = coolingIntensity.ratios
 
         let offsets = (
-            warmUp: scale(baseOffsets.warmUp),
-            fallAsleep: scale(baseOffsets.fallAsleep),
-            deepSleep: scale(baseOffsets.deepSleep),
-            maintain: scale(baseOffsets.maintain),
-            preWake: scale(baseOffsets.preWake)
+            warmUp: Int(Double(warmRange) * ratios.warmUp),
+            fallAsleep: -Int(Double(coolRange) * ratios.fallAsleep),
+            deepSleep: -coolRange,  // always hits min
+            maintain: -Int(Double(coolRange) * ratios.maintain),
+            preWake: warmRange  // always hits max
         )
 
         var points: [Point] = []
@@ -156,6 +151,16 @@ enum CoolingIntensity: String, CaseIterable, Identifiable, Sendable {
         case .cool:     (+1, -6, -8, -6, +2)
         case .balanced: (+2, -4, -6, -4, +4)
         case .warm:     (+3, -2, -4, -2, +6)
+        }
+    }
+
+    /// Ratios of the available temp range each phase uses (0.0 to 1.0)
+    /// deepSleep and preWake always use 100% — they define the min/max
+    var ratios: (warmUp: Double, fallAsleep: Double, maintain: Double) {
+        switch self {
+        case .cool:     (0.2, 0.7, 0.6)    // aggressive cooling
+        case .balanced: (0.3, 0.6, 0.5)    // moderate
+        case .warm:     (0.5, 0.4, 0.3)    // gentle cooling
         }
     }
 

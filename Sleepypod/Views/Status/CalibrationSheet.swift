@@ -106,17 +106,11 @@ struct CalibrationSheet: View {
                     }
                     .padding(.horizontal, 24)
                 } else if isCalibrating {
-                    VStack(spacing: 8) {
-                        ProgressView().tint(Theme.cyan)
-                        Text("Calibrating \(selectedSide?.displayName ?? "both sides")…")
+                    HStack(spacing: 8) {
+                        ProgressView().tint(Theme.cyan).scaleEffect(0.8)
+                        Text("Calibrating…")
                             .font(.caption)
                             .foregroundColor(Theme.textMuted)
-                        if let statusText {
-                            Text(statusText)
-                                .font(.caption2)
-                                .foregroundColor(Theme.accent)
-                                .transition(.opacity)
-                        }
                     }
                 }
 

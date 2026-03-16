@@ -144,28 +144,29 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func updateSchedules(_ schedules: Schedules) async throws -> Schedules {
-        // Delete all existing and recreate — simplest approach for full-replace semantics
-        // that free-sleep uses (POST /api/schedules replaces everything)
+        // Only update days that have data — don't touch other days
         for side in [Side.left, .right] {
             let existing: TRPCScheduleSet = try await query("schedules.getAll", input: ["side": side.rawValue])
-
-            // Delete existing
-            for sched in existing.temperature {
-                let _: TRPCSuccess = try await mutate("schedules.deleteTemperatureSchedule", input: ["id": sched.id])
-            }
-            for sched in existing.power {
-                let _: TRPCSuccess = try await mutate("schedules.deletePowerSchedule", input: ["id": sched.id])
-            }
-            for sched in existing.alarm {
-                let _: TRPCSuccess = try await mutate("schedules.deleteAlarmSchedule", input: ["id": sched.id])
-            }
-
-            // Create new from the free-sleep format
             let sideSchedule = schedules.schedule(for: side)
+
             for day in DayOfWeek.allCases {
                 let daily = sideSchedule[day]
+                let hasData = !daily.temperatures.isEmpty || daily.power.enabled || daily.alarm.enabled
 
-                // Temperature schedules
+                // Delete existing entries for this day only
+                for sched in existing.temperature where sched.dayOfWeek == day.rawValue {
+                    let _: TRPCSuccess = try await mutate("schedules.deleteTemperatureSchedule", input: ["id": sched.id])
+                }
+                for sched in existing.power where sched.dayOfWeek == day.rawValue {
+                    let _: TRPCSuccess = try await mutate("schedules.deletePowerSchedule", input: ["id": sched.id])
+                }
+                for sched in existing.alarm where sched.dayOfWeek == day.rawValue {
+                    let _: TRPCSuccess = try await mutate("schedules.deleteAlarmSchedule", input: ["id": sched.id])
+                }
+
+                // Only recreate if this day has data
+                guard hasData else { continue }
+
                 for (time, tempF) in daily.temperatures {
                     let _: TRPCTemperatureSchedule = try await mutate("schedules.createTemperatureSchedule", input: [
                         "side": side.rawValue,
@@ -175,19 +176,22 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                     ])
                 }
 
-                // Power schedule
                 if daily.power.enabled {
-                    let _: TRPCPowerSchedule = try await mutate("schedules.createPowerSchedule", input: [
-                        "side": side.rawValue,
-                        "dayOfWeek": day.rawValue,
-                        "onTime": daily.power.on,
-                        "offTime": daily.power.off,
-                        "onTemperature": daily.power.onTemperature,
-                        "enabled": true,
-                    ])
+                    // Skip power schedule if it crosses midnight (core#205)
+                    let onHour = Int(daily.power.on.prefix(2)) ?? 0
+                    let offHour = Int(daily.power.off.prefix(2)) ?? 0
+                    if onHour < offHour {
+                        let _: TRPCPowerSchedule = try await mutate("schedules.createPowerSchedule", input: [
+                            "side": side.rawValue,
+                            "dayOfWeek": day.rawValue,
+                            "onTime": daily.power.on,
+                            "offTime": daily.power.off,
+                            "onTemperature": daily.power.onTemperature,
+                            "enabled": true,
+                        ])
+                    }
                 }
 
-                // Alarm schedule
                 if daily.alarm.enabled {
                     let _: TRPCAlarmSchedule = try await mutate("schedules.createAlarmSchedule", input: [
                         "side": side.rawValue,

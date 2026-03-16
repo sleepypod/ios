@@ -45,13 +45,6 @@ struct CalibrationSheet: View {
                 }
                 .padding(.horizontal, 24)
 
-                if let result {
-                    Text(result)
-                        .font(.caption)
-                        .foregroundColor(Theme.healthy)
-                        .padding(.horizontal, 24)
-                }
-
                 // Terminal output
                 if !terminalLines.isEmpty {
                     ScrollViewReader { proxy in
@@ -114,9 +107,9 @@ struct CalibrationSheet: View {
                     }
                 }
 
-                Button("Cancel") { dismiss() }
-                    .font(.subheadline)
-                    .foregroundColor(Theme.textMuted)
+                Button(result != nil ? "Done" : "Cancel") { dismiss() }
+                    .font(.subheadline.weight(result != nil ? .semibold : .regular))
+                    .foregroundColor(result != nil ? Theme.accent : Theme.textMuted)
                     .padding(.bottom, 20)
             }
             .background(Theme.background)

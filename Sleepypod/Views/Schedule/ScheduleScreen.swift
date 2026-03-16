@@ -110,12 +110,14 @@ struct ScheduleScreen: View {
             }
         }
 
+        let previous = scheduleManager.schedules
         scheduleManager.schedules = schedules
         do {
             let api = APIBackend.current.createClient()
             scheduleManager.schedules = try await api.updateSchedules(schedules)
             Haptics.heavy()
         } catch {
+            scheduleManager.schedules = previous
             Log.general.error("Failed to clear schedule: \(error)")
         }
     }

@@ -178,9 +178,9 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
                 if daily.power.enabled {
                     // Skip power schedule if it crosses midnight (core#205)
-                    let onHour = Int(daily.power.on.prefix(2)) ?? 0
-                    let offHour = Int(daily.power.off.prefix(2)) ?? 0
-                    if onHour < offHour {
+                    let onMinutes = minutesFromTime(daily.power.on)
+                    let offMinutes = minutesFromTime(daily.power.off)
+                    if let on = onMinutes, let off = offMinutes, on < off {
                         let _: TRPCPowerSchedule = try await mutate("schedules.createPowerSchedule", input: [
                             "side": side.rawValue,
                             "dayOfWeek": day.rawValue,
@@ -506,6 +506,13 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     private func fahrenheitToLevel(_ tempF: Double) -> Int {
         Int(((tempF - 82.5) / 27.5) * 100)
+    }
+
+    private func minutesFromTime(_ time: String) -> Int? {
+        let parts = time.split(separator: ":")
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]),
+              (0..<24).contains(h), (0..<60).contains(m) else { return nil }
+        return h * 60 + m
     }
 
     private func mapGestures(_ gestures: TRPCGestures?, side: Side) -> TapCounts? {

@@ -172,6 +172,7 @@ struct SmartCurveView: View {
         }
         .onAppear { loadFromSchedule() }
         .onChange(of: scheduleManager.selectedDay) { loadFromSchedule() }
+        .onChange(of: scheduleManager.schedules != nil) { loadFromSchedule() }
         .cardStyle()
     }
 
@@ -519,9 +520,23 @@ struct SmartCurveView: View {
     // MARK: - Apply
 
     private func loadFromSchedule() {
-        guard let daily = scheduleManager.currentDailySchedule else { return }
         let calendar = Calendar.current
         let now = Date()
+
+        // Reset to defaults first
+        var bed = calendar.dateComponents([.year, .month, .day], from: now)
+        bed.hour = 22; bed.minute = 0
+        bedtime = calendar.date(from: bed) ?? bedtime
+
+        var wake = calendar.dateComponents([.year, .month, .day], from: now)
+        wake.day = (wake.day ?? 0) + 1
+        wake.hour = 7; wake.minute = 0
+        wakeTime = calendar.date(from: wake) ?? wakeTime
+
+        minTemp = 68
+        maxTemp = 86
+
+        guard let daily = scheduleManager.currentDailySchedule else { return }
         let fmt = DateFormatter()
         fmt.dateFormat = "HH:mm"
 

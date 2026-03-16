@@ -219,10 +219,10 @@ struct CalibrationSheet: View {
     private func pollUntilDone(sides: [Side]) async {
         let api = APIBackend.current.createClient()
 
-        try? await Task.sleep(for: .seconds(2))
+        try? await Task.sleep(for: .seconds(1))
         log("Polling calibration status…")
 
-        for attempt in 1...20 {
+        for attempt in 1...30 {
             var pending = 0
             var summaryParts: [String] = []
 
@@ -272,8 +272,8 @@ struct CalibrationSheet: View {
                 return
             }
 
-            log("  … \(pending) sensor(s) still processing (poll \(attempt)/20)")
-            try? await Task.sleep(for: .seconds(3))
+            log("  … \(pending) sensor(s) still processing (poll \(attempt)/30)")
+            try? await Task.sleep(for: .seconds(2))
         }
 
         log("Timed out after 60 seconds")

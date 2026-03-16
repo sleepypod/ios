@@ -37,8 +37,11 @@ struct TempScreen: View {
 
                 if deviceManager.isConnected {
                     VStack(spacing: 0) {
-                        // Top bar — profile only
+                        // Top bar — priming indicator + profile
                         HStack {
+                            if deviceManager.deviceStatus?.isPriming == true {
+                                PrimingIndicator()
+                            }
                             Spacer()
                             UserSelectorView()
                         }
@@ -55,14 +58,6 @@ struct TempScreen: View {
 
                             // Alerts
                             VStack(spacing: 8) {
-                                if deviceManager.deviceStatus?.isPriming == true {
-                                    AlertBanner(
-                                        icon: "drop.fill",
-                                        title: "Sleepypod is Priming",
-                                        message: "Water is being circulated through the system",
-                                        style: .info
-                                    )
-                                }
                                 if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
                                     AlarmBanner(side: side) {
                                         deviceManager.stopAlarm()

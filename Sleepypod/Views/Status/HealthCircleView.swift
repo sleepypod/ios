@@ -117,12 +117,16 @@ struct HealthCircleView: View {
                         showWaterSheet = true
                     } label: {
                         HStack(spacing: 5) {
-                            Image(systemName: "drop.fill")
-                                .font(.system(size: 10))
-                                .foregroundColor(waterColor(status.waterLevel))
-                            Text(waterLabel(status.waterLevel))
-                                .font(.caption2)
-                                .foregroundColor(waterColor(status.waterLevel))
+                            if status.isPriming {
+                                PrimingIndicator()
+                            } else {
+                                Image(systemName: "drop.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(waterColor(status.waterLevel))
+                                Text(waterLabel(status.waterLevel))
+                                    .font(.caption2)
+                                    .foregroundColor(waterColor(status.waterLevel))
+                            }
                         }
                     }
                     .buttonStyle(.plain)

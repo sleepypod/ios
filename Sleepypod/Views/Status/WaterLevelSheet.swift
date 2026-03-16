@@ -48,14 +48,16 @@ struct WaterLevelSheet: View {
                                 .font(.caption2)
                                 .foregroundColor(Theme.textMuted)
 
-                            if let result = primeResult {
+                            if isPriming {
+                                PrimingIndicator()
+                            } else if let result = primeResult {
                                 HStack(spacing: 6) {
-                                    Image(systemName: result.contains("Failed") ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                    Image(systemName: result.contains("Failed") ? "xmark.circle.fill" : "drop.fill")
                                         .font(.caption)
                                     Text(result)
                                         .font(.caption)
                                 }
-                                .foregroundColor(result.contains("Failed") ? Theme.error : Theme.healthy)
+                                .foregroundColor(result.contains("Failed") ? Theme.error : Theme.accent)
                             }
                         }
                         .cardStyle()

@@ -154,40 +154,45 @@ struct SmartCurveView: View {
             let minY = yForOffset(minOffset, height: h)
             let maxY = yForOffset(maxOffset, height: h)
 
-            ZStack {
-                // Min line (cool — bottom)
-                dragLine(y: minY, color: Theme.cooling, label: "\(Int(minTemp))°")
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                let offset = offsetForY(value.location.y, height: h)
-                                let temp = max(55, min(Double(Int(maxTemp) - 2), 80 + offset))
-                                minTemp = (temp).rounded()
-                                Haptics.light()
-                            }
-                    )
+            // Min line (cool — lower)
+            dragLine(y: minY, color: Theme.cooling, label: "\(Int(minTemp))°", height: h)
+                .gesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { value in
+                            let offset = offsetForY(value.location.y, height: h)
+                            let temp = max(55, min(Double(Int(maxTemp) - 2), 80 + offset))
+                            minTemp = temp.rounded()
+                        }
+                )
 
-                // Max line (warm — top)
-                dragLine(y: maxY, color: Theme.warming, label: "\(Int(maxTemp))°")
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                let offset = offsetForY(value.location.y, height: h)
-                                let temp = min(110, max(Double(Int(minTemp) + 2), 80 + offset))
-                                maxTemp = (temp).rounded()
-                                Haptics.light()
-                            }
-                    )
-            }
+            // Max line (warm — upper)
+            dragLine(y: maxY, color: Theme.warming, label: "\(Int(maxTemp))°", height: h)
+                .gesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { value in
+                            let offset = offsetForY(value.location.y, height: h)
+                            let temp = min(110, max(Double(Int(minTemp) + 2), 80 + offset))
+                            maxTemp = temp.rounded()
+                        }
+                )
         }
-        .allowsHitTesting(true)
     }
 
-    private func dragLine(y: CGFloat, color: Color, label: String) -> some View {
-        Rectangle()
-            .fill(color.opacity(0.6))
-            .frame(height: 2)
-            .overlay(alignment: .trailing) {
+    private func dragLine(y: CGFloat, color: Color, label: String, height: CGFloat) -> some View {
+        // Clamp Y to chart bounds with padding for the Y-axis legend area
+        let clampedY = max(0, min(y, height))
+
+        return VStack(spacing: 0) {
+            Spacer(minLength: 0)
+                .frame(height: max(0, clampedY - 1))
+
+            ZStack(alignment: .trailing) {
+                Rectangle()
+                    .fill(color.opacity(0.6))
+                    .frame(height: 2)
+                    // Inset from left to avoid overlapping Y-axis labels
+                    .padding(.leading, 30)
+
                 Text(label)
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white)
@@ -196,8 +201,12 @@ struct SmartCurveView: View {
                     .background(color)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
-            .offset(y: y)
-            .contentShape(Rectangle().size(width: .infinity, height: 30))
+            // Wide tap target for dragging
+            .contentShape(Rectangle().inset(by: -15))
+
+            Spacer(minLength: 0)
+        }
+        .frame(height: height)
     }
 
     // MARK: - Chart
@@ -259,7 +268,7 @@ struct SmartCurveView: View {
         }
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 5)) {
-                AxisValueLabel(format: .dateTime.hour().minute())
+                AxisValueLabel(format: .dateTime.hour())
                     .foregroundStyle(Theme.textMuted)
             }
         }

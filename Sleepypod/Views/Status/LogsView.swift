@@ -50,6 +50,7 @@ private struct LogsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var logs: [LogEntry] = []
     @State private var selectedService: String = "sleepypod"
+    @State private var selectedPriority: String? = nil
     @State private var isLoading = false
     @State private var error: String?
 
@@ -57,6 +58,13 @@ private struct LogsSheet: View {
         ("sleepypod", "Core"),
         ("sleepypod-piezo-processor", "Piezo"),
         ("sleepypod-sleep-detector", "Sleep")
+    ]
+
+    private let priorities: [(String?, String)] = [
+        (nil, "All"),
+        ("err", "Errors"),
+        ("warning", "Warn"),
+        ("debug", "Debug")
     ]
 
     var body: some View {
@@ -85,6 +93,30 @@ private struct LogsSheet: View {
                     .padding(.horizontal, 16)
                 }
                 .padding(.vertical, 10)
+
+                // Priority filter
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(priorities, id: \.1) { value, label in
+                            Button {
+                                Haptics.tap()
+                                selectedPriority = value
+                                Task { await fetchLogs() }
+                            } label: {
+                                Text(label)
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundColor(selectedPriority == value ? .white : Theme.textMuted)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(selectedPriority == value ? Theme.textSecondary.opacity(0.5) : Theme.cardElevated)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.bottom, 6)
 
                 Divider().background(Theme.cardBorder)
 
@@ -181,7 +213,11 @@ private struct LogsSheet: View {
         }
 
         let unit = "\(selectedService).service"
-        let input = "{\"json\":{\"unit\":\"\(unit)\",\"lines\":100}}"
+        var params = "\"unit\":\"\(unit)\",\"lines\":200"
+        if let priority = selectedPriority {
+            params += ",\"priority\":\"\(priority)\""
+        }
+        let input = "{\"json\":{\(params)}}"
         let encoded = input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input
         guard let url = URL(string: "http://\(ip):3000/api/trpc/system.getLogs?input=\(encoded)") else { return }
 

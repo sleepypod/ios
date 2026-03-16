@@ -26,23 +26,19 @@ struct CalibrationSheet: View {
                 VStack(alignment: .leading, spacing: 12) {
                     explanationRow(
                         icon: "bed.double.fill",
-                        text: "Lie down on your side of the pod and stay still"
+                        text: "Bed must be **empty** — blankets and sheets are fine, but nobody on the mattress"
                     )
                     explanationRow(
                         icon: "timer",
-                        text: "Calibration takes about 5 minutes to collect baseline readings"
+                        text: "Needs a quiet 5-minute window in the last 6 hours. Takes ~7 seconds per sensor to process."
                     )
                     explanationRow(
-                        icon: "heart.fill",
-                        text: "**Piezo** measures your heartbeat vibrations through the mattress"
+                        icon: "arrow.triangle.2.circlepath",
+                        text: "Runs automatically on startup and daily. Profiles expire after 48 hours."
                     )
                     explanationRow(
-                        icon: "thermometer.medium",
-                        text: "**Temperature** maps your body heat pattern"
-                    )
-                    explanationRow(
-                        icon: "hand.raised.fill",
-                        text: "**Capacitance** detects your presence on the pad"
+                        icon: "square.split.2x1",
+                        text: "Each side calibrates independently — you can have someone on one side while calibrating the other"
                     )
                 }
                 .padding(.horizontal, 24)

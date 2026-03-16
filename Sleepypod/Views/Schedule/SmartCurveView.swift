@@ -81,8 +81,47 @@ struct SmartCurveView: View {
                 .font(.caption2)
                 .foregroundColor(Theme.textMuted)
 
-            // Curve chart (clean — no overlays)
+            // Curve chart with draggable min/max
             curveChart
+                .chartOverlay { proxy in
+                    GeometryReader { geo in
+                        let plotArea = geo[proxy.plotFrame!]
+
+                        // Min drag zone (bottom half of chart)
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(height: plotArea.height / 2)
+                            .offset(y: plotArea.minY + plotArea.height / 2)
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 1)
+                                    .onChanged { value in
+                                        let localY = value.location.y - plotArea.minY
+                                        if let offset = proxy.value(atY: localY) as Int? {
+                                            let temp = max(55, min(Double(Int(maxTemp) - 2), Double(80 + offset)))
+                                            minTemp = temp.rounded()
+                                        }
+                                    }
+                            )
+
+                        // Max drag zone (top half of chart)
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(height: plotArea.height / 2)
+                            .offset(y: plotArea.minY)
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 1)
+                                    .onChanged { value in
+                                        let localY = value.location.y - plotArea.minY
+                                        if let offset = proxy.value(atY: localY) as Int? {
+                                            let temp = min(110, max(Double(Int(minTemp) + 2), Double(80 + offset)))
+                                            maxTemp = temp.rounded()
+                                        }
+                                    }
+                            )
+                    }
+                }
                 .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 

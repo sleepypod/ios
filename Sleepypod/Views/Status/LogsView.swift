@@ -354,6 +354,11 @@ private struct LogEntry: Identifiable {
             .replacingOccurrences(of: "[DEBUG] ", with: "")
             .trimmingCharacters(in: .whitespaces)
 
+        // URL-decode any %7B etc
+        if msg.contains("%7B") || msg.contains("%22") {
+            msg = msg.removingPercentEncoding ?? msg
+        }
+
         // Extract and prettify JSON
         var jsonPayload: String?
         if let jsonStart = msg.firstIndex(of: "{"),
@@ -363,9 +368,12 @@ private struct LogEntry: Identifiable {
            let prettyStr = String(data: pretty, encoding: .utf8) {
             jsonPayload = prettyStr
             msg = String(msg[..<jsonStart]).trimmingCharacters(in: .whitespaces)
-            // Clean trailing punctuation
-            if msg.hasSuffix(":") || msg.hasSuffix("-") {
+            if msg.hasSuffix(":") || msg.hasSuffix("-") || msg.hasSuffix("=") {
                 msg = String(msg.dropLast()).trimmingCharacters(in: .whitespaces)
+            }
+            // Clean query param prefix
+            if msg.hasSuffix("?input") {
+                msg = String(msg.dropLast(6)).trimmingCharacters(in: .whitespaces)
             }
         }
 

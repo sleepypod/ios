@@ -184,20 +184,10 @@ struct SmartCurveView: View {
     }
 
     private func dragLine(y: CGFloat, color: Color, label: String) -> some View {
-        ZStack {
-            // Dashed line
-            Rectangle()
-                .fill(color.opacity(0.5))
-                .frame(height: 1)
-                .overlay(
-                    Rectangle()
-                        .stroke(color, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
-                )
-                .offset(y: y)
-
-            // Drag handle on right edge
-            HStack {
-                Spacer()
+        Rectangle()
+            .fill(color.opacity(0.6))
+            .frame(height: 2)
+            .overlay(alignment: .trailing) {
                 Text(label)
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white)
@@ -207,7 +197,7 @@ struct SmartCurveView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             .offset(y: y)
-        }
+            .contentShape(Rectangle().size(width: .infinity, height: 30))
     }
 
     // MARK: - Chart

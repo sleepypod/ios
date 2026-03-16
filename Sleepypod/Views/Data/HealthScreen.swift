@@ -5,7 +5,6 @@ struct HealthScreen: View {
     @Environment(MetricsManager.self) private var metricsManager
     @Environment(SettingsManager.self) private var settingsManager
 
-    // Real-time vitals
     @State private var vitals: [VitalsRecord] = []
     @State private var isLoadingVitals = false
     @State private var showRawData = false
@@ -20,35 +19,27 @@ struct HealthScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Week navigator
-                WeekNavigatorView()
-
-                // Side selector
-                HealthSideSelectorView()
+                HStack {
+                    WeekNavigatorView()
+                    Spacer()
+                    sideTogglePill
+                }
 
                 if metricsManager.isLoading && metricsManager.sleepRecords.isEmpty {
                     LoadingView(message: "Loading health data…")
                 } else {
-                    // Calibration warning (only if not calibrated)
+                    // Calibration warning (non-blocking, scrollable)
                     if !isCalibrated {
                         calibrationWarning
                     }
 
-                    // Sleep summary
+                    // Sleep
                     SleepSummaryCardView()
+                    SleepStagesTimelineView(stages: sleepAnalyzer.stages, qualityScore: sleepAnalyzer.qualityScore)
 
-                    // Sleep stages hypnogram
-                    SleepStagesTimelineView(stages: sleepAnalyzer.stages)
-
-                    // On-device sleep analysis (ML)
-                    if !sleepAnalyzer.stages.isEmpty {
-                        sleepAnalysisCard
-                    }
-
-                    // Vitals summary
+                    // Vitals
                     vitalsSummaryCard
 
-                    // Heart rate chart (interactive)
                     VitalsChartCard(
                         title: "Heart Rate",
                         icon: "heart.fill",
@@ -64,7 +55,6 @@ struct HealthScreen: View {
                         average: metricsManager.vitalsSummary?.avgHeartRate
                     )
 
-                    // HRV chart
                     VitalsChartCard(
                         title: "Heart Rate Variability",
                         icon: "waveform.path.ecg",
@@ -80,7 +70,6 @@ struct HealthScreen: View {
                         average: metricsManager.vitalsSummary?.avgHRV
                     )
 
-                    // Breathing rate
                     VitalsChartCard(
                         title: "Breathing Rate",
                         icon: "lungs.fill",
@@ -94,13 +83,11 @@ struct HealthScreen: View {
                         average: metricsManager.vitalsSummary?.avgBreathingRate
                     )
 
-                    // Weekly bar chart
+                    // Trends
                     WeeklyBarChartView()
-
-                    // Movement
                     MovementCardView()
 
-                    // Raw data button → opens bottom sheet
+                    // Raw data
                     Button {
                         Haptics.light()
                         showRawData = true
@@ -158,6 +145,48 @@ struct HealthScreen: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    // MARK: - Side Toggle
+
+    private var sideName: String {
+        guard let settings = settingsManager.settings else {
+            return metricsManager.selectedSide.displayName
+        }
+        let name = metricsManager.selectedSide == .left ? settings.left.name : settings.right.name
+        return name.isEmpty ? metricsManager.selectedSide.displayName : name
+    }
+
+    private var sideBadge: String {
+        metricsManager.selectedSide == .left ? "L" : "R"
+    }
+
+    private var sideTogglePill: some View {
+        Button {
+            Haptics.light()
+            withAnimation(.easeInOut(duration: 0.2)) {
+                metricsManager.selectedSide = metricsManager.selectedSide == .left ? .right : .left
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(sideName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(Theme.accent)
+
+                Text(sideBadge)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 16, height: 16)
+                    .background(Theme.accent.opacity(0.5))
+                    .clipShape(Circle())
+            }
+            .padding(.leading, 10)
+            .padding(.trailing, 6)
+            .padding(.vertical, 5)
+            .background(Theme.accent.opacity(0.12))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Smoothed Vitals
@@ -247,81 +276,6 @@ struct HealthScreen: View {
     }
 
 
-    // MARK: - Sleep Analysis Card
-
-    private var sleepAnalysisCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                HStack(spacing: 6) {
-                    Image(systemName: "brain")
-                        .font(.caption)
-                        .foregroundColor(Theme.purple)
-                    Text("SLEEP ANALYSIS")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(Theme.textSecondary)
-                        .tracking(1)
-                }
-                Spacer()
-                if let score = sleepAnalyzer.qualityScore {
-                    Text("Score: \(score)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(score >= 70 ? Theme.healthy : score >= 40 ? Theme.amber : Theme.error)
-                }
-            }
-
-            Text("On-device · Rule-based")
-                .font(.caption2)
-                .foregroundColor(Theme.textMuted)
-
-            // Stage distribution bar
-            GeometryReader { geo in
-                HStack(spacing: 1) {
-                    let total = max(sleepAnalyzer.stages.count, 1)
-                    let deep = sleepAnalyzer.stages.filter { $0.stage == .deep }.count
-                    let light = sleepAnalyzer.stages.filter { $0.stage == .light }.count
-                    let rem = sleepAnalyzer.stages.filter { $0.stage == .rem }.count
-                    let wake = sleepAnalyzer.stages.filter { $0.stage == .wake }.count
-
-                    stageBar(pct: Double(deep) / Double(total), color: Color(hex: "2563eb"), width: geo.size.width)
-                    stageBar(pct: Double(light) / Double(total), color: Color(hex: "4a90d9"), width: geo.size.width)
-                    stageBar(pct: Double(rem) / Double(total), color: Color(hex: "a080d0"), width: geo.size.width)
-                    stageBar(pct: Double(wake) / Double(total), color: Color(hex: "888888"), width: geo.size.width)
-                }
-                .clipShape(Capsule())
-            }
-            .frame(height: 10)
-
-            // Legend
-            HStack(spacing: 16) {
-                stageLegend("Deep", color: Color(hex: "2563eb"), pct: stagePct(.deep))
-                stageLegend("Light", color: Color(hex: "4a90d9"), pct: stagePct(.light))
-                stageLegend("REM", color: Color(hex: "a080d0"), pct: stagePct(.rem))
-                stageLegend("Wake", color: Color(hex: "888888"), pct: stagePct(.wake))
-            }
-        }
-        .cardStyle()
-    }
-
-    private func stageBar(pct: Double, color: Color, width: CGFloat) -> some View {
-        Rectangle()
-            .fill(color)
-            .frame(width: max(width * pct - 1, 0))
-    }
-
-    private func stageLegend(_ label: String, color: Color, pct: Int) -> some View {
-        HStack(spacing: 4) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            Text("\(label) \(pct)%")
-                .font(.caption2)
-                .foregroundColor(Theme.textSecondary)
-        }
-    }
-
-    private func stagePct(_ stage: SleepAnalyzer.SleepStage) -> Int {
-        guard !sleepAnalyzer.stages.isEmpty else { return 0 }
-        return Int(Double(sleepAnalyzer.stages.filter { $0.stage == stage }.count) / Double(sleepAnalyzer.stages.count) * 100)
-    }
-
     // MARK: - Calibration Warning
 
     private var calibrationWarning: some View {
@@ -370,56 +324,28 @@ struct HealthScreen: View {
 
     private func checkCalibration() async {
         let api = APIBackend.current.createClient()
-        guard let left = try? await api.getCalibrationStatus(side: .left),
-              let right = try? await api.getCalibrationStatus(side: .right) else { return }
-        // Consider calibrated if piezo sensors on both sides completed
-        isCalibrated = left.piezo?.status == "completed" && right.piezo?.status == "completed"
-            && (left.piezo?.qualityScore ?? 0) > 0.5 && (right.piezo?.qualityScore ?? 0) > 0.5
+        guard let status = try? await api.getCalibrationStatus(side: metricsManager.selectedSide) else { return }
+        // Only warn if selected side's piezo is missing or low quality
+        isCalibrated = status.piezo?.status == "completed" && (status.piezo?.qualityScore ?? 0) > 0.5
     }
 
     private func fetchVitals() async {
         isLoadingVitals = vitals.isEmpty
         let end = metricsManager.selectedWeekEnd
         let start = metricsManager.selectedWeekStart
+        Log.general.info("Fetching vitals: side=\(metricsManager.selectedSide.rawValue) start=\(start) end=\(end)")
         do {
             vitals = try await api.getVitals(side: metricsManager.selectedSide, start: start, end: end)
+            Log.general.info("Fetched \(vitals.count) vitals records")
         } catch {
             Log.network.error("Failed to fetch vitals: \(error)")
         }
         isLoadingVitals = false
         sleepAnalyzer.analyze(vitals: vitals)
+        Log.general.info("Sleep analyzer: \(sleepAnalyzer.stages.count) stages, score=\(sleepAnalyzer.qualityScore ?? -1)")
     }
 }
 
-// MARK: - Side Selector
-
-private struct HealthSideSelectorView: View {
-    @Environment(MetricsManager.self) private var metricsManager
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Side.allCases) { side in
-                let isSelected = metricsManager.selectedSide == side
-                Button {
-                    Haptics.tap()
-                    metricsManager.selectedSide = side
-                } label: {
-                    Text(side.displayName)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(isSelected ? Theme.accent : Theme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(isSelected ? Color(hex: "1e2a3a") : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(4)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-}
 
 // MARK: - Zone
 

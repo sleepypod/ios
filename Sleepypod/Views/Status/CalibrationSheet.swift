@@ -63,6 +63,15 @@ struct CalibrationSheet: View {
                         .frame(maxHeight: .infinity)
                         .background(Color(hex: "0a0a0f"))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .mask(
+                            VStack(spacing: 0) {
+                                LinearGradient(colors: [.clear, .white], startPoint: .top, endPoint: .bottom)
+                                    .frame(height: 16)
+                                Color.white
+                                LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .bottom)
+                                    .frame(height: 16)
+                            }
+                        )
                         .padding(.horizontal, 16)
                         .onChange(of: terminalLines.count) {
                             withAnimation { proxy.scrollTo(terminalLines.count - 1, anchor: .bottom) }
@@ -182,11 +191,12 @@ struct CalibrationSheet: View {
         log("Triggering \(side.displayName) side calibration…")
         Task {
             let api = APIBackend.current.createClient()
-            for sensor in ["piezo", "temperature", "capacitance"] {
-                log("  → \(sensor)")
-                _ = try? await api.triggerCalibration(side: side, sensorType: sensor)
-            }
-            log("All sensors triggered. Polling for completion…")
+            log("  → piezo, temperature, capacitance")
+            async let p: CalibrationTriggerResponse? = try? api.triggerCalibration(side: side, sensorType: "piezo")
+            async let t: CalibrationTriggerResponse? = try? api.triggerCalibration(side: side, sensorType: "temperature")
+            async let c: CalibrationTriggerResponse? = try? api.triggerCalibration(side: side, sensorType: "capacitance")
+            _ = await (p, t, c)
+            log("All sensors triggered. Polling…")
             await pollUntilDone(sides: [side])
         }
     }

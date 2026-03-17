@@ -26,9 +26,8 @@ struct SideSelectorView: View {
         .padding(6)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(alignment: .bottom) {
+        .overlay {
             linkButton
-                .offset(y: linkSize / 2)
         }
         .animation(.easeInOut(duration: 0.25), value: isLinked)
     }

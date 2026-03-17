@@ -154,3 +154,11 @@ struct LiveVitals: Sendable {
     var breathingRate: Double?
     var confidence: Double = 0
 }
+
+// MARK: - Utilities
+
+extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}

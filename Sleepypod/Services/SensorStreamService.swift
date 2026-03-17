@@ -94,7 +94,6 @@ final class SensorStreamService {
         let ws = session.webSocketTask(with: url)
         self.webSocketTask = ws
         ws.resume()
-        isConnected = true
         error = nil
 
         receiveTask = Task { [weak ws] in
@@ -127,6 +126,7 @@ final class SensorStreamService {
         do {
             while !Task.isCancelled {
                 let message = try await ws.receive()
+                if !isConnected { isConnected = true }
                 switch message {
                 case .string(let text):
                     if let data = text.data(using: .utf8) { handleFrame(data) }
@@ -219,10 +219,12 @@ final class SensorStreamService {
 
     private func computeVariance(_ history: [[Float]]) -> [Float] {
         guard history.count >= 2 else { return Array(repeating: 0, count: 8) }
-        let n = history[0].count
+        let n = history.map(\.count).min() ?? 0
+        guard n > 0 else { return Array(repeating: 0, count: 8) }
         var result = [Float](repeating: 0, count: n)
         for ch in 0..<n {
-            let vals = history.map { $0[safe: ch] ?? 0 }
+            let vals = history.compactMap { $0[safe: ch] }
+            guard vals.count >= 2 else { continue }
             let mean = vals.reduce(0, +) / Float(vals.count)
             let v = vals.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Float(vals.count)
             result[ch] = sqrt(v)

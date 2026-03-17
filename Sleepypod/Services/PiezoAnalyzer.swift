@@ -47,34 +47,37 @@ enum PiezoAnalyzer {
         maxFreq: Double
     ) -> (rate: Double?, confidence: Double) {
         let n = signal.count
+        guard n > 1 else { return (nil, 0) }
 
-        // Autocorrelation via vDSP
-        var acf = [Float](repeating: 0, count: n)
-        vDSP_conv(signal, 1, signal, 1, &acf, 1, vDSP_Length(n), vDSP_Length(n))
-
-        // Normalize by zero-lag value
-        guard let zeroLag = acf.first, zeroLag > 0 else {
-            return (nil, 0)
-        }
-        vDSP.divide(acf, zeroLag, result: &acf)
-
-        // Search range in samples
+        // Autocorrelation: acf[lag] = sum(signal[i] * signal[i+lag]) for valid i
         let minLag = max(1, Int(Double(sampleRate) / maxFreq))
         let maxLag = min(n - 1, Int(Double(sampleRate) / minFreq))
         guard minLag < maxLag else { return (nil, 0) }
 
-        // Find peak in valid range
-        let searchRange = Array(acf[minLag...maxLag])
-        guard let peakVal = searchRange.max(),
-              let peakIdx = searchRange.firstIndex(of: peakVal) else {
-            return (nil, 0)
+        // Compute zero-lag energy for normalization
+        var energy: Float = 0
+        vDSP_dotpr(signal, 1, signal, 1, &energy, vDSP_Length(n))
+        guard energy > 0 else { return (nil, 0) }
+
+        // Compute autocorrelation only for lags we care about
+        var bestLag = minLag
+        var bestVal: Float = -.greatestFiniteMagnitude
+        for lag in minLag...maxLag {
+            var dot: Float = 0
+            let len = n - lag
+            guard len > 0 else { continue }
+            vDSP_dotpr(signal, 1, Array(signal[lag...]), 1, &dot, vDSP_Length(len))
+            let normalized = dot / energy
+            if normalized > bestVal {
+                bestVal = normalized
+                bestLag = lag
+            }
         }
 
-        let lag = minLag + peakIdx
-        let frequency = Double(sampleRate) / Double(lag)
-        let confidence = Double(peakVal)
-
+        let confidence = Double(max(0, bestVal))
         guard confidence > 0.15 else { return (nil, confidence) }
+
+        let frequency = Double(sampleRate) / Double(bestLag)
         return (frequency, confidence)
     }
 }

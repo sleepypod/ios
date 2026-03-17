@@ -79,7 +79,6 @@ struct FirmwareLogConsoleView: View {
                 .foregroundColor(entry.level.color)
                 .frame(width: 30, alignment: .leading)
 
-            // Message — truncated, single line
             Text(cleanMessage(entry.message))
                 .foregroundColor(.white.opacity(0.85))
                 .lineLimit(2)
@@ -87,10 +86,14 @@ struct FirmwareLogConsoleView: View {
         .font(.system(size: 9, design: .monospaced))
     }
 
-    private func timeString(_ date: Date) -> String {
+    private static let timeFmt: DateFormatter = {
         let fmt = DateFormatter()
         fmt.dateFormat = "HH:mm:ss"
-        return fmt.string(from: date)
+        return fmt
+    }()
+
+    private func timeString(_ date: Date) -> String {
+        Self.timeFmt.string(from: date)
     }
 
     private func cleanMessage(_ msg: String) -> String {

@@ -8,4 +8,5 @@ enum Log {
     static let discovery = Logger(subsystem: "com.sleepypod.ios", category: "discovery")
     static let device = Logger(subsystem: "com.sleepypod.ios", category: "device")
     static let general = Logger(subsystem: "com.sleepypod.ios", category: "general")
+    static let sensor = Logger(subsystem: "com.sleepypod.ios", category: "sensor")
 }

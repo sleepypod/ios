@@ -42,6 +42,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: 1
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ZUR2343J7S
         PRODUCT_NAME: Sleepypod
 
   SleepypodTests:

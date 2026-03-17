@@ -10,6 +10,7 @@ struct SleepypodApp: App {
     @State private var updateChecker = UpdateChecker()
     @State private var podDiscovery = PodDiscovery()
     @State private var userProfile = UserProfile()
+    @State private var sensorStream = SensorStreamService()
 
     init() {
         let client = APIBackend.current.createClient()
@@ -37,6 +38,7 @@ struct SleepypodApp: App {
                 .environment(updateChecker)
                 .environment(podDiscovery)
                 .environment(userProfile)
+                .environment(sensorStream)
                 .preferredColorScheme(.dark)
         }
     }
@@ -69,6 +71,13 @@ struct ContentView: View {
                     HealthScreen()
                 } else {
                     DisconnectedTabView(tab: "Health", selectedTab: $selectedTab)
+                }
+            }
+            Tab("Sensors", systemImage: "waveform", value: "sensors") {
+                if isConnected {
+                    BedSensorScreen()
+                } else {
+                    DisconnectedTabView(tab: "Sensors", selectedTab: $selectedTab)
                 }
             }
             Tab("Status", systemImage: "antenna.radiowaves.left.and.right", value: "status") {

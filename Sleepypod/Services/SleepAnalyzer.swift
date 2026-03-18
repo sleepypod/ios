@@ -125,7 +125,7 @@ final class SleepAnalyzer {
         // First pass: hard physiological limits for sleep context
         var filtered = vitals.filter { r in
             if let hr = r.heartRate, (hr < 45 || hr > 130) { return false }
-            if let hrv = r.hrv, hrv > 300 { return false }
+            if let hrv = r.hrv, (hrv <= 0 || hrv > 300) { return false }
             if let br = r.breathingRate, (br < 8 || br > 25) { return false }
             return r.heartRate != nil  // must have HR
         }
@@ -223,6 +223,9 @@ final class SleepAnalyzer {
     //   - Null HRV + low movement + low HR → Deep
     //   - Null HRV + low movement + normal HR → Light (NEVER default to REM)
 
+    // NOTE: br is not yet used in classification because sleepypod-core
+    // currently returns hardcoded 12 BPM. Once real BR is available, add
+    // BR variability as a REM discriminator (high CV → REM, low CV → Deep).
     private func classifyEpoch(
         hr: Double, hrv: Double?, br: Double?, avgHR: Double,
         movement: Int?, calibrationQuality: Double
@@ -232,14 +235,12 @@ final class SleepAnalyzer {
 
         // 1. Calibration check — unreliable HR, use movement only
         if calibrationQuality < 0.3 {
-            if mov > 300 { return .wake }
+            if mov > 200 { return .wake }
             if mov > 100 { return .light }
             return .light  // No Deep/REM distinction possible without reliable HR
         }
 
         // 2. Wake detection (movement-first)
-        // Movement > 400 is unconditional wake
-        if mov > 400 { return .wake }
         if mov > 200 { return .wake }
 
         // 3. Deep sleep — HR well below average
@@ -247,14 +248,19 @@ final class SleepAnalyzer {
             return .deep
         }
 
-        // 4. REM detection — requires positive evidence
+        // 4. REM detection — requires positive evidence:
+        //    low HRV + low movement + optionally elevated/irregular BR
         if hrRatio >= 0.95, let hrv, hrv < 25, mov < 30 {
             return .rem
         }
 
-        // 5. High HR without movement → REM (HR surges during REM without body movement)
+        // 5. High HR without movement — only REM if HRV confirms
         if hrRatio > 1.10 && mov < 30 {
-            return .rem
+            if let hrv, hrv < 25 {
+                return .rem
+            }
+            // High HR + no HRV evidence → Light (not REM)
+            return .light
         }
 
         // 6. High HR with movement → Wake
@@ -282,14 +288,17 @@ final class SleepAnalyzer {
 
     private func applyTemporalSmoothing(_ epochs: inout [SleepEpoch]) {
         guard epochs.count >= 3 else { return }
+        let snapshot = epochs
 
-        for i in 1..<(epochs.count - 1) {
-            if epochs[i].stage != epochs[i - 1].stage && epochs[i].stage != epochs[i + 1].stage {
-                let original = epochs[i]
+        for i in 1..<(snapshot.count - 1) {
+            // Only smooth true single-epoch spikes (A-B-A pattern, not A-B-C transitions)
+            if snapshot[i - 1].stage == snapshot[i + 1].stage,
+               snapshot[i].stage != snapshot[i - 1].stage {
+                let original = snapshot[i]
                 epochs[i] = SleepEpoch(
                     start: original.start,
                     duration: original.duration,
-                    stage: epochs[i - 1].stage,
+                    stage: snapshot[i - 1].stage,
                     heartRate: original.heartRate,
                     hrv: original.hrv,
                     breathingRate: original.breathingRate

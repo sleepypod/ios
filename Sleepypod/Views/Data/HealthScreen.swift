@@ -349,7 +349,7 @@ struct HealthScreen: View {
         if let status = try? await api.getCalibrationStatus(side: metricsManager.selectedSide) {
             calibrationQuality = status.piezo?.qualityScore ?? 0.0
         } else {
-            calibrationQuality = 1.0  // Assume good calibration if status unavailable
+            calibrationQuality = 0.0  // Unknown quality — fail closed, don't trust unverified vitals
         }
 
         sleepAnalyzer.analyze(

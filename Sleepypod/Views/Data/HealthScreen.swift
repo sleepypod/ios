@@ -191,13 +191,15 @@ struct HealthScreen: View {
 
     // MARK: - Smoothed Vitals
 
-    /// Filter outliers and apply moving average
+    /// Filter outliers and apply moving average.
+    /// Uses tighter sleep-context thresholds matching SleepAnalyzer.
     private var smoothedVitals: [VitalsRecord] {
         vitals
             .filter { r in
-                // Filter physiologically impossible values
-                if let hr = r.heartRate, (hr < 30 || hr > 200) { return false }
+                // Filter physiologically impossible values (sleep-context thresholds)
+                if let hr = r.heartRate, (hr < 45 || hr > 130) { return false }
                 if let hrv = r.hrv, hrv > 300 { return false }
+                if let br = r.breathingRate, (br < 8 || br > 25) { return false }
                 return true
             }
             .sorted { $0.date < $1.date }
@@ -341,7 +343,20 @@ struct HealthScreen: View {
             Log.network.error("Failed to fetch vitals: \(error)")
         }
         isLoadingVitals = false
-        sleepAnalyzer.analyze(vitals: vitals)
+
+        // Fetch calibration quality for sleep analysis
+        let calibrationQuality: Double
+        if let status = try? await api.getCalibrationStatus(side: metricsManager.selectedSide) {
+            calibrationQuality = status.piezo?.qualityScore ?? 0.0
+        } else {
+            calibrationQuality = 0.0  // Unknown quality — fail closed, don't trust unverified vitals
+        }
+
+        sleepAnalyzer.analyze(
+            vitals: vitals,
+            movement: metricsManager.movementRecords,
+            calibrationQuality: calibrationQuality
+        )
         Log.general.info("Sleep analyzer: \(sleepAnalyzer.stages.count) stages, score=\(sleepAnalyzer.qualityScore ?? -1)")
     }
 }

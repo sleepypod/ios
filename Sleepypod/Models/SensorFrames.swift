@@ -9,6 +9,7 @@ enum SensorFrame: Sendable {
     case bedTemp2(BedTemp2Frame)
     case frzHealth(FrzHealthFrame)
     case log(LogFrame)
+    case notification(NotificationFrame)
     case unknown(String)
 
     static func decode(from data: Data) -> SensorFrame? {
@@ -27,6 +28,8 @@ enum SensorFrame: Sendable {
             return (try? decoder.decode(FrzHealthFrame.self, from: data)).map { .frzHealth($0) }
         case "log":
             return (try? decoder.decode(LogFrame.self, from: data)).map { .log($0) }
+        case "notification":
+            return (try? decoder.decode(NotificationFrame.self, from: data)).map { .notification($0) }
         default:
             return .unknown(type)
         }
@@ -145,6 +148,16 @@ struct LogFrame: Decodable, Sendable {
     let ts: Int
     let level: String
     let msg: String
+}
+
+// MARK: - Notification Frame
+
+struct NotificationFrame: Decodable, Sendable {
+    let ts: Int
+    let category: String
+    let priority: String?
+    let title: String
+    let message: String
 }
 
 // MARK: - Live Vitals (from DSP)

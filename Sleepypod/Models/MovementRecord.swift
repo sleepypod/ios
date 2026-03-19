@@ -38,6 +38,14 @@ struct MovementRecord: Codable, Sendable, Identifiable {
         try c.encode(totalMovement, forKey: .totalMovement)
     }
 
+    /// Memberwise init for tests and internal use
+    init(id: Int, side: String = "left", totalMovement: Int = 0, date: Date = Date()) {
+        self.id = id
+        self.side = side
+        self.totalMovement = totalMovement
+        self._timestamp = date.timeIntervalSince1970
+    }
+
     var timestamp: Int { Int(_timestamp) }
     var date: Date { Date(timeIntervalSince1970: _timestamp) }
 

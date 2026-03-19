@@ -14,6 +14,16 @@ struct VitalsRecord: Codable, Sendable, Identifiable {
         Date(timeIntervalSince1970: _timestamp)
     }
 
+    /// Memberwise init for tests and internal use
+    init(id: Int, side: String = "left", heartRate: Double? = nil, hrv: Double? = nil, breathingRate: Double? = nil, date: Date = Date()) {
+        self.id = id
+        self.side = side
+        self.heartRate = heartRate
+        self.hrv = hrv
+        self.breathingRate = breathingRate
+        self._timestamp = date.timeIntervalSince1970
+    }
+
     var timeLabel: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"

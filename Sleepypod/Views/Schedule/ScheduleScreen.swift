@@ -6,6 +6,7 @@ struct ScheduleScreen: View {
 
     @State private var showAdvanced = false
     @State private var showClearConfirm = false
+    @State private var showAICurve = false
 
     var body: some View {
         ScrollView {
@@ -18,6 +19,25 @@ struct ScheduleScreen: View {
 
                 // Smart curve
                 SmartCurveView()
+
+                // AI curve generator
+                Button {
+                    Haptics.light()
+                    showAICurve = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 12))
+                        Text("Design with AI")
+                            .font(.caption.weight(.medium))
+                    }
+                    .foregroundColor(Theme.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Theme.accent.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
 
                 // Schedule toggle
                 scheduleToggle
@@ -87,6 +107,11 @@ struct ScheduleScreen: View {
         .background(Theme.background)
         .task {
             await scheduleManager.fetchSchedules()
+        }
+        .sheet(isPresented: $showAICurve) {
+            AICurvePromptView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .alert("Clear Schedule", isPresented: $showClearConfirm) {
             Button("Clear Selected Days", role: .destructive) {

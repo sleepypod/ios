@@ -32,6 +32,7 @@
 		4B76AE90EF4105BC911F5102 /* ScheduleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */; };
 		53581400686FE861A24087AE /* CalibrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE0553DF9686966CDE7AF58B /* CalibrationTests.swift */; };
 		56087F2DD514F7DAFD5F4C60 /* RangeSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3120820F4ED5A63AAF30A6 /* RangeSlider.swift */; };
+		59D63C6FB621C08C2D068AA7 /* NotificationRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B44F02B272682A83840CA4 /* NotificationRelay.swift */; };
 		5D6566441668D7E70CE84F29 /* FreeSleepClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */; };
 		5F58632442748EC2A7862CB1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9E902CB9201C2AE527A6C49F /* Assets.xcassets */; };
 		650EC4F1527BA82FBF187755 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */; };
@@ -42,6 +43,7 @@
 		747C5B670447290DEE8D9218 /* BedSensorScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A6653DA02CC01836DB61EA /* BedSensorScreen.swift */; };
 		75C07CF3E25E008754ECA924 /* MovementCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 452905BE65E698AC3C3419A6 /* MovementCardView.swift */; };
 		76BE44719ADE65F1F800F35D /* SleepypodApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */; };
+		76F2CAC09736F972160EA15B /* AdaptiveSimulatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C912771F382B78E930512C /* AdaptiveSimulatorTests.swift */; };
 		783B095FE1D933AE14D94C97 /* RawDataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50BD72013CAB411F125A77BC /* RawDataSheet.swift */; };
 		7B18A3F8BC4258895EBEE279 /* ServiceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE210E5A8FC6945D3DE384C /* ServiceRowView.swift */; };
 		7ECF8266BF6DB9733BB31DDF /* ServiceCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6E2D8EB06314CC264F24D1 /* ServiceCategoryView.swift */; };
@@ -59,6 +61,8 @@
 		9D7F9E63ABF049359432DF0F /* DeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2941CA088FC1C77B69F36D60 /* DeviceManager.swift */; };
 		A0711D54FE9EF5E664D13E9C /* SleepypodCoreClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87060AD52798647A518FA8BE /* SleepypodCoreClient.swift */; };
 		A0F4BEF942158DB8DFA4A5BA /* LogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4849B345B1C029B80DB86F /* LogsView.swift */; };
+		A3BC5A89B6475BD1E789D8B3 /* AdaptiveSimulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C013D953D18958F2C4B435 /* AdaptiveSimulator.swift */; };
+		A58005D4A053A4021C7782D8 /* CurveGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85BD38479920F462D6470067 /* CurveGenerator.swift */; };
 		A723A40EBCB30E4352F9D4B1 /* ProfilePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */; };
 		AD8A9F355ECC481C1CF97EC3 /* UserSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA03A26B85DE4C884EF0CE7 /* UserSelectorView.swift */; };
 		AF368CE52344A599C020EA68 /* PodDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C803665AE72E33B8B50730E9 /* PodDiscovery.swift */; };
@@ -86,6 +90,7 @@
 		F5144B5FD15C90C6F0B6F42F /* TempScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8BAD843B5F8A9CD181A2AE /* TempScreen.swift */; };
 		F97E652CCFCCBEAC0D93E2B2 /* ServerStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9EC58AFC994E2BF0036D0D8 /* ServerStatus.swift */; };
 		FB231BB8655798DA0CEDF37B /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D039BE0CE64C5F6438E6442 /* LoadingView.swift */; };
+		FB7B5FBEC7134EE4FA0B6B68 /* AICurvePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B377B20C619D8127CE16AEF7 /* AICurvePromptView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -142,6 +147,7 @@
 		7E2FC5FEF1954A73556633CF /* Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Schedule.swift; sourceTree = "<group>"; };
 		81EF4CCF024C14C6F5034605 /* SensorStreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorStreamService.swift; sourceTree = "<group>"; };
 		83EF454801FB06154522C928 /* StatusScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusScreen.swift; sourceTree = "<group>"; };
+		85BD38479920F462D6470067 /* CurveGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurveGenerator.swift; sourceTree = "<group>"; };
 		87060AD52798647A518FA8BE /* SleepypodCoreClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodCoreClient.swift; sourceTree = "<group>"; };
 		883B7737894F367125F721FF /* SmartCurveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCurveView.swift; sourceTree = "<group>"; };
 		8F4849B345B1C029B80DB86F /* LogsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogsView.swift; sourceTree = "<group>"; };
@@ -160,11 +166,13 @@
 		AD6E2D8EB06314CC264F24D1 /* ServiceCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceCategoryView.swift; sourceTree = "<group>"; };
 		B15950D49CE8BFE7FF628BDB /* SleepStagesTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepStagesTimelineView.swift; sourceTree = "<group>"; };
 		B31B3D5B917F4A4D5DD9E99D /* SleepypodTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SleepypodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B377B20C619D8127CE16AEF7 /* AICurvePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICurvePromptView.swift; sourceTree = "<group>"; };
 		B7C94AEB5A7EF2FE53231869 /* VitalsRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsRecord.swift; sourceTree = "<group>"; };
 		B881147C7D2F0ADEBAD1AD02 /* openapi.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = openapi.json; sourceTree = "<group>"; };
 		B89A040B405BEF4117A8324F /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		BED50F23F24049CF0324CF1B /* DeviceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatus.swift; sourceTree = "<group>"; };
 		C1287F50609E837343ABE038 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C1C013D953D18958F2C4B435 /* AdaptiveSimulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveSimulator.swift; sourceTree = "<group>"; };
 		C5A1999947F6DB7202489B6C /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyBarChartView.swift; sourceTree = "<group>"; };
 		C803665AE72E33B8B50730E9 /* PodDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodDiscovery.swift; sourceTree = "<group>"; };
@@ -172,6 +180,8 @@
 		CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapGestureConfigView.swift; sourceTree = "<group>"; };
 		D2495028E884905FC457615E /* VitalsReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsReport.swift; sourceTree = "<group>"; };
 		D3AB3B17FD36D878C2457E20 /* HealthCircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCircleView.swift; sourceTree = "<group>"; };
+		D3B44F02B272682A83840CA4 /* NotificationRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRelay.swift; sourceTree = "<group>"; };
+		D6C912771F382B78E930512C /* AdaptiveSimulatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveSimulatorTests.swift; sourceTree = "<group>"; };
 		D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePickerView.swift; sourceTree = "<group>"; };
 		D7A651EEB721EF0EFD1B2D16 /* MetricsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsManager.swift; sourceTree = "<group>"; };
 		D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCardView.swift; sourceTree = "<group>"; };
@@ -312,6 +322,7 @@
 		CB1F0598BD16F0631EF16962 /* SleepypodTests */ = {
 			isa = PBXGroup;
 			children = (
+				D6C912771F382B78E930512C /* AdaptiveSimulatorTests.swift */,
 				DE0553DF9686966CDE7AF58B /* CalibrationTests.swift */,
 				AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */,
 				1BA5BFA567D7FBA54153B602 /* MockAPIClient.swift */,
@@ -323,6 +334,7 @@
 		D155062FFEE72AFB5E718B56 /* Schedule */ = {
 			isa = PBXGroup;
 			children = (
+				B377B20C619D8127CE16AEF7 /* AICurvePromptView.swift */,
 				A9FF9D7BA24408A31A5A650C /* DaySelectorView.swift */,
 				2EFD212CB1C1A249CAD940C8 /* PhaseBlockView.swift */,
 				D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */,
@@ -337,9 +349,12 @@
 		DC968C38CF9409577AFD1D13 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				C1C013D953D18958F2C4B435 /* AdaptiveSimulator.swift */,
+				85BD38479920F462D6470067 /* CurveGenerator.swift */,
 				2941CA088FC1C77B69F36D60 /* DeviceManager.swift */,
 				060906F2618180E4E45E29F3 /* Log.swift */,
 				D7A651EEB721EF0EFD1B2D16 /* MetricsManager.swift */,
+				D3B44F02B272682A83840CA4 /* NotificationRelay.swift */,
 				A4464A41F150702F0C25D231 /* PiezoAnalyzer.swift */,
 				C803665AE72E33B8B50730E9 /* PodDiscovery.swift */,
 				A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */,
@@ -469,6 +484,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				76F2CAC09736F972160EA15B /* AdaptiveSimulatorTests.swift in Sources */,
 				53581400686FE861A24087AE /* CalibrationTests.swift in Sources */,
 				BC37EEEE2AD3A4072D8141B0 /* InternetToggleTests.swift in Sources */,
 				E14081657D38C6E39C493746 /* MockAPIClient.swift in Sources */,
@@ -480,12 +496,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FB7B5FBEC7134EE4FA0B6B68 /* AICurvePromptView.swift in Sources */,
 				6C2843125C47D323DAB695BC /* APIBackend.swift in Sources */,
 				00F44793F97313509F4C9400 /* APIEndpoint.swift in Sources */,
 				8DDF8FDD9FE7688543CA8831 /* APIError.swift in Sources */,
+				A3BC5A89B6475BD1E789D8B3 /* AdaptiveSimulator.swift in Sources */,
 				747C5B670447290DEE8D9218 /* BedSensorScreen.swift in Sources */,
 				47254DC4322FC4F3DE0DA3EC /* BetaModels.swift in Sources */,
 				DACBAF12C6747C2C8CBDE0B7 /* CalibrationSheet.swift in Sources */,
+				A58005D4A053A4021C7782D8 /* CurveGenerator.swift in Sources */,
 				973184378E3DE691E858EC2E /* DaySelectorView.swift in Sources */,
 				9D7F9E63ABF049359432DF0F /* DeviceManager.swift in Sources */,
 				D81EAE0FD3DA1C07FC06B43F /* DeviceSettingsCardView.swift in Sources */,
@@ -503,6 +522,7 @@
 				8DD9CBBCA55884DBA45F5938 /* MetricsManager.swift in Sources */,
 				75C07CF3E25E008754ECA924 /* MovementCardView.swift in Sources */,
 				3F3CA68DBFC6398C218DB8D0 /* MovementRecord.swift in Sources */,
+				59D63C6FB621C08C2D068AA7 /* NotificationRelay.swift in Sources */,
 				F43BB4E4BD6341C7700A6480 /* PhaseBlockView.swift in Sources */,
 				874862C240D71E13B2FE3722 /* PiezoAnalyzer.swift in Sources */,
 				0911824544AF401433A9DC43 /* PiezoWaveformView.swift in Sources */,

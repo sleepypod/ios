@@ -56,6 +56,9 @@ final class SensorStreamService {
     var leftTempHistory: [(Date, Float)] = []
     var rightTempHistory: [(Date, Float)] = []
 
+    /// Notification relay — set by app to forward pod events
+    var notificationRelay: NotificationRelay?
+
     private var webSocketTask: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
@@ -212,6 +215,15 @@ final class SensorStreamService {
             )
             firmwareLogs.append(entry)
             if firmwareLogs.count > maxLogLines { firmwareLogs.removeFirst() }
+
+        case .notification(let notif):
+            Task {
+                await notificationRelay?.relay(
+                    category: notif.category,
+                    title: notif.title,
+                    message: notif.message
+                )
+            }
 
         case .unknown: break
         }

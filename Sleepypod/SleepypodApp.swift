@@ -11,6 +11,7 @@ struct SleepypodApp: App {
     @State private var podDiscovery = PodDiscovery()
     @State private var userProfile = UserProfile()
     @State private var sensorStream = SensorStreamService()
+    @State private var notificationRelay = NotificationRelay()
 
     init() {
         let client = APIBackend.current.createClient()
@@ -39,7 +40,12 @@ struct SleepypodApp: App {
                 .environment(podDiscovery)
                 .environment(userProfile)
                 .environment(sensorStream)
+                .environment(notificationRelay)
                 .preferredColorScheme(.dark)
+                .task {
+                    await notificationRelay.requestPermission()
+                    sensorStream.notificationRelay = notificationRelay
+                }
         }
     }
 }

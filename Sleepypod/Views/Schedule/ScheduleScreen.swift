@@ -114,7 +114,7 @@ struct ScheduleScreen: View {
         scheduleManager.schedules = schedules
         do {
             let api = APIBackend.current.createClient()
-            scheduleManager.schedules = try await api.updateSchedules(schedules)
+            scheduleManager.schedules = try await api.updateSchedules(schedules, days: scheduleManager.selectedDays)
             Haptics.heavy()
         } catch {
             scheduleManager.schedules = previous

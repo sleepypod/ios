@@ -17,7 +17,7 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func getSettings() async throws -> PodSettings { throw APIError.noBaseURL }
     func updateSettings(_ settings: PodSettings) async throws -> PodSettings { throw APIError.noBaseURL }
     func getSchedules() async throws -> Schedules { throw APIError.noBaseURL }
-    func updateSchedules(_ schedules: Schedules) async throws -> Schedules { throw APIError.noBaseURL }
+    func updateSchedules(_ schedules: Schedules, days: Set<DayOfWeek>? = nil) async throws -> Schedules { throw APIError.noBaseURL }
     func getServerStatus() async throws -> ServerStatus { throw APIError.noBaseURL }
     func getServices() async throws -> Services { throw APIError.noBaseURL }
     func updateServices(_ services: Services) async throws -> Services { throw APIError.noBaseURL }

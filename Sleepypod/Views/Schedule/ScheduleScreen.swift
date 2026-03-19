@@ -22,54 +22,63 @@ struct ScheduleScreen: View {
                 // Schedule toggle
                 scheduleToggle
 
-                // Manual set points (advanced)
-                Button {
-                    Haptics.light()
-                    withAnimation(.easeInOut(duration: 0.2)) { showAdvanced.toggle() }
-                } label: {
-                    HStack {
-                        Text("Manual Set Points")
-                            .font(.caption.weight(.medium))
-                            .foregroundColor(Theme.textMuted)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                            .foregroundColor(Theme.textMuted)
-                            .rotationEffect(.degrees(showAdvanced ? 90 : 0))
-                    }
-                }
-                .buttonStyle(.plain)
+                // Phase detail — horizontal scroller behind disclosure
+                if scheduleManager.schedules != nil && !scheduleManager.phases.isEmpty {
+                    VStack(spacing: 10) {
+                        Button {
+                            Haptics.light()
+                            withAnimation(.easeInOut(duration: 0.2)) { showAdvanced.toggle() }
+                        } label: {
+                            HStack {
+                                Text("Set Points")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundColor(Theme.textSecondary)
+                                Text("(\(scheduleManager.phases.count))")
+                                    .font(.caption2)
+                                    .foregroundColor(Theme.textMuted)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                                    .foregroundColor(Theme.textMuted)
+                                    .rotationEffect(.degrees(showAdvanced ? 90 : 0))
+                            }
+                        }
+                        .buttonStyle(.plain)
 
-                // Phase blocks
-                if scheduleManager.schedules != nil {
-                    VStack(spacing: 12) {
-                        ForEach(scheduleManager.phases) { phase in
-                            PhaseBlockView(phase: phase)
+                        if showAdvanced {
+                            // Horizontal scrolling phase cards
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(scheduleManager.phases) { phase in
+                                        PhaseBlockCompactView(phase: phase)
+                                    }
+                                }
+                                .padding(.horizontal, 2)
+                            }
+                        }
+
+                        // Clear schedule
+                        if showAdvanced {
+                            Button {
+                                Haptics.medium()
+                                showClearConfirm = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "trash")
+                                    Text("Clear Schedule")
+                                }
+                                .font(.caption.weight(.medium))
+                                .foregroundColor(Theme.error)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 } else if scheduleManager.isLoading {
                     LoadingView(message: "Loading schedule…")
-                } else {
+                } else if scheduleManager.schedules == nil {
                     Text("No schedule data")
                         .foregroundColor(Theme.textSecondary)
                         .padding(40)
-                }
-
-                // Clear schedule
-                if scheduleManager.schedules != nil && !scheduleManager.phases.isEmpty {
-                    Button {
-                        Haptics.medium()
-                        showClearConfirm = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "trash")
-                            Text("Clear Schedule")
-                        }
-                        .font(.caption.weight(.medium))
-                        .foregroundColor(Theme.error)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 8)
                 }
             }
             .padding(.horizontal, 16)

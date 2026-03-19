@@ -1,5 +1,87 @@
 import SwiftUI
 
+// MARK: - Compact Phase Card (horizontal scroll)
+
+struct PhaseBlockCompactView: View {
+    @Environment(ScheduleManager.self) private var scheduleManager
+    @Environment(SettingsManager.self) private var settingsManager
+    let phase: SchedulePhase
+
+    private var tempColor: Color { TempColor.forOffset(phase.offset) }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            // Icon + time
+            Image(systemName: phase.icon)
+                .font(.system(size: 14))
+                .foregroundColor(tempColor)
+
+            Text(phase.name)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+
+            Text(formatTime(phase.time))
+                .font(.system(size: 9))
+                .foregroundColor(Theme.textSecondary)
+
+            // Temp + controls
+            HStack(spacing: 6) {
+                Button {
+                    Haptics.light()
+                    Task { await scheduleManager.updatePhaseTemperature(time: phase.time, delta: -1) }
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Theme.textSecondary)
+                        .frame(width: 22, height: 22)
+                        .background(Theme.cardElevated)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                Text(TemperatureConversion.displayTemp(phase.temperatureF, format: settingsManager.temperatureFormat))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(tempColor)
+                    .frame(width: 40)
+                    .contentTransition(.numericText())
+
+                Button {
+                    Haptics.light()
+                    Task { await scheduleManager.updatePhaseTemperature(time: phase.time, delta: 1) }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Theme.textSecondary)
+                        .frame(width: 22, height: 22)
+                        .background(Theme.cardElevated)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(width: 100)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 6)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(tempColor.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    private func formatTime(_ time: String) -> String {
+        let parts = time.split(separator: ":")
+        guard parts.count == 2, let hour = Int(parts[0]), let minute = Int(parts[1]) else { return time }
+        let period = hour >= 12 ? "PM" : "AM"
+        let displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour)
+        return "\(displayHour):\(String(format: "%02d", minute)) \(period)"
+    }
+}
+
+// MARK: - Full Phase Card (legacy, kept for reference)
+
 struct PhaseBlockView: View {
     @Environment(ScheduleManager.self) private var scheduleManager
     @Environment(SettingsManager.self) private var settingsManager

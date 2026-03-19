@@ -18,6 +18,7 @@ struct SmartCurveView: View {
         return Calendar.current.date(from: c) ?? Date()
     }()
     @State private var intensity: CoolingIntensity = .balanced
+    @State private var selectedProfile: SmartProfile = .balanced
     @State private var isSaving = false
     @State private var showSuccess = false
     @State private var healthSynced = false
@@ -54,30 +55,43 @@ struct SmartCurveView: View {
                 timePicker("Wake", icon: "sun.max.fill", color: Theme.amber, date: $wakeTime)
             }
 
-            // Intensity picker
-            HStack(spacing: 0) {
-                ForEach(CoolingIntensity.allCases) { level in
-                    let isSelected = intensity == level
-                    Button {
-                        Haptics.tap()
-                        withAnimation(.easeInOut(duration: 0.2)) { intensity = level }
-                    } label: {
-                        Text(level.rawValue)
-                            .font(.caption.weight(.medium))
-                            .foregroundColor(isSelected ? .white : Theme.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(isSelected ? Theme.cooling : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+            // Profile picker — horizontal scroll
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(SmartProfile.allProfiles) { profile in
+                        let isSelected = selectedProfile.id == profile.id
+                        Button {
+                            Haptics.tap()
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedProfile = profile
+                                intensity = profile.intensity
+                                minTemp = Double(profile.minTempF)
+                                maxTemp = Double(profile.maxTempF)
+                            }
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: profile.icon)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(isSelected ? .white : Theme.textSecondary)
+                                Text(profile.name)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundColor(isSelected ? .white : Theme.textSecondary)
+                                    .lineLimit(1)
+                            }
+                            .frame(width: 72, height: 52)
+                            .background(isSelected ? Theme.accent.opacity(0.3) : Theme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(isSelected ? Theme.accent : Color.clear, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(3)
-            .background(Theme.card)
-            .clipShape(RoundedRectangle(cornerRadius: 11))
 
-            Text(intensity.description)
+            Text(selectedProfile.description)
                 .font(.caption2)
                 .foregroundColor(Theme.textMuted)
 

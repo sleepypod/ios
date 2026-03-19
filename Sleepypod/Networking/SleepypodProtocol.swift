@@ -6,7 +6,7 @@ protocol SleepypodProtocol: Sendable {
     func getSettings() async throws -> PodSettings
     func updateSettings(_ settings: PodSettings) async throws -> PodSettings
     func getSchedules() async throws -> Schedules
-    func updateSchedules(_ schedules: Schedules) async throws -> Schedules
+    func updateSchedules(_ schedules: Schedules, days: Set<DayOfWeek>?) async throws -> Schedules
     func getServerStatus() async throws -> ServerStatus
     func getServices() async throws -> Services
     func updateServices(_ services: Services) async throws -> Services

@@ -44,7 +44,7 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
         try await get(.schedules)
     }
 
-    func updateSchedules(_ schedules: Schedules) async throws -> Schedules {
+    func updateSchedules(_ schedules: Schedules, days: Set<DayOfWeek>? = nil) async throws -> Schedules {
         try await post(.updateSchedules, body: schedules)
     }
 

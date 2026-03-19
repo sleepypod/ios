@@ -604,7 +604,7 @@ struct SmartCurveView: View {
             scheduleManager.schedules = schedules
             do {
                 let api = APIBackend.current.createClient()
-                scheduleManager.schedules = try await api.updateSchedules(schedules)
+                scheduleManager.schedules = try await api.updateSchedules(schedules, days: scheduleManager.selectedDays)
             } catch {
                 Log.general.error("Failed to save smart curve: \(error)")
             }

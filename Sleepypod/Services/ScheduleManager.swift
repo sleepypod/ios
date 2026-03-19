@@ -77,7 +77,7 @@ final class ScheduleManager {
         self.schedules = schedules
 
         do {
-            self.schedules = try await api.updateSchedules(schedules)
+            self.schedules = try await api.updateSchedules(schedules, days: [selectedDay])
         } catch {
             self.error = error.localizedDescription
             await fetchSchedules()
@@ -107,7 +107,7 @@ final class ScheduleManager {
 
         self.schedules = schedules
         do {
-            self.schedules = try await api.updateSchedules(schedules)
+            self.schedules = try await api.updateSchedules(schedules, days: [selectedDay])
         } catch {
             self.error = error.localizedDescription
             await fetchSchedules()
@@ -137,7 +137,7 @@ final class ScheduleManager {
 
         self.schedules = schedules
         do {
-            self.schedules = try await api.updateSchedules(schedules)
+            self.schedules = try await api.updateSchedules(schedules, days: [selectedDay])
         } catch {
             self.error = error.localizedDescription
             await fetchSchedules()
@@ -170,7 +170,7 @@ final class ScheduleManager {
         self.schedules = schedules
 
         do {
-            self.schedules = try await api.updateSchedules(schedules)
+            self.schedules = try await api.updateSchedules(schedules, days: [selectedDay])
         } catch {
             self.error = error.localizedDescription
             await fetchSchedules()
@@ -197,7 +197,7 @@ final class ScheduleManager {
         self.schedules = schedules
 
         do {
-            self.schedules = try await api.updateSchedules(schedules)
+            self.schedules = try await api.updateSchedules(schedules, days: [selectedDay])
         } catch {
             self.error = error.localizedDescription
             await fetchSchedules()

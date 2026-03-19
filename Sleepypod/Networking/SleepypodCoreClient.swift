@@ -143,13 +143,14 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         )
     }
 
-    func updateSchedules(_ schedules: Schedules) async throws -> Schedules {
-        // Only update days that have data — don't touch other days
+    func updateSchedules(_ schedules: Schedules, days: Set<DayOfWeek>? = nil) async throws -> Schedules {
+        let daysToUpdate = days ?? Set(DayOfWeek.allCases)
+
         for side in [Side.left, .right] {
             let existing: TRPCScheduleSet = try await query("schedules.getAll", input: ["side": side.rawValue])
             let sideSchedule = schedules.schedule(for: side)
 
-            for day in DayOfWeek.allCases {
+            for day in daysToUpdate {
                 let daily = sideSchedule[day]
                 let hasData = !daily.temperatures.isEmpty || daily.power.enabled || daily.alarm.enabled
 

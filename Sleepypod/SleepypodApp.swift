@@ -54,6 +54,7 @@ struct ContentView: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(SettingsManager.self) private var settingsManager
     @Environment(PodDiscovery.self) private var podDiscovery
+    @Environment(SensorStreamService.self) private var sensorStream
     @State private var selectedTab = "temp"
 
     private var isConnected: Bool {
@@ -124,6 +125,17 @@ struct ContentView: View {
         .onChange(of: deviceManager.isConnected) {
             if deviceManager.isConnected {
                 podDiscovery.status = .idle
+            }
+        }
+        .onChange(of: sensorStream.latestDeviceStatus?.ts) { _, _ in
+            if let status = sensorStream.latestDeviceStatus {
+                deviceManager.applyWebSocketStatus(status)
+                deviceManager.isReceivingWebSocket = true
+            }
+        }
+        .onChange(of: sensorStream.isConnected) { _, connected in
+            if !connected {
+                deviceManager.isReceivingWebSocket = false
             }
         }
     }

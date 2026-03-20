@@ -10,7 +10,21 @@ enum SensorFrame: Sendable {
     case frzHealth(FrzHealthFrame)
     case log(LogFrame)
     case notification(NotificationFrame)
+    case deviceStatus(DeviceStatusFrame)
     case unknown(String)
+
+    var typeName: String {
+        switch self {
+        case .piezoDual: return "piezo-dual"
+        case .capSense2: return "capSense2"
+        case .bedTemp2: return "bedTemp2"
+        case .frzHealth: return "frzHealth"
+        case .log: return "log"
+        case .notification: return "notification"
+        case .deviceStatus: return "deviceStatus"
+        case .unknown(let type): return type
+        }
+    }
 
     static func decode(from data: Data) -> SensorFrame? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -30,6 +44,8 @@ enum SensorFrame: Sendable {
             return (try? decoder.decode(LogFrame.self, from: data)).map { .log($0) }
         case "notification":
             return (try? decoder.decode(NotificationFrame.self, from: data)).map { .notification($0) }
+        case "deviceStatus":
+            return (try? decoder.decode(DeviceStatusFrame.self, from: data)).map { .deviceStatus($0) }
         default:
             return .unknown(type)
         }
@@ -158,6 +174,69 @@ struct NotificationFrame: Decodable, Sendable {
     let priority: String?
     let title: String
     let message: String
+}
+
+// MARK: - Device Status (from WS, ~2 Hz)
+
+struct DeviceStatusFrame: Decodable, Sendable {
+    let ts: Int
+    let leftSide: WsSideStatus
+    let rightSide: WsSideStatus
+    let waterLevel: String
+    let isPriming: Bool
+    let snooze: WsSnoozeStatus?
+
+    struct WsSideStatus: Decodable, Sendable {
+        let currentTemperature: Double
+        let targetTemperature: Double
+        let currentLevel: Int
+        let targetLevel: Int
+        let heatingDuration: Int
+        let isAlarmVibrating: Bool
+    }
+
+    struct WsSnoozeStatus: Decodable, Sendable {
+        let left: WsSnoozeSide?
+        let right: WsSnoozeSide?
+    }
+
+    struct WsSnoozeSide: Decodable, Sendable {
+        let active: Bool
+        let snoozeUntil: Int?
+    }
+
+    /// Convert to the app's DeviceStatus model for seamless integration.
+    /// Fields not present in the WS frame (settings, coverVersion, etc.)
+    /// are preserved from the last HTTP fetch.
+    func toDeviceStatus(preserving existing: DeviceStatus?) -> DeviceStatus {
+        DeviceStatus(
+            left: SideStatus(
+                currentTemperatureLevel: leftSide.currentLevel,
+                currentTemperatureF: Int(leftSide.currentTemperature.rounded()),
+                targetTemperatureF: Int(leftSide.targetTemperature.rounded()),
+                secondsRemaining: leftSide.heatingDuration,
+                isOn: leftSide.targetLevel != 0,
+                isAlarmVibrating: leftSide.isAlarmVibrating,
+                taps: existing?.left.taps
+            ),
+            right: SideStatus(
+                currentTemperatureLevel: rightSide.currentLevel,
+                currentTemperatureF: Int(rightSide.currentTemperature.rounded()),
+                targetTemperatureF: Int(rightSide.targetTemperature.rounded()),
+                secondsRemaining: rightSide.heatingDuration,
+                isOn: rightSide.targetLevel != 0,
+                isAlarmVibrating: rightSide.isAlarmVibrating,
+                taps: existing?.right.taps
+            ),
+            waterLevel: waterLevel,
+            isPriming: isPriming,
+            settings: existing?.settings ?? DeviceHardwareSettings(v: 0, gainLeft: 0, gainRight: 0, ledBrightness: 0),
+            coverVersion: existing?.coverVersion ?? "",
+            hubVersion: existing?.hubVersion ?? "",
+            freeSleep: existing?.freeSleep ?? FreeSleepInfo(version: "", branch: ""),
+            wifiStrength: existing?.wifiStrength ?? 0
+        )
+    }
 }
 
 // MARK: - Live Vitals (from DSP)

@@ -13,6 +13,9 @@ struct BedSensorScreen: View {
             VStack(spacing: 14) {
                 connectionBar
 
+                // Data pipeline DAG
+                DataPipelineView()
+
                 // Sensor matrix (cap + temp)
                 sensorMatrixCard
 
@@ -36,9 +39,10 @@ struct BedSensorScreen: View {
                 // System
                 systemCard
 
-                // Firmware console
+                // Console: Firmware Logs + Raw Frames
                 FirmwareLogConsoleView(
                     logs: sensor.firmwareLogs,
+                    recentFrames: sensor.recentFrames,
                     onClear: { sensor.clearLogs() }
                 )
             }

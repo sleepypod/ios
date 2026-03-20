@@ -13,6 +13,9 @@ final class DeviceManager {
     var error: String?
     var lastUpdated: Date?
 
+    /// Whether we're receiving live WS device status updates (disables HTTP polling)
+    var isReceivingWebSocket = false
+
     /// Show spinner for first 3 attempts, then show failed state
     var showConnectionFailed: Bool {
         !isConnected && !isConnecting && retryCount >= 3 && hasPodIP
@@ -72,13 +75,26 @@ final class DeviceManager {
         startPolling()
     }
 
+    // MARK: - WebSocket Device Status
+
+    /// Accept a device status frame from WebSocket, replacing HTTP poll data.
+    func applyWebSocketStatus(_ frame: DeviceStatusFrame) {
+        let newStatus = frame.toDeviceStatus(preserving: deviceStatus)
+        deviceStatus = newStatus
+        isConnected = true
+        isConnecting = false
+        retryCount = 0
+        error = nil
+        lastUpdated = Date()
+    }
+
     // MARK: - Polling
 
     func startPolling() {
         pollingTask?.cancel()
         pollingTask = Task {
             while !Task.isCancelled {
-                if pendingUpdate == nil {
+                if pendingUpdate == nil && !isReceivingWebSocket {
                     await fetchStatus()
                 }
                 // Retry faster when disconnected, normal interval when connected

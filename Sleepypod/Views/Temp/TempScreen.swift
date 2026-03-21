@@ -54,6 +54,7 @@ struct TempScreen: View {
                             // Side selector
                             SideSelectorView()
                                 .padding(.horizontal, 16)
+                                .padding(.top, 8)
                                 .padding(.bottom, 12)
 
                             // Alerts

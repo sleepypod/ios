@@ -31,7 +31,18 @@ final class SettingsManager {
 
     var podIP: String {
         get { UserDefaults.standard.string(forKey: "podIPAddress") ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: "podIPAddress") }
+        set {
+            // Strip IPv6 zone IDs (%en0, %%en0) and whitespace
+            var clean = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let pct = clean.firstIndex(of: "%") {
+                clean = String(clean[clean.startIndex..<pct])
+            }
+            // Strip ::ffff: IPv4-mapped prefix
+            if clean.hasPrefix("::ffff:") {
+                clean = String(clean.dropFirst(7))
+            }
+            UserDefaults.standard.set(clean, forKey: "podIPAddress")
+        }
     }
 
     // MARK: - Fetch

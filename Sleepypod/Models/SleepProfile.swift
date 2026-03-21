@@ -82,5 +82,5 @@ extension SmartProfile {
         warmUpDurationMultiplier: 0.7
     )
 
-    static let allProfiles: [SmartProfile] = [.hotSleeper, .coldSleeper, .balanced, .recovery]
+    static let allProfiles: [SmartProfile] = [.hotSleeper, .coldSleeper, .balanced]
 }

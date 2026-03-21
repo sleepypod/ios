@@ -1,7 +1,8 @@
 import Foundation
 
 /// Generates temperature curves from natural language descriptions.
-/// Uses Claude API to interpret sleep preferences and return structured set points.
+/// Builds a prompt template for external AI services (ChatGPT, Claude, Gemini, etc.)
+/// and parses the structured JSON response.
 @MainActor
 @Observable
 final class CurveGenerator {
@@ -12,112 +13,163 @@ final class CurveGenerator {
     struct GeneratedCurve: Sendable {
         let bedtime: String      // "HH:mm"
         let wake: String         // "HH:mm"
-        let points: [String: Int] // "HH:mm" → tempF
+        let points: [String: Int] // "HH:mm" -> tempF
         let reasoning: String
         let profileName: String
     }
 
-    /// Generate a temperature curve from a natural language prompt.
-    /// Returns structured set points compatible with the schedule API.
-    func generate(prompt: String, currentMinF: Int = 68, currentMaxF: Int = 86) async -> GeneratedCurve? {
+    // MARK: - Prompt Generation
+
+    /// Build a prompt template incorporating the user's sleep preferences.
+    /// The user copies this prompt into any external AI assistant.
+    func generatePrompt(preferences: String) -> String {
         isGenerating = true
-        error = nil
         defer { isGenerating = false }
 
-        let systemPrompt = """
-        You are a sleep temperature expert for the Sleepypod smart mattress pad. \
-        Generate a temperature schedule based on the user's description. \
-        The pad controls water temperature from 55°F to 110°F. Typical sleep range is 65-90°F. \
-        Science: cooling before sleep promotes deep sleep onset, \
-        the body's core temp drops ~2°F by 3am, warming before wake supports cortisol response. \
-        Respond ONLY with a JSON object, no other text:
-        {"bedtime":"HH:mm","wake":"HH:mm","points":{"HH:mm":tempF,...},"reasoning":"brief explanation","name":"short profile name"}
-        Include 8-15 time points spanning bedtime-45min through wake+30min. \
-        User's current range: \(currentMinF)°F min, \(currentMaxF)°F max.
-        """
+        let prompt = """
+        You are a board-certified sleep medicine physician with expertise in \
+        thermoregulation and circadian biology. Based on the user's sleep \
+        preferences below, generate an optimal nightly temperature curve for \
+        a water-based bed temperature control system.
 
-        let body: [String: Any] = [
-            "model": "claude-sonnet-4-6",
-            "max_tokens": 1024,
-            "system": systemPrompt,
-            "messages": [["role": "user", "content": prompt]]
-        ]
+        **System capabilities:**
+        - Water temperature range: 55\u{00B0}F to 110\u{00B0}F
+        - Neutral (body-neutral) temperature: ~82.5\u{00B0}F
+        - Typical comfortable sleep range: 65\u{00B0}F to 90\u{00B0}F
 
-        guard let apiKey = UserDefaults.standard.string(forKey: "anthropicAPIKey"), !apiKey.isEmpty else {
-            // Fallback: generate locally from keyword parsing
-            let result = generateLocally(prompt: prompt, minF: currentMinF, maxF: currentMaxF)
-            lastResult = result
-            return result
+        **Sleep science context:**
+        - Cooling the body before sleep promotes deep sleep onset \
+        (Heller & Grahn, Stanford)
+        - Core body temperature drops ~2\u{00B0}F by 3 AM at the circadian nadir \
+        (Kr\u{00E4}uchi, University of Basel)
+        - Gradual warming before wake supports the cortisol awakening response \
+        (Czeisler, Harvard Division of Sleep Medicine)
+        - Growth hormone release peaks during deep sleep in cooler conditions
+        - The system heats/cools water in tubing \u{2014} changes take ~15\u{2013}20 min \
+        to stabilize
+
+        **Individual variation guidance:**
+        Consider the user's thermal phenotype (hot sleeper vs cold sleeper), \
+        chronotype (early bird vs night owl), and any mentioned conditions \
+        (e.g., menopause, chronic pain, post-exercise recovery). Adjust the \
+        curve aggressiveness and temperature floor/ceiling accordingly.
+
+        **User's sleep preferences:**
+        \(preferences)
+
+        **Instructions:**
+        - Generate 8\u{2013}15 temperature set points spanning from bedtime minus \
+        45 minutes through wake plus 30 minutes
+        - Include a warm-up phase before bed, a cooling ramp after bedtime, \
+        a deep-sleep cold hold, a gradual pre-wake warming, and a post-wake \
+        return to neutral
+        - All temperatures must be integers between 55 and 110 (\u{00B0}F)
+        - Times must be in 24-hour "HH:mm" format
+
+        Respond ONLY with the following JSON object, no other text:
+        {
+          "name": "Short title (2-3 words max, e.g. Deep Cool, Gentle Warm, Athletic Recovery)",
+          "bedtime": "HH:mm",
+          "wake": "HH:mm",
+          "points": {
+            "HH:mm": temperatureF,
+            "HH:mm": temperatureF
+          },
+          "reasoning": "Brief explanation of the curve design choices"
         }
 
-        guard let url = URL(string: "https://api.anthropic.com/v1/messages"),
-              let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
-            error = "Invalid request"
+        IMPORTANT: The "name" field must be 2-3 words maximum. It is used as a label in the UI.
+        """
+
+        return prompt
+    }
+
+    // MARK: - JSON Parsing
+
+    /// Parse the AI's JSON response into a GeneratedCurve.
+    /// Handles common formatting issues (markdown code fences, extra whitespace).
+    func parse(json: String) -> GeneratedCurve? {
+        error = nil
+
+        // Strip markdown code fences if present
+        var cleaned = json
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Try to extract JSON object if there's surrounding text
+        if let start = cleaned.firstIndex(of: "{"),
+           let end = cleaned.lastIndex(of: "}") {
+            cleaned = String(cleaned[start...end])
+        }
+
+        guard let data = cleaned.data(using: .utf8),
+              let curveJSON = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            error = "Could not parse JSON. Make sure you pasted the complete AI response."
             return nil
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "content-type")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.httpBody = bodyData
-        request.timeoutInterval = 30
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                error = "API error"
-                return generateLocally(prompt: prompt, minF: currentMinF, maxF: currentMaxF)
-            }
-
-            // Parse Claude response
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let content = (json["content"] as? [[String: Any]])?.first,
-                  let text = content["text"] as? String else {
-                error = "Invalid response"
-                return generateLocally(prompt: prompt, minF: currentMinF, maxF: currentMaxF)
-            }
-
-            // Extract JSON from response (Claude may wrap in markdown)
-            let jsonText = text
-                .replacingOccurrences(of: "```json", with: "")
-                .replacingOccurrences(of: "```", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-
-            guard let curveData = jsonText.data(using: .utf8),
-                  let curveJSON = try? JSONSerialization.jsonObject(with: curveData) as? [String: Any],
-                  let bedtime = curveJSON["bedtime"] as? String,
-                  let wake = curveJSON["wake"] as? String,
-                  let pointsRaw = curveJSON["points"] as? [String: Any] else {
-                error = "Could not parse curve"
-                return generateLocally(prompt: prompt, minF: currentMinF, maxF: currentMaxF)
-            }
-
-            var points: [String: Int] = [:]
-            for (time, temp) in pointsRaw {
-                if let t = temp as? Int { points[time] = t }
-                else if let t = temp as? Double { points[time] = Int(t) }
-            }
-
-            let result = GeneratedCurve(
-                bedtime: bedtime,
-                wake: wake,
-                points: points,
-                reasoning: curveJSON["reasoning"] as? String ?? "",
-                profileName: curveJSON["name"] as? String ?? "Custom"
-            )
-            lastResult = result
-            return result
-        } catch {
-            self.error = error.localizedDescription
-            return generateLocally(prompt: prompt, minF: currentMinF, maxF: currentMaxF)
+        guard let bedtime = curveJSON["bedtime"] as? String else {
+            error = "Missing \"bedtime\" field in response."
+            return nil
         }
+        guard let wake = curveJSON["wake"] as? String else {
+            error = "Missing \"wake\" field in response."
+            return nil
+        }
+        guard let pointsRaw = curveJSON["points"] as? [String: Any] else {
+            error = "Missing \"points\" field in response."
+            return nil
+        }
+
+        // Validate time format
+        let timeRegex = /^\d{2}:\d{2}$/
+        guard bedtime.wholeMatch(of: timeRegex) != nil,
+              wake.wholeMatch(of: timeRegex) != nil else {
+            error = "Bedtime and wake must be in HH:mm format."
+            return nil
+        }
+
+        var points: [String: Int] = [:]
+        for (time, temp) in pointsRaw {
+            guard time.wholeMatch(of: timeRegex) != nil else {
+                error = "Invalid time format: \(time). Expected HH:mm."
+                return nil
+            }
+            if let t = temp as? Int {
+                points[time] = max(55, min(110, t))
+            } else if let t = temp as? Double {
+                points[time] = max(55, min(110, Int(t)))
+            } else {
+                error = "Invalid temperature value for \(time)."
+                return nil
+            }
+        }
+
+        guard points.count >= 3 else {
+            error = "Need at least 3 set points. Got \(points.count)."
+            return nil
+        }
+
+        let result = GeneratedCurve(
+            bedtime: bedtime,
+            wake: wake,
+            points: points,
+            reasoning: curveJSON["reasoning"] as? String ?? "",
+            profileName: curveJSON["name"] as? String ?? "Custom"
+        )
+        lastResult = result
+        return result
     }
 
-    // MARK: - Local Fallback (keyword-based)
+    // MARK: - Quick Generate (Local Fallback)
 
-    private func generateLocally(prompt: String, minF: Int, maxF: Int) -> GeneratedCurve {
+    /// Generate a curve locally from keyword parsing.
+    /// No external AI needed -- uses built-in sleep science profiles.
+    func generateLocally(prompt: String) -> GeneratedCurve {
+        isGenerating = true
+        defer { isGenerating = false }
+
         let lower = prompt.lowercased()
 
         // Detect preferences from keywords
@@ -169,16 +221,18 @@ final class CurveGenerator {
         } else if isCold {
             reasoning = "Gentle cooling with higher baseline. Warmer pre-wake to avoid waking cold."
         } else {
-            reasoning = "Balanced science-backed curve following Heller 2012 and Kräuchi 2007 research."
+            reasoning = "Balanced science-backed curve following Heller 2012 and Kr\u{00E4}uchi 2007 research."
         }
 
-        return GeneratedCurve(
+        let result = GeneratedCurve(
             bedtime: bedtime,
             wake: wake,
             points: points,
             reasoning: reasoning,
             profileName: profile.name
         )
+        lastResult = result
+        return result
     }
 
     private func extractTime(from text: String, keywords: [String]) -> String? {
@@ -208,5 +262,46 @@ final class CurveGenerator {
             }
         }
         return nil
+    }
+}
+
+// MARK: - Curve Template Persistence
+
+struct CurveTemplate: Codable, Identifiable, Sendable {
+    var id: String { name }
+    let name: String
+    let points: [String: Int]
+    let bedtime: String
+    let wake: String
+    let reasoning: String
+
+    static let storageKey = "savedCurveTemplates"
+
+    static func loadAll() -> [CurveTemplate] {
+        guard let data = UserDefaults.standard.data(forKey: storageKey),
+              let templates = try? JSONDecoder().decode([CurveTemplate].self, from: data) else {
+            return []
+        }
+        return templates
+    }
+
+    static func save(_ templates: [CurveTemplate]) {
+        if let data = try? JSONEncoder().encode(templates) {
+            UserDefaults.standard.set(data, forKey: storageKey)
+        }
+    }
+
+    static func add(_ template: CurveTemplate) {
+        var all = loadAll()
+        // Replace if same name exists
+        all.removeAll { $0.name == template.name }
+        all.insert(template, at: 0)
+        save(all)
+    }
+
+    static func delete(named name: String) {
+        var all = loadAll()
+        all.removeAll { $0.name == name }
+        save(all)
     }
 }

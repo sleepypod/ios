@@ -49,7 +49,7 @@ struct RawDataSheet: View {
                         fileRow(
                             name: "sleep-\(side).csv",
                             rows: metricsManager.sleepRecords.count,
-                            icon: "bed.double"
+                            icon: "WelcomeLogo"
                         ) { exportSleep() }
 
                         Divider().background(Theme.cardBorder)
@@ -117,10 +117,20 @@ struct RawDataSheet: View {
     private func fileRow(name: String, rows: Int, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(Theme.accent)
-                    .frame(width: 28)
+                Group {
+                    if icon == "WelcomeLogo" {
+                        Image("WelcomeLogo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 20, height: 20)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.accent)
+                    }
+                }
+                .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)

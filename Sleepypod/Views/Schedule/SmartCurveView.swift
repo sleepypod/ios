@@ -5,6 +5,7 @@ import HealthKit
 struct SmartCurveView: View {
     @Environment(ScheduleManager.self) private var scheduleManager
     @Environment(SettingsManager.self) private var settingsManager
+    @Binding var showCurvePicker: Bool
 
     @State private var bedtime: Date = {
         var c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
@@ -88,6 +89,30 @@ struct SmartCurveView: View {
                         }
                         .buttonStyle(.plain)
                     }
+
+                    // Custom curves button
+                    Button {
+                        Haptics.tap()
+                        showCurvePicker = true
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "wand.and.stars")
+                                .font(.system(size: 16))
+                                .foregroundColor(Theme.accent)
+                            Text("Custom")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundColor(Theme.accent)
+                                .lineLimit(1)
+                        }
+                        .frame(width: 72, height: 52)
+                        .background(Theme.accent.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Theme.accent.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -339,9 +364,16 @@ struct SmartCurveView: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .hour, count: 2)) {
-                AxisValueLabel(format: .dateTime.hour())
-                    .foregroundStyle(Theme.textMuted)
+            AxisMarks(values: .stride(by: .hour, count: 2)) { value in
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
+                        Text(date, format: .dateTime.hour())
+                            .font(.system(size: 8, design: .monospaced))
+                            .foregroundStyle(Theme.textMuted)
+                            .rotationEffect(.degrees(-45))
+                            .fixedSize()
+                    }
+                }
             }
         }
     }

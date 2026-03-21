@@ -28,7 +28,7 @@ struct CalibrationSheet: View {
                 // Explanation
                 VStack(alignment: .leading, spacing: 12) {
                     explanationRow(
-                        icon: "bed.double.fill",
+                        icon: "WelcomeLogo",
                         text: "Bed must be **empty** — blankets and sheets are fine, but nobody on the mattress"
                     )
                     explanationRow(
@@ -153,10 +153,18 @@ struct CalibrationSheet: View {
 
     private func explanationRow(icon: String, text: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 13))
-                .foregroundColor(Theme.cyan)
-                .frame(width: 20)
+            if icon == "WelcomeLogo" {
+                Image("WelcomeLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 20, height: 20)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            } else {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundColor(Theme.cyan)
+                    .frame(width: 20)
+            }
             Text(text)
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
@@ -169,8 +177,11 @@ struct CalibrationSheet: View {
             triggerSide(side)
         } label: {
             VStack(spacing: 4) {
-                Image(systemName: "bed.double.fill")
-                    .font(.system(size: 16))
+                Image("WelcomeLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 20, height: 20)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
                 Text("\(side.displayName) Side")
                     .font(.caption.weight(.semibold))
             }

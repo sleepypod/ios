@@ -21,9 +21,11 @@ struct LoadingView: View {
                 }
 
                 // Center icon
-                Image(systemName: "bed.double.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(Theme.accent)
+                Image("WelcomeLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
                     .scaleEffect(ringScale)
 
                 // Arc spinner

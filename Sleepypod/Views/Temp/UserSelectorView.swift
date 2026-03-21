@@ -36,15 +36,24 @@ private struct ProfileAndSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isNameFocused: Bool
 
+    private var isDemo: Bool {
+        APIBackend.current.isDemo
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Demo mode card
+                    if isDemo {
+                        demoModeCard
+                    }
+
                     // Profile section
                     profileSection
 
                     // Connection
-                    if deviceManager.isConnected {
+                    if deviceManager.isConnected && !isDemo {
                         connectionSection
                     }
 
@@ -55,7 +64,7 @@ private struct ProfileAndSettingsSheet: View {
                     }
 
                     // Update
-                    if deviceManager.isConnected {
+                    if deviceManager.isConnected && !isDemo {
                         UpdateCardView()
                     }
                 }
@@ -75,6 +84,52 @@ private struct ProfileAndSettingsSheet: View {
                 await settingsManager.fetchSettings()
             }
         }
+    }
+
+    // MARK: - Demo Mode
+
+    private var demoModeCard: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(Theme.amber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Demo Mode")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.white)
+                    Text("You are exploring with simulated data.")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                Spacer()
+            }
+
+            Button {
+                Haptics.medium()
+                exitDemoMode()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                    Text("Connect to Real Pod")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(Theme.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Theme.accent.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+        }
+        .cardStyle()
+    }
+
+    private func exitDemoMode() {
+        APIBackend.current = .sleepypodCore
+        let client = APIBackend.sleepypodCore.createClient()
+        deviceManager.switchBackend(client)
+        dismiss()
     }
 
     // MARK: - Profile

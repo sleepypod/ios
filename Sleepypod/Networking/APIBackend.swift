@@ -3,11 +3,13 @@ import Foundation
 enum APIBackend: String, CaseIterable, Sendable {
     case freeSleep = "free-sleep"
     case sleepypodCore = "sleepypod-core"
+    case demo = "demo"
 
     var displayName: String {
         switch self {
         case .freeSleep: "Free Sleep (Legacy)"
-        case .sleepypodCore: "Sleepypod"
+        case .sleepypodCore: "sleepypod"
+        case .demo: "Demo Mode"
         }
     }
 
@@ -15,11 +17,16 @@ enum APIBackend: String, CaseIterable, Sendable {
         switch self {
         case .freeSleep: "Legacy server — some features may be incomplete or unsupported. Consider switching to Sleepypod for smarter schedules, faster syncing, and better sleep insights."
         case .sleepypodCore: "✨ You're on the best experience — smarter schedules, faster syncing, and deeper sleep insights."
+        case .demo: "Explore the app with simulated pod data. No real hardware required."
         }
     }
 
     var isRecommended: Bool {
         self == .sleepypodCore
+    }
+
+    var isDemo: Bool {
+        self == .demo
     }
 
     func createClient() -> SleepypodProtocol {
@@ -28,6 +35,8 @@ enum APIBackend: String, CaseIterable, Sendable {
             FreeSleepClient()
         case .sleepypodCore:
             SleepypodCoreClient()
+        case .demo:
+            MockClient()
         }
     }
 

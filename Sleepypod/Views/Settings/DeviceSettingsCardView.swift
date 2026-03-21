@@ -98,56 +98,90 @@ struct DeviceSettingsCardView: View {
             if let settings = settingsManager.settings {
                 Divider().background(Theme.cardBorder)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Side Names")
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Sides")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
 
+                    // Left side
                     HStack(spacing: 10) {
-                        sideNameField("Left", value: settings.left.name) { name in
-                            Task { await settingsManager.updateSideName(.left, name: name) }
+                        Image("WelcomeLogo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 28, height: 28)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Left Side")
+                                .font(.caption)
+                                .foregroundColor(Theme.textMuted)
+                            sideNameField("Left", value: settings.left.name) { name in
+                                Task { await settingsManager.updateSideName(.left, name: name) }
+                            }
                         }
-                        sideNameField("Right", value: settings.right.name) { name in
-                            Task { await settingsManager.updateSideName(.right, name: name) }
+                        Spacer()
+                    }
+
+                    // Right side
+                    HStack(spacing: 10) {
+                        Image("WelcomeLogo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 28, height: 28)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Right Side")
+                                .font(.caption)
+                                .foregroundColor(Theme.textMuted)
+                            sideNameField("Right", value: settings.right.name) { name in
+                                Task { await settingsManager.updateSideName(.right, name: name) }
+                            }
                         }
+                        Spacer()
                     }
                 }
 
                 // Away mode
-                HStack {
+                VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Away Mode (Left)")
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                        Text("Disable heating when away")
+                        Text("Away Mode")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
+                        Text("Pauses all scheduled temperature changes for a side. Manual control still works. Use when traveling or one side of the bed is empty.")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textMuted)
                     }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { settings.left.awayMode },
-                        set: { _ in Haptics.medium(); Task { await settingsManager.toggleAwayMode(.left) } }
-                    ))
-                    .tint(Theme.cooling)
-                    .labelsHidden()
-                }
 
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Away Mode (Right)")
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                        Text("Disable heating when away")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                    HStack {
+                        HStack(spacing: 6) {
+                            Circle().fill(Theme.accent).frame(width: 6, height: 6)
+                            Text(settings.left.name.isEmpty ? "Left" : settings.left.name)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                        }
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { settings.left.awayMode },
+                            set: { _ in Haptics.medium(); Task { await settingsManager.toggleAwayMode(.left) } }
+                        ))
+                        .tint(Theme.cooling)
+                        .labelsHidden()
                     }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { settings.right.awayMode },
-                        set: { _ in Haptics.medium(); Task { await settingsManager.toggleAwayMode(.right) } }
-                    ))
-                    .tint(Theme.cooling)
-                    .labelsHidden()
+
+                    HStack {
+                        HStack(spacing: 6) {
+                            Circle().fill(Color(hex: "40e0d0")).frame(width: 6, height: 6)
+                            Text(settings.right.name.isEmpty ? "Right" : settings.right.name)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                        }
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { settings.right.awayMode },
+                            set: { _ in Haptics.medium(); Task { await settingsManager.toggleAwayMode(.right) } }
+                        ))
+                        .tint(Theme.cooling)
+                        .labelsHidden()
+                    }
                 }
             }
 

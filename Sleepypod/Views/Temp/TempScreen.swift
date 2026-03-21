@@ -6,6 +6,12 @@ struct TempScreen: View {
 
     @State private var bgPulse = false
 
+    private var sideName: String {
+        let side = deviceManager.selectedSide.primarySide
+        if side == .left { return settingsManager.settings?.left.name ?? "Left" }
+        return settingsManager.settings?.right.name ?? "Right"
+    }
+
     private var ambientColor: Color {
         guard deviceManager.isConnected, deviceManager.isOn else { return .clear }
         let status = deviceManager.currentSideStatus
@@ -37,8 +43,11 @@ struct TempScreen: View {
 
                 if deviceManager.isConnected {
                     VStack(spacing: 0) {
-                        // Top bar — priming indicator + profile
+                        // Top bar — name + priming + settings gear
                         HStack {
+                            Text(sideName)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundColor(Theme.textSecondary)
                             if deviceManager.deviceStatus?.isPriming == true {
                                 PrimingIndicator()
                             }
@@ -229,9 +238,11 @@ private struct EnvironmentInfoView: View {
     }
 
     private var autoOffText: String? {
-        guard let remaining = deviceManager.currentSideStatus?.secondsRemaining, remaining > 0 else { return nil }
-        let hours = remaining / 3600
-        let minutes = (remaining % 3600) / 60
+        guard let status = deviceManager.currentSideStatus,
+              status.isOn,
+              status.secondsRemaining > 0 else { return nil }
+        let hours = status.secondsRemaining / 3600
+        let minutes = (status.secondsRemaining % 3600) / 60
         if hours > 0 { return "\(hours)h \(minutes)m" }
         return "\(minutes)m"
     }

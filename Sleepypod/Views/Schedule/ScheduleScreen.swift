@@ -56,18 +56,18 @@ struct ScheduleScreen: View {
                 // Schedule toggle
                 scheduleToggle
 
-                // Phase detail — horizontal scroller behind disclosure
-                if scheduleManager.schedules != nil && !scheduleManager.phases.isEmpty {
+                // Manual Controls — phase set points, power schedule, alarm schedule
+                if scheduleManager.schedules != nil {
                     VStack(spacing: 10) {
                         Button {
                             Haptics.light()
                             withAnimation(.easeInOut(duration: 0.2)) { showAdvanced.toggle() }
                         } label: {
                             HStack {
-                                Text("Set Points")
+                                Text("Manual Controls")
                                     .font(.caption.weight(.medium))
                                     .foregroundColor(Theme.textSecondary)
-                                Text("(\(scheduleManager.phases.count))")
+                                Text("Set points, power, alarm")
                                     .font(.caption2)
                                     .foregroundColor(Theme.textMuted)
                                 Spacer()
@@ -81,18 +81,28 @@ struct ScheduleScreen: View {
 
                         if showAdvanced {
                             // Horizontal scrolling phase cards
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(scheduleManager.phases) { phase in
-                                        PhaseBlockCompactView(phase: phase)
+                            if !scheduleManager.phases.isEmpty {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 10) {
+                                        ForEach(scheduleManager.phases) { phase in
+                                            PhaseBlockCompactView(phase: phase)
+                                        }
                                     }
+                                    .padding(.horizontal, 2)
                                 }
-                                .padding(.horizontal, 2)
                             }
-                        }
 
-                        // Clear schedule
-                        if showAdvanced {
+                            // Power schedule card
+                            if let power = scheduleManager.currentDailySchedule?.power {
+                                PowerScheduleCompactView(power: power)
+                            }
+
+                            // Alarm schedule card
+                            if let alarm = scheduleManager.currentDailySchedule?.alarm {
+                                AlarmScheduleCompactView(alarm: alarm)
+                            }
+
+                            // Clear schedule
                             Button {
                                 Haptics.medium()
                                 showClearConfirm = true
@@ -504,6 +514,114 @@ private struct CurvePickerSheet: View {
     }
 }
 
+// MARK: - Power Schedule Compact Card
+
+private struct PowerScheduleCompactView: View {
+    let power: PowerSchedule
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "power")
+                .font(.system(size: 14))
+                .foregroundColor(power.enabled ? Theme.accent : Theme.textMuted)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Power Schedule")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(.white)
+
+                HStack(spacing: 8) {
+                    Label(power.on, systemImage: "moon.fill")
+                        .font(.caption2.monospaced())
+                        .foregroundColor(Theme.textSecondary)
+                    Text("\u{2192}")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                    Label(power.off, systemImage: "sun.max.fill")
+                        .font(.caption2.monospaced())
+                        .foregroundColor(Theme.textSecondary)
+                }
+
+                Text("Start: \(power.onTemperature)\u{00B0}F")
+                    .font(.caption2)
+                    .foregroundColor(Theme.textMuted)
+            }
+
+            Spacer()
+
+            Circle()
+                .fill(power.enabled ? Theme.accent : Theme.textMuted.opacity(0.3))
+                .frame(width: 8, height: 8)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.cardBorder, lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Alarm Schedule Compact Card
+
+private struct AlarmScheduleCompactView: View {
+    let alarm: AlarmSchedule
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "alarm")
+                .font(.system(size: 14))
+                .foregroundColor(alarm.enabled ? Theme.accent : Theme.textMuted)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Alarm Schedule")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(.white)
+
+                Text(alarm.time)
+                    .font(.caption2.monospaced())
+                    .foregroundColor(Theme.textSecondary)
+
+                HStack(spacing: 8) {
+                    Text("Intensity: \(alarm.vibrationIntensity)%")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                    Text("\u{00B7}")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                    Text(alarm.vibrationPattern.rawValue.capitalized)
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                    Text("\u{00B7}")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                    Text("\(alarm.duration)s")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                }
+            }
+
+            Spacer()
+
+            Circle()
+                .fill(alarm.enabled ? Theme.accent : Theme.textMuted.opacity(0.3))
+                .frame(width: 8, height: 8)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.cardBorder, lineWidth: 1)
+        )
+    }
+}
+
 // MARK: - Schedule Side Selector
 
 private struct ScheduleSideSelectorView: View {
@@ -535,8 +653,8 @@ private struct ScheduleSideSelectorView: View {
 
     private func label(for selection: SideSelection) -> String {
         switch selection {
-        case .left: "Left"
-        case .right: "Right"
+        case .left: settingsManager.settings?.left.name ?? "Left"
+        case .right: settingsManager.settings?.right.name ?? "Right"
         case .both: "Both"
         }
     }

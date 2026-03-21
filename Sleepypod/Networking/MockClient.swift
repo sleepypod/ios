@@ -61,7 +61,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
                 currentTemperatureLevel: 0,
                 currentTemperatureF: leftCurrentF,
                 targetTemperatureF: leftTargetF,
-                secondsRemaining: leftOn ? 28800 : 0,
+                secondsRemaining: 0,
                 isOn: leftOn,
                 isAlarmVibrating: false,
                 taps: TapCounts(doubleTap: 12, tripleTap: 3, quadTap: 1)
@@ -70,7 +70,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
                 currentTemperatureLevel: 0,
                 currentTemperatureF: rightCurrentF,
                 targetTemperatureF: rightTargetF,
-                secondsRemaining: rightOn ? 28800 : 0,
+                secondsRemaining: 0,
                 isOn: rightOn,
                 isAlarmVibrating: false,
                 taps: TapCounts(doubleTap: 8, tripleTap: 2, quadTap: 0)

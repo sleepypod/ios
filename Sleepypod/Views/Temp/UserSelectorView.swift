@@ -9,11 +9,11 @@ struct UserSelectorView: View {
             Haptics.light()
             showSheet = true
         } label: {
-            Text(profile.initial)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 32, height: 32)
-                .background(Theme.accent.opacity(0.3))
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 18))
+                .foregroundColor(Theme.textSecondary)
+                .frame(width: 36, height: 36)
+                .background(Theme.card)
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
@@ -34,7 +34,6 @@ private struct ProfileAndSettingsSheet: View {
     @Environment(UpdateChecker.self) private var updateChecker
     @Environment(PodDiscovery.self) private var podDiscovery
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isNameFocused: Bool
 
     private var isDemo: Bool {
         APIBackend.current.isDemo
@@ -60,35 +59,39 @@ private struct ProfileAndSettingsSheet: View {
                     // Device settings
                     if settingsManager.settings != nil {
                         DeviceSettingsCardView()
-                        TapGestureConfigView()
-                    }
 
-                    // Haptics test
-                    if deviceManager.isConnected || isDemo {
-                        NavigationLink {
-                            HapticsTestView()
-                        } label: {
-                            HStack {
-                                Image(systemName: "waveform")
-                                    .foregroundColor(Theme.accent)
-                                Text("Haptics & Vibration")
-                                    .font(.subheadline)
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundColor(Theme.textMuted)
+                        // Gestures & Haptics (grouped together)
+                        VStack(spacing: 0) {
+                            TapGestureConfigView()
+
+                            if deviceManager.isConnected || isDemo {
+                                Divider().background(Theme.cardBorder).padding(.horizontal, 12)
+
+                                NavigationLink {
+                                    HapticsTestView()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "waveform")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(Theme.accent)
+                                            .frame(width: 24)
+                                        Text("Test Vibration Patterns")
+                                            .font(.subheadline)
+                                            .foregroundColor(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundColor(Theme.textMuted)
+                                    }
+                                    .frame(minHeight: 44)
+                                    .padding(.horizontal, 12)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .frame(minHeight: 44)
                         }
-                        .buttonStyle(.plain)
                         .cardStyle()
                     }
 
-                    // Update
-                    if deviceManager.isConnected && !isDemo {
-                        UpdateCardView()
-                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 20)
@@ -154,58 +157,62 @@ private struct ProfileAndSettingsSheet: View {
         dismiss()
     }
 
-    // MARK: - Profile
+    // MARK: - Profile (DB-backed side cards)
 
     private var profileSection: some View {
-        VStack(spacing: 16) {
-            // Avatar
-            Text(profile.initial)
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 64, height: 64)
-                .background(Theme.accent.opacity(0.3))
-                .clipShape(Circle())
-
-            // Name
-            @Bindable var profile = profile
-            TextField("Your name", text: $profile.name)
-                .font(.subheadline)
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-                .textFieldStyle(.plain)
-                .focused($isNameFocused)
-                .padding(12)
-                .background(Theme.cardElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .frame(maxWidth: 200)
-
-            // Side picker
-            HStack(spacing: 0) {
-                sideButton(.left)
-                sideButton(.right)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .frame(maxWidth: 200)
+        VStack(spacing: 12) {
+            sideCard(side: .left)
+            sideCard(side: .right)
         }
-        .frame(maxWidth: .infinity)
         .padding(.top, 8)
     }
 
-    private func sideButton(_ side: Side) -> some View {
-        let isSelected = profile.defaultSide == side
-        return Button {
-            Haptics.tap()
-            profile.defaultSide = side
-            deviceManager.selectSide(side == .left ? .left : .right)
-        } label: {
-            Text(side.displayName)
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(isSelected ? .white : Theme.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(isSelected ? Theme.cooling : Theme.cardElevated)
+    private func sideCard(side: Side) -> some View {
+        let sideSettings: SideSettings? = side == .left
+            ? settingsManager.settings?.left
+            : settingsManager.settings?.right
+        let sideName = sideSettings?.name ?? ""
+        let awayMode = sideSettings?.awayMode ?? false
+        let label = side == .left ? "Left Side" : "Right Side"
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(label)
+                .font(.caption.weight(.medium))
+                .foregroundColor(Theme.textSecondary)
+
+            // Name field
+            HStack(spacing: 8) {
+                Text("Name")
+                    .font(.subheadline)
+                    .foregroundColor(Theme.textSecondary)
+                    .frame(width: 50, alignment: .leading)
+
+                SideNameTextField(
+                    placeholder: side == .left ? "Left" : "Right",
+                    initialValue: sideName
+                ) { newName in
+                    Task { await settingsManager.updateSideName(side, name: newName) }
+                }
+            }
+
+            // Away mode toggle
+            HStack {
+                Text("Away Mode")
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { awayMode },
+                    set: { _ in
+                        Haptics.medium()
+                        Task { await settingsManager.toggleAwayMode(side) }
+                    }
+                ))
+                .tint(Theme.cooling)
+                .labelsHidden()
+            }
         }
-        .buttonStyle(.plain)
+        .cardStyle()
     }
 
     // MARK: - Connection
@@ -258,5 +265,42 @@ private struct ProfileAndSettingsSheet: View {
             }
         }
         .cardStyle()
+    }
+}
+
+// MARK: - Side Name Text Field
+
+/// A text field that manages its own state from an initial value and saves on submit/blur.
+private struct SideNameTextField: View {
+    let placeholder: String
+    let initialValue: String
+    let onCommit: (String) -> Void
+
+    @State private var text: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .font(.subheadline)
+            .foregroundColor(.white)
+            .textFieldStyle(.plain)
+            .focused($isFocused)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Theme.cardElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .onAppear { text = initialValue }
+            .onChange(of: initialValue) { _, newVal in text = newVal }
+            .onSubmit { commitIfChanged() }
+            .onChange(of: isFocused) { _, focused in
+                if !focused { commitIfChanged() }
+            }
+    }
+
+    private func commitIfChanged() {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed != initialValue {
+            onCommit(trimmed)
+        }
     }
 }

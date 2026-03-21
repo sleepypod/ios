@@ -316,6 +316,9 @@ struct DisconnectedTabView: View {
     @Environment(SettingsManager.self) private var settingsManager
     @Environment(PodDiscovery.self) private var podDiscovery
 
+    @State private var ringScale: CGFloat = 0.8
+    @State private var phase: CGFloat = 0
+
     private var isActive: Bool {
         podDiscovery.isSearching || deviceManager.isConnecting ||
         podDiscovery.status == .scanning ||
@@ -323,121 +326,32 @@ struct DisconnectedTabView: View {
         { if case .connected = podDiscovery.status { return true }; return false }()
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            // Step indicators
-            VStack(spacing: 0) {
-                connectionStep(
-                    icon: "antenna.radiowaves.left.and.right",
-                    title: "Scanning network",
-                    state: scanState
-                )
-
-                stepConnector(active: scanState == .done)
-
-                connectionStep(
-                    icon: "WelcomeLogo",
-                    title: deviceName ?? "Finding sleepypod",
-                    state: findState
-                )
-
-                stepConnector(active: findState == .done)
-
-                connectionStep(
-                    icon: "link",
-                    title: resolvedIP ?? "Resolving address",
-                    state: resolveState
-                )
-
-                stepConnector(active: resolveState == .done)
-
-                connectionStep(
-                    icon: "wifi",
-                    title: "Connecting",
-                    state: connectState
-                )
+    private var statusText: String {
+        switch podDiscovery.status {
+        case .idle:
+            return "Tap to connect"
+        case .scanning:
+            return "Scanning network..."
+        case .found:
+            return "sleepypod"
+        case .resolving(let name):
+            if let ip = resolvedIP {
+                return "Found sleepypod @ \(ip)"
             }
-            .padding(.horizontal, 48)
-
-            // Actions — centered between steps and tab bar
-            if !isActive {
-                Spacer()
-
-                VStack(spacing: 12) {
-                    Button {
-                        Haptics.light()
-                        Task {
-                            await podDiscovery.autoConnect(
-                                settingsManager: settingsManager,
-                                deviceManager: deviceManager
-                            )
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "antenna.radiowaves.left.and.right")
-                            Text("Search for sleepypod")
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(.ultraThinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-
-                    // Manual IP entry
-                    HStack(spacing: 8) {
-                        TextField("Pod IP address", text: Binding(
-                            get: { settingsManager.podIP },
-                            set: { settingsManager.podIP = $0 }
-                        ))
-                        .font(.system(size: 14, design: .monospaced))
-                        .keyboardType(.decimalPad)
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(Theme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Theme.cardBorder, lineWidth: 1)
-                        )
-
-                        Button {
-                            Haptics.medium()
-                            deviceManager.retryConnection()
-                        } label: {
-                            Image(systemName: "arrow.right.circle.fill")
-                                .font(.title3)
-                                .foregroundColor(Theme.accent)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(settingsManager.podIP.isEmpty)
-                    }
-                }
-                .padding(.horizontal, 32)
-            }
-
-            Spacer()
+            return "Found sleepypod @ \(name)"
+        case .connected(let ip):
+            return "Connecting to \(ip)..."
+        case .failed:
+            return "Could not find pod"
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.background)
     }
 
-    // MARK: - Step States
-
-    private enum StepState {
-        case idle, active, done, failed
-    }
-
-    private var deviceName: String? {
-        if case .found(let n) = podDiscovery.status { return n }
-        if case .resolving(let n) = podDiscovery.status { return n }
-        if let n = podDiscovery.connectedPodName { return n }
-        return nil
+    private var statusColor: Color {
+        switch podDiscovery.status {
+        case .idle: return Theme.textMuted
+        case .scanning, .found, .resolving, .connected: return Theme.textSecondary
+        case .failed: return Theme.error
+        }
     }
 
     private var resolvedIP: String? {
@@ -446,115 +360,116 @@ struct DisconnectedTabView: View {
         return nil
     }
 
-    private var scanState: StepState {
-        switch podDiscovery.status {
-        case .scanning: return .active
-        case .found, .resolving, .connected: return .done
-        case .failed: return .failed
-        case .idle: return .idle
-        }
-    }
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
 
-    private var findState: StepState {
-        switch podDiscovery.status {
-        case .scanning: return .idle
-        case .found: return .active
-        case .resolving, .connected: return .done
-        case .failed: return .failed
-        case .idle: return .idle
-        }
-    }
-
-    private var resolveState: StepState {
-        switch podDiscovery.status {
-        case .scanning, .found: return .idle
-        case .resolving: return .active
-        case .connected: return .done
-        case .failed: return .failed
-        case .idle: return .idle
-        }
-    }
-
-    private var connectState: StepState {
-        if deviceManager.isConnecting { return .active }
-        if deviceManager.isConnected { return .done }
-        switch podDiscovery.status {
-        case .scanning, .found, .resolving: return .idle
-        case .connected: return .active
-        case .failed: return .failed
-        case .idle: return .idle
-        }
-    }
-
-    // MARK: - Step Views
-
-    private func connectionStep(icon: String, title: String, state: StepState) -> some View {
-        HStack(spacing: 14) {
+            // Pulsing logo
             ZStack {
-                // Glow for active state
-                if state == .active {
+                // Outer glow rings
+                ForEach(0..<3, id: \.self) { i in
                     Circle()
-                        .fill(Theme.accent.opacity(0.2))
-                        .frame(width: 44, height: 44)
-                        .blur(radius: 4)
+                        .stroke(Theme.accent.opacity(0.08 - Double(i) * 0.02), lineWidth: 2)
+                        .frame(width: 80 + CGFloat(i) * 30, height: 80 + CGFloat(i) * 30)
+                        .scaleEffect(ringScale + CGFloat(i) * 0.05)
                 }
 
-                Circle()
-                    .fill(stepColor(state).opacity(0.15))
-                    .frame(width: 36, height: 36)
+                // Center logo
+                Image("WelcomeLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 80, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .scaleEffect(ringScale)
 
-                if state == .active {
-                    ProgressView()
-                        .tint(Theme.accent)
-                        .scaleEffect(0.6)
-                } else if state == .done {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(stepColor(state))
-                } else if state == .failed {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(stepColor(state))
-                } else if icon == "WelcomeLogo" {
-                    Image("WelcomeLogo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 20, height: 20)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                } else {
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(stepColor(state))
+                // Arc spinner (visible when actively searching)
+                if isActive {
+                    Circle()
+                        .trim(from: 0, to: 0.3)
+                        .stroke(Theme.accent.opacity(0.6), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .frame(width: 100, height: 100)
+                        .rotationEffect(.degrees(phase))
                 }
             }
-            .frame(width: 44, height: 44)
 
-            Text(title)
+            // Status text
+            Text(statusText)
                 .font(.subheadline)
-                .foregroundColor(state == .idle ? Theme.textMuted : .white)
-                .animation(.easeInOut(duration: 0.3), value: title)
+                .foregroundColor(statusColor)
+                .padding(.top, 20)
+                .animation(.easeInOut(duration: 0.3), value: statusText)
+
+            Spacer()
+
+            // Actions
+            VStack(spacing: 12) {
+                Button {
+                    Haptics.light()
+                    Task {
+                        await podDiscovery.autoConnect(
+                            settingsManager: settingsManager,
+                            deviceManager: deviceManager
+                        )
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                        Text("Search for sleepypod")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .disabled(isActive)
+                .opacity(isActive ? 0.5 : 1)
+
+                // Manual IP entry
+                HStack(spacing: 8) {
+                    TextField("Pod IP address", text: Binding(
+                        get: { settingsManager.podIP },
+                        set: { settingsManager.podIP = $0 }
+                    ))
+                    .font(.system(size: 14, design: .monospaced))
+                    .keyboardType(.decimalPad)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Theme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Theme.cardBorder, lineWidth: 1)
+                    )
+
+                    Button {
+                        Haptics.medium()
+                        deviceManager.retryConnection()
+                    } label: {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.title3)
+                            .foregroundColor(Theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(settingsManager.podIP.isEmpty)
+                }
+            }
+            .padding(.horizontal, 32)
 
             Spacer()
         }
-    }
-
-    private func stepConnector(active: Bool) -> some View {
-        HStack {
-            Rectangle()
-                .fill(active ? Theme.accent.opacity(0.4) : Color(hex: "333333"))
-                .frame(width: 2, height: 20)
-                .padding(.leading, 21)
-                .animation(.easeInOut(duration: 0.3), value: active)
-            Spacer()
-        }
-    }
-
-    private func stepColor(_ state: StepState) -> Color {
-        switch state {
-        case .idle: Theme.textMuted
-        case .active: Theme.accent
-        case .done: Theme.healthy
-        case .failed: Theme.error
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.background)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                ringScale = 1.0
+            }
+            withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                phase = 360
+            }
         }
     }
 }

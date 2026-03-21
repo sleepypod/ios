@@ -108,20 +108,38 @@ struct HapticsTestView: View {
 
     // MARK: - Presets
 
+    @State private var showPresets = false
+
     private var presetsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "waveform.path")
-                    .font(.system(size: 10))
-                    .foregroundColor(Theme.accent)
-                Text("VIBRATION PATTERNS")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(Theme.textSecondary)
-                    .tracking(1)
+            Button {
+                Haptics.light()
+                withAnimation(.easeInOut(duration: 0.2)) { showPresets.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "waveform.path")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.accent)
+                    Text("VIBRATION PATTERNS")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Theme.textSecondary)
+                        .tracking(1)
+                    Spacer()
+                    Text("\(samplePatterns.count) presets")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textMuted)
+                        .rotationEffect(.degrees(showPresets ? 90 : 0))
+                }
             }
+            .buttonStyle(.plain)
 
-            ForEach(samplePatterns) { preset in
-                presetRow(preset)
+            if showPresets {
+                ForEach(samplePatterns) { preset in
+                    presetRow(preset)
+                }
             }
 
             if let errorMessage {

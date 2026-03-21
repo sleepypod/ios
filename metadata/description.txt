@@ -1,0 +1,38 @@
+sleepypod — local control for your Eight Sleep Pod
+
+Take control of your sleep environment without the cloud. sleepypod connects directly to your Eight Sleep Pod (3, 4, or 5) on your home network, giving you fast, private, and reliable temperature control.
+
+TEMPERATURE CONTROL
+- Adjust bed temperature with a precision dial
+- Set independent temperatures for each side
+- Link both sides for synchronized control
+
+SMART SCHEDULING
+- Create temperature curves for the perfect night
+- Design custom curves with AI assistance
+- Save and reuse your favorite sleep profiles
+
+ON-DEVICE SLEEP ANALYSIS
+- Sleep stage classification powered by on-device ML (Accelerate/vDSP)
+- Heart rate and breathing rate extracted from raw piezo signals — no cloud processing
+- Sleep quality scoring with circadian-aware algorithms
+- Track weekly trends and movement patterns
+
+LIVE SENSOR DATA
+- Real-time piezo waveform with DSP-based vitals extraction
+- Bed temperature matrix with zone-level detail
+- Capacitive presence detection with variance analysis
+- Data pipeline visualization showing live sensor data flow
+
+HAPTIC ALARMS
+- Configure vibration wake-up alarms
+- Choose from preset patterns or create custom ones
+- Set per-side alarm schedules
+
+PRIVACY FIRST
+- All data stays on your local network
+- No cloud accounts required
+- No telemetry or tracking
+- Your sleep data belongs to you
+
+Requires an Eight Sleep Pod (3, 4, or 5) with sleepypod-core installed and running on your home network. Use "Explore Demo" on first launch to preview the full app experience without hardware.

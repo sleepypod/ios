@@ -1,0 +1,9 @@
+Primary Category: Health & Fitness
+Secondary Category: Utilities
+
+Keywords: sleep,temperature,eight sleep,pod,mattress,sleep tracking,heart rate,HRV,smart bed,local control
+
+Support URL: https://github.com/sleepypod/ios
+Marketing URL: https://github.com/sleepypod/core
+
+Age Rating: 4+

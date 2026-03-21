@@ -1,0 +1,37 @@
+REVIEW INSTRUCTIONS
+
+1. On first launch, tap "Explore Demo" to use the app with simulated data
+2. All screens are fully functional in demo mode with realistic sleep data
+3. The app is designed to control Eight Sleep Pod mattress covers on local WiFi
+4. No account or login is required — the app communicates directly with the device
+5. "Connect" button uses Bonjour/mDNS to discover devices on the local network
+6. Local network permission is required for device discovery and control
+
+HARDWARE CONTEXT
+
+sleepypod is a local-first alternative to the Eight Sleep cloud service. It runs
+on the Pod's embedded Linux hardware and provides temperature control, sleep tracking,
+and sensor visualization — all without internet connectivity.
+
+The app does NOT require internet access. All communication is Pod <-> iPhone over WiFi.
+
+ON-DEVICE PROCESSING
+
+The app performs significant on-device computation — it is not a thin remote control:
+- Heart rate and breathing rate extraction from raw piezo (BCG) signals using
+  Apple's Accelerate framework (vDSP autocorrelation)
+- Sleep stage classification (wake/light/deep/REM) using an on-device ML pipeline
+  with outlier filtering, temporal smoothing, and transition constraints
+- Real-time sensor data visualization with custom Canvas rendering
+- AI-assisted sleep curve design (generates prompts for external AI tools,
+  parses structured responses, renders interactive charts)
+
+DEMO MODE
+
+Demo mode provides simulated data including:
+- Device status (temperature, power state)
+- 7 nights of sleep records with realistic vitals
+- Schedule management
+- Settings configuration
+
+To exit demo mode: Tap user avatar (top-right on Temp screen) -> "Connect to Real Pod"

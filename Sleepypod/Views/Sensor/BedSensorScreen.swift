@@ -311,14 +311,21 @@ struct BedSensorScreen: View {
 
     private var tempTrendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 10))
-                    .foregroundColor(Theme.amber)
-                Text("TEMPERATURE TREND")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(Theme.textSecondary)
-                    .tracking(1)
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.amber)
+                    Text("TEMPERATURE TREND")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Theme.textSecondary)
+                        .tracking(1)
+                }
+                Spacer()
+                HStack(spacing: 10) {
+                    legendDot(color: Theme.accent, label: "Left")
+                    legendDot(color: Color(hex: "40e0d0"), label: "Right")
+                }
             }
 
             Chart {
@@ -327,14 +334,12 @@ struct BedSensorScreen: View {
                         .foregroundStyle(Theme.accent)
                         .interpolationMethod(.catmullRom)
                         .lineStyle(StrokeStyle(lineWidth: 1.5))
-                        .symbol { Circle().fill(Theme.accent).frame(width: 3, height: 3) }
                 }
                 ForEach(Array(sensor.rightTempHistory.enumerated()), id: \.offset) { _, point in
                     LineMark(x: .value("Time", point.0), y: .value("°F", point.1))
                         .foregroundStyle(Color(hex: "40e0d0"))
                         .interpolationMethod(.catmullRom)
                         .lineStyle(StrokeStyle(lineWidth: 1.5))
-                        .symbol { Circle().fill(Color(hex: "40e0d0")).frame(width: 3, height: 3) }
                 }
             }
             .transaction { $0.animation = nil }
@@ -354,11 +359,6 @@ struct BedSensorScreen: View {
             }
             .frame(height: 100)
 
-            HStack(spacing: 12) {
-                legendDot(color: Theme.accent, label: "Left")
-                legendDot(color: Color(hex: "40e0d0"), label: "Right")
-            }
-            .frame(maxWidth: .infinity)
         }
         .cardStyle()
     }

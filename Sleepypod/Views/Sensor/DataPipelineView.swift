@@ -1,162 +1,411 @@
 import SwiftUI
 
-/// Live data pipeline DAG with pulsing edges and scrolling event timeline.
-/// Shows: Firmware → WebSocket → consumer buckets, with per-type frame rates
-/// and colored pulses as data flows through.
+// MARK: - Lane Configuration
+
+private struct TimelineLane {
+    let type: String
+    let label: String
+    let color: Color
+}
+
+private let timelineLanes: [TimelineLane] = [
+    TimelineLane(type: "piezo-dual", label: "PIE", color: .purple),
+    TimelineLane(type: "capSense2", label: "PRE", color: Color(hex: "4ade80")),
+    TimelineLane(type: "bedTemp2", label: "BED", color: .orange),
+    TimelineLane(type: "frzHealth", label: "FRE", color: Color(hex: "60a5fa")),
+    TimelineLane(type: "deviceStatus", label: "DEV", color: Color(hex: "38bdf8")),
+    TimelineLane(type: "log", label: "LOG", color: .yellow),
+    TimelineLane(type: "gesture", label: "TAP", color: .pink),
+]
+
+// MARK: - DAG Node Descriptor
+
+private struct DAGNode: Identifiable {
+    let id: String
+    let label: String
+    let subtitle: String
+    let color: Color
+    /// Normalized position (0…1) within the DAG area.
+    let nx: CGFloat
+    let ny: CGFloat
+}
+
+// MARK: - DAG Edge Descriptor
+
+private struct DAGEdge: Identifiable {
+    let id: String
+    let from: String
+    let to: String
+    let color: Color
+    let dashed: Bool
+}
+
+// MARK: - DataPipelineView
+
+/// Live data pipeline DAG with node-and-edge graph and a scrolling Canvas
+/// event timeline showing the last 30 seconds of frame arrivals.
 struct DataPipelineView: View {
     @Environment(SensorStreamService.self) private var sensor
 
-    private static let consumers: [(key: String, label: String, color: Color, types: [String])] = [
-        ("piezo", "Piezo", Color(hex: "a78bfa"), ["piezo-dual"]),
-        ("presence", "Presence", Color(hex: "4ade80"), ["capSense", "capSense2"]),
-        ("bedTemp", "Bed Temp", Color(hex: "fb923c"), ["bedTemp", "bedTemp2"]),
-        ("freezer", "Freezer", Color(hex: "60a5fa"), ["frzTemp", "frzHealth", "frzTherm"]),
-        ("status", "Device", Color(hex: "38bdf8"), ["deviceStatus"]),
-        ("log", "Log", Color(hex: "fbbf24"), ["log"]),
-    ]
+    @State private var previousCounts: [String: Int] = [:]
+    @State private var rates: [String: Double] = [:]
+
+    // MARK: - Computed
+
+    private var totalRate: Double {
+        rates.values.reduce(0, +)
+    }
+
+    private func rateString(for types: [String]) -> String {
+        let r = types.compactMap { rates[$0] }.reduce(0, +)
+        if r >= 1 { return String(format: "%.1f/s", r) }
+        if r > 0 { return "\(Int(r * 60))/m" }
+        return ""
+    }
+
+    private func isActive(_ types: [String]) -> Bool {
+        types.contains { (sensor.frameCounts[$0] ?? 0) > 0 }
+    }
+
+    // MARK: - DAG Layout
+
+    /// Build nodes dynamically so subtitles reflect live rates.
+    private var dagNodes: [DAGNode] {
+        let wsLabel = sensor.isConnected ? "connected" : "disconnected"
+        let piezoRate = rateString(for: ["piezo-dual"])
+        let dacRate = rateString(for: ["deviceStatus", "frzHealth", "frzTemp", "frzTherm"])
+
+        return [
+            // Row 0 — Firmware
+            DAGNode(id: "firmware", label: "Firmware", subtitle: "frankenfirmware",
+                    color: Color(hex: "71717a"), nx: 0.5, ny: 0.0),
+
+            // Row 1 — RAW Files + dacTransport
+            DAGNode(id: "raw", label: "RAW Files", subtitle: "CBOR on disk",
+                    color: Color(hex: "71717a"), nx: 0.18, ny: 0.2),
+            DAGNode(id: "dac-transport", label: "dacTransport", subtitle: "dac.sock",
+                    color: Color(hex: "a1a1aa"), nx: 0.5, ny: 0.2),
+
+            // Row 2 — piezoStream + DacMonitor + tRPC
+            DAGNode(id: "piezo-stream", label: "piezoStream", subtitle: piezoRate.isEmpty ? "tails + parses" : "parse · \(piezoRate)",
+                    color: Color(hex: "8b5cf6"), nx: 0.18, ny: 0.4),
+            DAGNode(id: "dac-monitor", label: "DacMonitor", subtitle: dacRate.isEmpty ? "polls 2s" : "poll · \(dacRate)",
+                    color: Color(hex: "3b82f6"), nx: 0.5, ny: 0.4),
+            DAGNode(id: "trpc", label: "tRPC", subtitle: "mutations",
+                    color: Color(hex: "f97316"), nx: 0.82, ny: 0.4),
+
+            // Row 3 — WebSocket
+            DAGNode(id: "ws", label: "WebSocket :3001", subtitle: wsLabel,
+                    color: sensor.isConnected ? Color(hex: "22c55e") : Theme.error,
+                    nx: 0.38, ny: 0.65),
+
+            // Row 4 — Browser/App
+            DAGNode(id: "browser", label: "iOS App", subtitle: "SwiftUI",
+                    color: .white, nx: 0.5, ny: 0.88),
+        ]
+    }
+
+    private var dagEdges: [DAGEdge] {
+        let wsColor = sensor.isConnected ? Color(hex: "22c55e") : Theme.error
+        return [
+            // Read path (↓) — solid
+            DAGEdge(id: "fw-raw", from: "firmware", to: "raw", color: Color(hex: "52525b"), dashed: false),
+            DAGEdge(id: "fw-dt", from: "firmware", to: "dac-transport", color: Color(hex: "a1a1aa"), dashed: false),
+            DAGEdge(id: "raw-ps", from: "raw", to: "piezo-stream", color: Color(hex: "8b5cf6"), dashed: false),
+            DAGEdge(id: "dt-dm", from: "dac-transport", to: "dac-monitor", color: Color(hex: "3b82f6"), dashed: false),
+            DAGEdge(id: "ps-ws", from: "piezo-stream", to: "ws", color: Color(hex: "8b5cf6"), dashed: false),
+            DAGEdge(id: "dm-ws", from: "dac-monitor", to: "ws", color: Color(hex: "3b82f6"), dashed: false),
+            DAGEdge(id: "ws-browser", from: "ws", to: "browser", color: wsColor, dashed: false),
+
+            // Write path (↑) — dashed orange
+            DAGEdge(id: "browser-trpc", from: "browser", to: "trpc", color: Color(hex: "f97316"), dashed: true),
+            DAGEdge(id: "trpc-dt", from: "trpc", to: "dac-transport", color: Color(hex: "f97316"), dashed: true),
+        ]
+    }
+
+    // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Header
-            HStack {
-                Text("DATA PIPELINE")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(Theme.textSecondary)
-                    .tracking(1)
-                Spacer()
-                Text("\(sensor.framesPerSecond)/s total")
-                    .font(.system(size: 9).monospaced())
-                    .foregroundColor(Theme.textMuted)
+            header
+            dagView
+            timelineSection
+        }
+        .cardStyle()
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
+            for (type, count) in sensor.frameCounts {
+                let prev = previousCounts[type] ?? count
+                let delta = count - prev
+                rates[type] = Double(delta) / 2.0
+                previousCounts[type] = count
             }
+        }
+    }
 
-            // Source row
-            HStack(spacing: 6) {
-                Spacer()
-                PipeNode(label: "Firmware", sub: "dac.sock + RAW", color: Theme.textMuted)
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 8))
-                    .foregroundColor(Theme.textMuted)
-                PipeNode(
-                    label: "WebSocket",
-                    sub: ":3001 · \(sensor.isConnected ? "connected" : "disconnected")",
-                    color: sensor.isConnected ? Theme.healthy : Theme.error,
-                    pulse: sensor.isConnected
-                )
-                Spacer()
+    // MARK: - Header
+
+    private var header: some View {
+        HStack {
+            Text("Data Pipeline")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.white)
+            Spacer()
+            HStack(spacing: 8) {
+                legendBadge(label: "read ↓", color: Color(hex: "60a5fa"))
+                legendBadge(label: "write ↑", color: Color(hex: "f97316"))
             }
+        }
+    }
 
-            // Fan-out edges (simplified — vertical lines per consumer)
-            GeometryReader { geo in
-                let count = Self.consumers.count
-                let spacing = geo.size.width / CGFloat(count)
+    private func legendBadge(label: String, color: Color) -> some View {
+        HStack(spacing: 3) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(color)
+                .frame(width: 10, height: 1)
+            Text(label)
+                .font(.system(size: 8))
+                .foregroundColor(Theme.textMuted)
+        }
+    }
 
+    // MARK: - DAG View
+
+    private var dagView: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let nodeMap = Dictionary(uniqueKeysWithValues: dagNodes.map { ($0.id, $0) })
+
+            ZStack {
+                // Background
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(hex: "0a0a0a"))
+
+                // Dot grid background
                 Canvas { ctx, size in
-                    // Trunk
-                    let centerX = size.width / 2
-                    ctx.stroke(
-                        Path { p in p.move(to: CGPoint(x: centerX, y: 0)); p.addLine(to: CGPoint(x: centerX, y: 4)) },
-                        with: .color(Theme.cardBorder), lineWidth: 1
-                    )
-                    // Rail
-                    let railY: CGFloat = 4
-                    ctx.stroke(
-                        Path { p in p.move(to: CGPoint(x: spacing * 0.5, y: railY)); p.addLine(to: CGPoint(x: size.width - spacing * 0.5, y: railY)) },
-                        with: .color(Theme.cardBorder), lineWidth: 1
-                    )
-                    // Drop lines + pulse
-                    for (i, consumer) in Self.consumers.enumerated() {
-                        let x = spacing * (CGFloat(i) + 0.5)
-                        let count = consumer.types.reduce(0) { $0 + (sensor.frameCounts[$1] ?? 0) }
-                        let hasRecent = count > 0
-
-                        // Base drop line
-                        ctx.stroke(
-                            Path { p in p.move(to: CGPoint(x: x, y: railY)); p.addLine(to: CGPoint(x: x, y: size.height)) },
-                            with: .color(Theme.cardBorder), lineWidth: 1
-                        )
-
-                        // Pulse overlay (always visible if any frames received)
-                        if hasRecent {
-                            ctx.stroke(
-                                Path { p in
-                                    p.move(to: CGPoint(x: min(centerX, x), y: railY))
-                                    p.addLine(to: CGPoint(x: max(centerX, x), y: railY))
-                                },
-                                with: .color(consumer.color.opacity(0.4)), lineWidth: 2
-                            )
-                            ctx.stroke(
-                                Path { p in p.move(to: CGPoint(x: x, y: railY)); p.addLine(to: CGPoint(x: x, y: size.height)) },
-                                with: .color(consumer.color.opacity(0.6)), lineWidth: 2
-                            )
-                            // Glow dot at bottom
+                    let dotGap: CGFloat = 20
+                    for x in stride(from: dotGap, to: size.width, by: dotGap) {
+                        for y in stride(from: dotGap, to: size.height, by: dotGap) {
                             ctx.fill(
-                                Circle().path(in: CGRect(x: x - 3, y: size.height - 3, width: 6, height: 6)),
-                                with: .color(consumer.color.opacity(0.3))
+                                Path(ellipseIn: CGRect(x: x - 0.5, y: y - 0.5, width: 1, height: 1)),
+                                with: .color(Color.white.opacity(0.06))
                             )
                         }
                     }
                 }
-            }
-            .frame(height: 20)
 
-            // Consumer nodes
-            HStack(spacing: 2) {
-                ForEach(Self.consumers, id: \.key) { consumer in
-                    let count = consumer.types.reduce(0) { $0 + (sensor.frameCounts[$1] ?? 0) }
-                    PipeNode(
-                        label: consumer.label,
-                        sub: count > 0 ? "\(count)" : "—",
-                        color: consumer.color,
-                        pulse: count > 0,
-                        small: true
+                // Edges
+                Canvas { ctx, size in
+                    for edge in dagEdges {
+                        guard let fromNode = nodeMap[edge.from],
+                              let toNode = nodeMap[edge.to] else { continue }
+
+                        let fromPt = CGPoint(x: fromNode.nx * size.width, y: fromNode.ny * size.height + 14)
+                        let toPt = CGPoint(x: toNode.nx * size.width, y: toNode.ny * size.height - 6)
+
+                        var path = Path()
+                        path.move(to: fromPt)
+                        // Slight curve for visual appeal
+                        let midY = (fromPt.y + toPt.y) / 2
+                        path.addCurve(
+                            to: toPt,
+                            control1: CGPoint(x: fromPt.x, y: midY),
+                            control2: CGPoint(x: toPt.x, y: midY)
+                        )
+
+                        if edge.dashed {
+                            ctx.stroke(
+                                path,
+                                with: .color(edge.color.opacity(0.7)),
+                                style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                            )
+                        } else {
+                            ctx.stroke(
+                                path,
+                                with: .color(edge.color.opacity(0.5)),
+                                lineWidth: 1
+                            )
+                        }
+                    }
+                }
+
+                // Nodes
+                ForEach(dagNodes) { node in
+                    let x = node.nx * w
+                    let y = node.ny * h
+                    let active = isNodeActive(node.id)
+
+                    PipelineNodeView(
+                        label: node.label,
+                        subtitle: node.subtitle,
+                        color: node.color,
+                        active: active
                     )
-                    .frame(maxWidth: .infinity)
+                    .position(x: x, y: y)
                 }
             }
-
-            // Scrolling timeline (simplified — show last-frame timestamps per type)
-            HStack(spacing: 0) {
-                ForEach(Self.consumers, id: \.key) { consumer in
-                    let hasData = consumer.types.contains { sensor.frameCounts[$0] ?? 0 > 0 }
-                    Circle()
-                        .fill(hasData ? consumer.color : consumer.color.opacity(0.1))
-                        .frame(width: 4, height: 4)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(.horizontal, 4)
         }
-        .cardStyle()
+        .frame(height: 260)
+    }
+
+    private func isNodeActive(_ id: String) -> Bool {
+        switch id {
+        case "firmware": return sensor.isConnected
+        case "raw": return isActive(["piezo-dual"])
+        case "dac-transport": return sensor.isConnected
+        case "piezo-stream": return isActive(["piezo-dual"])
+        case "dac-monitor": return isActive(["deviceStatus", "frzHealth", "frzTemp", "frzTherm"])
+        case "trpc": return sensor.isConnected
+        case "ws": return sensor.isConnected
+        case "browser": return sensor.isConnected
+        default: return false
+        }
+    }
+
+    // MARK: - Timeline Section
+
+    private var timelineSection: some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 0) {
+                Text(String(format: "%.1f", totalRate))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.white)
+                Text("/s total · 30s window")
+                    .font(.system(size: 9))
+                    .foregroundColor(Theme.textMuted)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+
+            HStack(alignment: .top, spacing: 4) {
+                // Lane labels
+                VStack(spacing: 0) {
+                    ForEach(Array(timelineLanes.enumerated()), id: \.offset) { _, lane in
+                        Text(lane.label)
+                            .font(.system(size: 7, design: .monospaced))
+                            .foregroundColor(lane.color.opacity(0.7))
+                            .frame(height: 16, alignment: .center)
+                    }
+                }
+                .frame(width: 24)
+
+                // Timeline Canvas
+                ZStack(alignment: .bottomTrailing) {
+                    TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
+                        Canvas { context, size in
+                            let now = timeline.date.timeIntervalSince1970
+                            let windowSec: Double = 30
+                            let laneCount = timelineLanes.count
+                            let laneHeight = size.height / CGFloat(laneCount)
+
+                            // Background
+                            context.fill(
+                                Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 6),
+                                with: .color(Color.black.opacity(0.4))
+                            )
+
+                            // Lane separators
+                            for i in 1..<laneCount {
+                                let y = CGFloat(i) * laneHeight
+                                var sep = Path()
+                                sep.move(to: CGPoint(x: 0, y: y))
+                                sep.addLine(to: CGPoint(x: size.width, y: y))
+                                context.stroke(sep, with: .color(Color.white.opacity(0.03)), lineWidth: 0.5)
+                            }
+
+                            // Time markers at -10s and -20s
+                            for sec in [10.0, 20.0] {
+                                let x = size.width * CGFloat(1.0 - sec / windowSec)
+                                var markerPath = Path()
+                                markerPath.move(to: CGPoint(x: x, y: 0))
+                                markerPath.addLine(to: CGPoint(x: x, y: size.height))
+                                context.stroke(markerPath, with: .color(Color.white.opacity(0.05)), lineWidth: 0.5)
+
+                                context.draw(
+                                    Text("-\(Int(sec))s")
+                                        .font(.system(size: 7, design: .monospaced))
+                                        .foregroundColor(Color.white.opacity(0.12)),
+                                    at: CGPoint(x: x + 10, y: size.height - 5)
+                                )
+                            }
+
+                            // Event dots
+                            for (laneIndex, lane) in timelineLanes.enumerated() {
+                                let y = CGFloat(laneIndex) * laneHeight + laneHeight / 2
+
+                                for frame in sensor.recentFrames where frame.type == lane.type {
+                                    let age = now - frame.timestamp.timeIntervalSince1970
+                                    if age > windowSec || age < 0 { continue }
+                                    let x = size.width * CGFloat(1.0 - age / windowSec)
+                                    let alpha = max(0.15, 1.0 - age / windowSec * 0.8)
+
+                                    // Glow for very recent
+                                    if age < 0.5 {
+                                        context.fill(
+                                            Path(ellipseIn: CGRect(x: x - 4, y: y - 4, width: 8, height: 8)),
+                                            with: .color(lane.color.opacity(0.3))
+                                        )
+                                    }
+
+                                    context.fill(
+                                        Path(ellipseIn: CGRect(x: x - 2, y: y - 2, width: 4, height: 4)),
+                                        with: .color(lane.color.opacity(alpha))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: CGFloat(timelineLanes.count) * 16)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                    Text("30s")
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(Theme.textMuted)
+                        .padding(.trailing, 6)
+                        .padding(.bottom, 3)
+                }
+            }
+        }
     }
 }
 
-// MARK: - Pipeline Node
+// MARK: - Pipeline Node View
 
-private struct PipeNode: View {
+private struct PipelineNodeView: View {
     let label: String
-    let sub: String
+    let subtitle: String
     let color: Color
-    var pulse: Bool = false
-    var small: Bool = false
+    let active: Bool
 
     var body: some View {
-        VStack(spacing: 1) {
+        VStack(alignment: .leading, spacing: 1) {
             Text(label)
-                .font(.system(size: small ? 8 : 9, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(color)
-            Text(sub)
-                .font(.system(size: small ? 7 : 8))
-                .foregroundColor(Theme.textMuted)
+                .lineLimit(1)
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.system(size: 8))
+                    .foregroundColor(Theme.textMuted)
+                    .lineLimit(1)
+            }
         }
-        .padding(.horizontal, small ? 4 : 8)
-        .padding(.vertical, small ? 3 : 5)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(color.opacity(pulse ? 0.4 : 0.15), lineWidth: 1)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(pulse ? color.opacity(0.08) : .clear)
-                )
+                .fill(Color(hex: "0a0a0a"))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(active ? color.opacity(0.4) : Color(hex: "333333").opacity(0.6), lineWidth: 1)
+        )
+        .overlay(alignment: .leading) {
+            // Colored left border accent
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color.opacity(active ? 0.8 : 0.2))
+                .frame(width: active ? 3 : 1)
+                .padding(.vertical, 2)
+        }
+        .shadow(color: active ? color.opacity(0.15) : .clear, radius: 4, x: 0, y: 0)
     }
 }

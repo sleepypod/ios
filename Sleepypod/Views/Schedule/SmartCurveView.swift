@@ -26,6 +26,10 @@ struct SmartCurveView: View {
     @State private var healthError: String?
     @State private var minTemp: Double = 68
     @State private var maxTemp: Double = 86
+    @State private var customCurvePoints: [SleepCurve.Point]?
+
+    /// Whether the chart is showing custom schedule temperatures rather than a generated curve
+    private var isShowingCustomCurve: Bool { customCurvePoints != nil }
 
     /// Y-axis adapts to include curve range AND min/max lines with padding
     private var yDomain: ClosedRange<Int> {
@@ -39,7 +43,10 @@ struct SmartCurveView: View {
     }
 
     private var curve: [SleepCurve.Point] {
-        SleepCurve.generate(
+        if let customCurvePoints {
+            return customCurvePoints
+        }
+        return SleepCurve.generate(
             bedtime: bedtime,
             wakeTime: wakeTime,
             coolingIntensity: intensity,
@@ -64,6 +71,7 @@ struct SmartCurveView: View {
                         Button {
                             Haptics.tap()
                             withAnimation(.easeInOut(duration: 0.2)) {
+                                customCurvePoints = nil
                                 selectedProfile = profile
                                 intensity = profile.intensity
                                 minTemp = Double(profile.minTempF)
@@ -212,6 +220,7 @@ struct SmartCurveView: View {
         .onAppear { loadFromSchedule() }
         .onChange(of: scheduleManager.selectedDay) { loadFromSchedule() }
         .onChange(of: scheduleManager.schedules != nil) { loadFromSchedule() }
+        .onChange(of: scheduleManager.currentDailySchedule?.temperatures) { loadFromSchedule() }
         .cardStyle()
     }
 
@@ -570,6 +579,8 @@ struct SmartCurveView: View {
         let now = Date()
 
         // Reset to defaults first
+        customCurvePoints = nil
+
         var bed = calendar.dateComponents([.year, .month, .day], from: now)
         bed.hour = 22; bed.minute = 0
         bedtime = calendar.date(from: bed) ?? bedtime
@@ -609,6 +620,77 @@ struct SmartCurveView: View {
             minTemp = Double(temps.min() ?? 68)
             maxTemp = Double(temps.max() ?? 86)
         }
+
+        // Check if the schedule has custom temperatures that don't match
+        // a generated curve — if so, display the actual schedule points
+        if daily.temperatures.count >= 3 {
+            let generatedTemps = SleepCurve.toScheduleTemperatures(
+                SleepCurve.generate(
+                    bedtime: bedtime,
+                    wakeTime: wakeTime,
+                    coolingIntensity: intensity,
+                    minTempF: Int(minTemp),
+                    maxTempF: Int(maxTemp)
+                )
+            )
+            let isCustom = daily.temperatures != generatedTemps
+            if isCustom {
+                customCurvePoints = Self.buildCurvePoints(
+                    from: daily.temperatures,
+                    bedtime: bedtime,
+                    wakeTime: wakeTime,
+                    calendar: calendar,
+                    now: now
+                )
+            }
+        }
+    }
+
+    /// Build SleepCurve.Point values from schedule temperature set points
+    /// so they can be displayed on the chart.
+    private static func buildCurvePoints(
+        from temperatures: [String: Int],
+        bedtime: Date,
+        wakeTime: Date,
+        calendar: Calendar,
+        now: Date
+    ) -> [SleepCurve.Point] {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+
+        let sorted = temperatures.sorted { $0.key < $1.key }
+        let bedHour = calendar.component(.hour, from: bedtime)
+
+        return sorted.compactMap { timeStr, tempF in
+            guard let parsed = fmt.date(from: timeStr) else { return nil }
+            let c = calendar.dateComponents([.hour, .minute], from: parsed)
+            let pointHour = c.hour ?? 0
+            // Evening times go on today; early-morning times (after midnight) on tomorrow
+            var dateComponents = calendar.dateComponents([.year, .month, .day], from: now)
+            if pointHour < 12 && bedHour >= 12 {
+                dateComponents.day = (dateComponents.day ?? 0) + 1
+            }
+            dateComponents.hour = c.hour
+            dateComponents.minute = c.minute
+            guard let date = calendar.date(from: dateComponents) else { return nil }
+            let offset = tempF - 80
+            // Classify phase based on position relative to bedtime/wake
+            let phase: SleepCurve.Phase
+            if date < bedtime {
+                phase = .warmUp
+            } else if date >= wakeTime {
+                phase = .wake
+            } else {
+                let total = wakeTime.timeIntervalSince(bedtime)
+                let elapsed = date.timeIntervalSince(bedtime)
+                let progress = elapsed / total
+                if progress < 0.2 { phase = .coolDown }
+                else if progress < 0.5 { phase = .deepSleep }
+                else if progress < 0.8 { phase = .maintain }
+                else { phase = .preWake }
+            }
+            return SleepCurve.Point(time: date, tempOffset: offset, phase: phase)
+        }.sorted { $0.time < $1.time }
     }
 
     private func applyToSchedule() {

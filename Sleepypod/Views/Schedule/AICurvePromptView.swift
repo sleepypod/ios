@@ -810,6 +810,9 @@ struct AICurvePromptView: View {
         CurveTemplate.add(template)
         savedTemplates = CurveTemplate.loadAll()
         Haptics.success()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            dismiss()
+        }
     }
 
     // MARK: - Apply to Schedule

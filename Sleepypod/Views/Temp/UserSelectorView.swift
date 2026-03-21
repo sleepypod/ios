@@ -63,6 +63,28 @@ private struct ProfileAndSettingsSheet: View {
                         TapGestureConfigView()
                     }
 
+                    // Haptics test
+                    if deviceManager.isConnected || isDemo {
+                        NavigationLink {
+                            HapticsTestView()
+                        } label: {
+                            HStack {
+                                Image(systemName: "waveform")
+                                    .foregroundColor(Theme.accent)
+                                Text("Haptics & Vibration")
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                            .frame(minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .cardStyle()
+                    }
+
                     // Update
                     if deviceManager.isConnected && !isDemo {
                         UpdateCardView()

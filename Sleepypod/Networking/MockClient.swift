@@ -324,6 +324,10 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
     // MARK: - Actions (no-ops)
 
     func triggerAlarm(_ alarm: AlarmJob) async throws {
+        await MainActor.run { Haptics.medium() }
+    }
+
+    func clearAlarm(side: Side) async throws {
         // no-op in demo
     }
 

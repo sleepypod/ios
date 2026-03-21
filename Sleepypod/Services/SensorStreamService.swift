@@ -70,6 +70,9 @@ final class SensorStreamService {
     var recentFrames: [RawFrameEntry] = []
     private let maxRecentFrames = 200
 
+    /// Latest gesture event from WebSocket
+    var lastGesture: GestureFrame?
+
     /// Latest device status frame from WebSocket (replaces HTTP polling)
     var latestDeviceStatus: DeviceStatusFrame?
 
@@ -253,6 +256,16 @@ final class SensorStreamService {
 
         case .deviceStatus(let status):
             latestDeviceStatus = status
+
+        case .gesture(let g):
+            lastGesture = g
+            let entry = FirmwareLogEntry(
+                timestamp: Date(),
+                level: .info,
+                message: "[\(g.tapType)] \(g.side) side tapped"
+            )
+            firmwareLogs.append(entry)
+            if firmwareLogs.count > maxLogLines { firmwareLogs.removeFirst() }
 
         case .unknown: break
         }

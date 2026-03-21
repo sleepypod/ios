@@ -15,6 +15,7 @@ protocol SleepypodProtocol: Sendable {
     func getVitalsSummary(side: Side?, start: Date?, end: Date?) async throws -> VitalsSummary
     func getMovement(side: Side?, start: Date?, end: Date?) async throws -> [MovementRecord]
     func triggerAlarm(_ alarm: AlarmJob) async throws
+    func clearAlarm(side: Side) async throws
     func reboot() async throws
     func setInternetAccess(blocked: Bool) async throws
     func getCalibrationStatus(side: Side) async throws -> CalibrationStatus

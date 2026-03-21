@@ -11,6 +11,7 @@ enum SensorFrame: Sendable {
     case log(LogFrame)
     case notification(NotificationFrame)
     case deviceStatus(DeviceStatusFrame)
+    case gesture(GestureFrame)
     case unknown(String)
 
     var typeName: String {
@@ -22,6 +23,7 @@ enum SensorFrame: Sendable {
         case .log: return "log"
         case .notification: return "notification"
         case .deviceStatus: return "deviceStatus"
+        case .gesture: return "gesture"
         case .unknown(let type): return type
         }
     }
@@ -46,10 +48,20 @@ enum SensorFrame: Sendable {
             return (try? decoder.decode(NotificationFrame.self, from: data)).map { .notification($0) }
         case "deviceStatus":
             return (try? decoder.decode(DeviceStatusFrame.self, from: data)).map { .deviceStatus($0) }
+        case "gesture":
+            return (try? decoder.decode(GestureFrame.self, from: data)).map { .gesture($0) }
         default:
             return .unknown(type)
         }
     }
+}
+
+// MARK: - Gesture Frame (tap events from DAC monitor)
+
+struct GestureFrame: Decodable, Sendable {
+    let ts: Int
+    let side: String
+    let tapType: String
 }
 
 // MARK: - Piezo (~1 Hz, 500 samples per side)

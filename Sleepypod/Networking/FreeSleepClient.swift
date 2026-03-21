@@ -88,6 +88,10 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
         let _: Schedules = try await post(.alarm, body: alarm)
     }
 
+    func clearAlarm(side: Side) async throws {
+        // Not supported on free-sleep firmware
+    }
+
     func reboot() async throws {
         try await postEmpty(path: "/api/execute", body: ["command": "reboot"])
     }

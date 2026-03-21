@@ -338,6 +338,12 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         ])
     }
 
+    func clearAlarm(side: Side) async throws {
+        let _: TRPCSuccess = try await mutate("device.clearAlarm", input: [
+            "side": side.rawValue,
+        ])
+    }
+
     func getCalibrationStatus(side: Side) async throws -> CalibrationStatus {
         try await query("calibration.getStatus", input: ["side": side.rawValue])
     }

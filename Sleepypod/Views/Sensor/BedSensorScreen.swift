@@ -7,11 +7,44 @@ struct BedSensorScreen: View {
 
     @State private var livePulse = false
     @State private var fanRotation: Double = 0
+    @State private var showGestureBadge = false
+    @State private var gestureSide: String = ""
+    @State private var gestureTapType: String = ""
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
                 connectionBar
+
+                // Gesture tap indicator
+                if showGestureBadge {
+                    HStack {
+                        if gestureSide == "left" || gestureSide == "both" {
+                            Spacer()
+                        }
+                        HStack(spacing: 6) {
+                            Image(systemName: "hand.tap.fill")
+                                .font(.system(size: 12))
+                            Text("TAP")
+                                .font(.caption.weight(.bold))
+                            Text(gestureTapType)
+                                .font(.caption2)
+                                .foregroundColor(Theme.textSecondary)
+                            Text(gestureSide.capitalized)
+                                .font(.caption2)
+                                .foregroundColor(Theme.textSecondary)
+                        }
+                        .foregroundColor(Theme.amber)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Theme.amber.opacity(0.15))
+                        .clipShape(Capsule())
+                        .transition(.scale.combined(with: .opacity))
+                        if gestureSide == "right" || gestureSide == "both" {
+                            Spacer()
+                        }
+                    }
+                }
 
                 // Data pipeline DAG
                 DataPipelineView()
@@ -57,6 +90,16 @@ struct BedSensorScreen: View {
             livePulse = true
         }
         .onDisappear { sensor.disconnect() }
+        .onChange(of: sensor.lastGesture?.ts) { _, newTs in
+            guard newTs != nil, let g = sensor.lastGesture else { return }
+            gestureSide = g.side
+            gestureTapType = g.tapType
+            withAnimation(.spring(duration: 0.3)) { showGestureBadge = true }
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                withAnimation(.easeOut(duration: 0.4)) { showGestureBadge = false }
+            }
+        }
     }
 
     // MARK: - Sensor Matrix Card

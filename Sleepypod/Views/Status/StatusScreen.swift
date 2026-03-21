@@ -6,6 +6,7 @@ struct StatusScreen: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(SettingsManager.self) private var settingsManager
     @Environment(PodDiscovery.self) private var podDiscovery
+    @Environment(SensorStreamService.self) private var sensor
 
     var body: some View {
         ScrollView {
@@ -34,6 +35,13 @@ struct StatusScreen: View {
 
                 // Logs
                 LogsView()
+
+                // Sensor console (firmware logs + raw frames)
+                FirmwareLogConsoleView(
+                    logs: sensor.firmwareLogs,
+                    recentFrames: sensor.recentFrames,
+                    onClear: { sensor.clearLogs() }
+                )
 
                 // Last updated
                 if let lastUpdated = statusManager.lastUpdated {

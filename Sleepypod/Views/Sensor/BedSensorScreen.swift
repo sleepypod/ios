@@ -72,12 +72,7 @@ struct BedSensorScreen: View {
                 // System
                 systemCard
 
-                // Console: Firmware Logs + Raw Frames
-                FirmwareLogConsoleView(
-                    logs: sensor.firmwareLogs,
-                    recentFrames: sensor.recentFrames,
-                    onClear: { sensor.clearLogs() }
-                )
+                // Sensor console moved to Status screen
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 20)

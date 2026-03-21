@@ -49,6 +49,7 @@ struct DataPipelineView: View {
 
     @State private var previousCounts: [String: Int] = [:]
     @State private var rates: [String: Double] = [:]
+    @State private var lastFrameAt: Date = .distantPast
 
     // MARK: - Computed
 
@@ -140,6 +141,9 @@ struct DataPipelineView: View {
                 previousCounts[type] = count
             }
         }
+        .onChange(of: sensor.lastFrameTime) { _, newTime in
+            if let t = newTime { lastFrameAt = t }
+        }
     }
 
     // MARK: - Header
@@ -194,38 +198,17 @@ struct DataPipelineView: View {
                     }
                 }
 
-                // Edges
-                Canvas { ctx, size in
-                    for edge in dagEdges {
-                        guard let fromNode = nodeMap[edge.from],
-                              let toNode = nodeMap[edge.to] else { continue }
-
-                        let fromPt = CGPoint(x: fromNode.nx * size.width, y: fromNode.ny * size.height + 14)
-                        let toPt = CGPoint(x: toNode.nx * size.width, y: toNode.ny * size.height - 6)
-
-                        var path = Path()
-                        path.move(to: fromPt)
-                        // Slight curve for visual appeal
-                        let midY = (fromPt.y + toPt.y) / 2
-                        path.addCurve(
-                            to: toPt,
-                            control1: CGPoint(x: fromPt.x, y: midY),
-                            control2: CGPoint(x: toPt.x, y: midY)
+                // Edges — SwiftUI Path views with animated dash phase
+                ForEach(dagEdges) { edge in
+                    if let fromNode = nodeMap[edge.from],
+                       let toNode = nodeMap[edge.to] {
+                        AnimatedEdge(
+                            from: CGPoint(x: fromNode.nx * w, y: fromNode.ny * h + 14),
+                            to: CGPoint(x: toNode.nx * w, y: toNode.ny * h - 6),
+                            color: edge.color,
+                            dashed: edge.dashed,
+                            isActive: sensor.isConnected
                         )
-
-                        if edge.dashed {
-                            ctx.stroke(
-                                path,
-                                with: .color(edge.color.opacity(0.7)),
-                                style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-                            )
-                        } else {
-                            ctx.stroke(
-                                path,
-                                with: .color(edge.color.opacity(0.5)),
-                                lineWidth: 1
-                            )
-                        }
                     }
                 }
 
@@ -407,5 +390,68 @@ private struct PipelineNodeView: View {
                 .padding(.vertical, 2)
         }
         .shadow(color: active ? color.opacity(0.15) : .clear, radius: 4, x: 0, y: 0)
+    }
+}
+
+// MARK: - Animated Edge (dot traveling along path via trim)
+
+private struct BezierEdge: Shape {
+    let from: CGPoint
+    let to: CGPoint
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: from)
+        let midY = (from.y + to.y) / 2
+        p.addCurve(to: to, control1: CGPoint(x: from.x, y: midY), control2: CGPoint(x: to.x, y: midY))
+        return p
+    }
+}
+
+private struct AnimatedEdge: View {
+    let from: CGPoint
+    let to: CGPoint
+    let color: Color
+    let dashed: Bool
+    let isActive: Bool
+
+    @State private var trimEnd: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            // Static dim baseline
+            BezierEdge(from: from, to: to)
+                .stroke(
+                    color.opacity(isActive ? 0.15 : 0.06),
+                    style: StrokeStyle(
+                        lineWidth: 0.5,
+                        dash: dashed ? [4, 3] : []
+                    )
+                )
+
+            // Animated dot traveling along the path
+            if isActive {
+                BezierEdge(from: from, to: to)
+                    .trim(from: max(0, trimEnd - 0.08), to: trimEnd)
+                    .stroke(
+                        color.opacity(0.9),
+                        style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                    )
+            }
+        }
+        .onAppear {
+            guard isActive else { return }
+            withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                trimEnd = 1
+            }
+        }
+        .onChange(of: isActive) { _, active in
+            if active {
+                trimEnd = 0
+                withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                    trimEnd = 1
+                }
+            }
+        }
     }
 }

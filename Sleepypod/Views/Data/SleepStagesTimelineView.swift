@@ -116,7 +116,7 @@ struct SleepStagesTimelineView: View {
                                 .foregroundColor(Theme.textSecondary)
                                 .tracking(1)
                         }
-                        Text("Sleepypod Intelligence")
+                        Text("sleepypod")
                             .font(.caption2)
                             .foregroundColor(Theme.textMuted)
                     }

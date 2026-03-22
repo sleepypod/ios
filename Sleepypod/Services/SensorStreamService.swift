@@ -83,6 +83,7 @@ final class SensorStreamService {
     private var receiveTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
+    private var demoTask: Task<Void, Never>?
     private var frameCount = 0
     private var fpsTimer: Date = .now
     private var lastCapUpdate: Date = .distantPast
@@ -109,7 +110,16 @@ final class SensorStreamService {
     }
 
     func connect() {
-        guard !isConnected else { return }
+        // Demo mode — generate fake sensor data instead of connecting WS
+        if APIBackend.current.isDemo {
+            guard demoTask == nil else { return }
+            startDemoStream()
+            return
+        }
+
+        guard !isConnected else { return
+        }
+
         guard let url = podURL else { error = "No pod IP"; return }
         disconnect()
 
@@ -133,6 +143,7 @@ final class SensorStreamService {
     }
 
     func disconnect() {
+        demoTask?.cancel(); demoTask = nil
         receiveTask?.cancel(); receiveTask = nil
         pingTask?.cancel(); pingTask = nil
         reconnectTask?.cancel(); reconnectTask = nil
@@ -143,6 +154,175 @@ final class SensorStreamService {
     }
 
     func clearLogs() { firmwareLogs.removeAll() }
+
+    // MARK: - Demo Stream
+
+    func startDemoStream() {
+        guard demoTask == nil else { return }
+        isConnected = true
+        error = nil
+        frameCount = 0
+        fpsTimer = .now
+
+        var tick = 0
+        demoTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let self, !Task.isCancelled else { return }
+                tick += 1
+
+                // --- FPS bookkeeping ---
+                self.lastFrameTime = .now
+                self.frameCount += 1
+                let elapsed = Date.now.timeIntervalSince(self.fpsTimer)
+                if elapsed >= 1 {
+                    self.framesPerSecond = Int(Double(self.frameCount) / elapsed)
+                    self.frameCount = 0
+                    self.fpsTimer = .now
+                }
+
+
+                // --- CapSense (every tick = 0.5s) ---
+                let baseValues: [Float] = [15, 16, 14, 15, 12, 13, 3, 3]
+                let variation: Float = Float.random(in: -1...1)
+                let leftCap = CapSenseSide(
+                    values: baseValues.map { $0 + variation + Float.random(in: -0.5...0.5) },
+                    status: "good"
+                )
+                let rightCap = CapSenseSide(
+                    values: baseValues.map { $0 * 0.9 + variation + Float.random(in: -0.3...0.3) },
+                    status: "good"
+                )
+                self.leftPresence = leftCap
+                self.rightPresence = rightCap
+                self.leftHistory.append(leftCap.values)
+                self.rightHistory.append(rightCap.values)
+                if self.leftHistory.count > self.varianceWindow { self.leftHistory.removeFirst() }
+                if self.rightHistory.count > self.varianceWindow { self.rightHistory.removeFirst() }
+                self.leftVariance = self.computeVariance(self.leftHistory)
+                self.rightVariance = self.computeVariance(self.rightHistory)
+                self.trackDemoFrame("capSense2")
+
+                // --- Piezo (every 2 ticks = 1s) ---
+                if tick % 2 == 0 {
+                    let freq = 500
+                    var left: [Int32] = []
+                    var right: [Int32] = []
+                    let phase = Double(tick) * 0.5 // seconds elapsed
+                    for i in 0..<freq {
+                        let t = Double(i) / Double(freq)
+                        let breath = sin(2 * .pi * 0.25 * (t + phase)) * 5000
+                        let heart = sin(2 * .pi * 1.0 * (t + phase)) * 2000
+                        let noise = Double.random(in: -500...500)
+                        left.append(Int32(breath + heart + noise))
+                        right.append(Int32(breath + heart * 0.8 + noise))
+                    }
+                    self.piezoLeft.append(contentsOf: left)
+                    self.piezoRight.append(contentsOf: right)
+                    if self.piezoLeft.count > self.maxPiezoSamples {
+                        self.piezoLeft.removeFirst(self.piezoLeft.count - self.maxPiezoSamples)
+                    }
+                    if self.piezoRight.count > self.maxPiezoSamples {
+                        self.piezoRight.removeFirst(self.piezoRight.count - self.maxPiezoSamples)
+                    }
+
+                    // Simulate vitals from piezo
+                    self.leftVitals = LiveVitals(
+                        heartRate: 62 + Double.random(in: -2...2),
+                        breathingRate: 15 + Double.random(in: -1...1),
+                        confidence: 0.85 + Double.random(in: -0.05...0.05)
+                    )
+                    self.rightVitals = LiveVitals(
+                        heartRate: 58 + Double.random(in: -2...2),
+                        breathingRate: 14 + Double.random(in: -1...1),
+                        confidence: 0.80 + Double.random(in: -0.05...0.05)
+                    )
+                    self.trackDemoFrame("piezo-dual")
+                }
+
+                // --- DeviceStatus (every 4 ticks = 2s) ---
+                if tick % 4 == 0 {
+                    self.latestDeviceStatus = DeviceStatusFrame(
+                        ts: Int(Date().timeIntervalSince1970),
+                        leftSide: DeviceStatusFrame.WsSideStatus(
+                            currentTemperature: 72 + Double.random(in: -0.5...0.5),
+                            targetTemperature: 70,
+                            currentLevel: -2,
+                            targetLevel: -2,
+                            heatingDuration: 0,
+                            isAlarmVibrating: false
+                        ),
+                        rightSide: DeviceStatusFrame.WsSideStatus(
+                            currentTemperature: 68 + Double.random(in: -0.5...0.5),
+                            targetTemperature: 66,
+                            currentLevel: -3,
+                            targetLevel: -3,
+                            heatingDuration: 0,
+                            isAlarmVibrating: false
+                        ),
+                        waterLevel: "normal",
+                        isPriming: false,
+                        snooze: nil
+                    )
+                    self.trackDemoFrame("deviceStatus")
+                }
+
+                // --- FrzHealth (every 20 ticks = 10s) ---
+                if tick % 20 == 0 {
+                    self.frzHealth = FrzHealthFrame(
+                        ts: Int(Date().timeIntervalSince1970),
+                        left: FrzSideHealth(
+                            tec: FrzSideHealth.TecInfo(current: Float.random(in: 1.5...2.5)),
+                            pump: FrzSideHealth.PumpInfo(mode: "normal", rpm: Int.random(in: 1800...2200), water: true)
+                        ),
+                        right: FrzSideHealth(
+                            tec: FrzSideHealth.TecInfo(current: Float.random(in: 1.5...2.5)),
+                            pump: FrzSideHealth.PumpInfo(mode: "normal", rpm: Int.random(in: 1800...2200), water: true)
+                        ),
+                        fan: FrzFanHealth(
+                            top: FrzFanHealth.FanInfo(rpm: Int.random(in: 2800...3200)),
+                            bottom: FrzFanHealth.FanInfo(rpm: Int.random(in: 2800...3200))
+                        )
+                    )
+                    self.trackDemoFrame("frzHealth")
+                }
+
+                // --- BedTemp (every 32 ticks = 16s) ---
+                if tick % 32 == 0 {
+                    let ambC: Float = 22.5 + Float.random(in: -0.3...0.3)
+                    let huPct: Float = 45 + Float.random(in: -2...2)
+                    let leftZones: [Float] = [30.5, 31.2, 29.8, 30.0].map { $0 + Float.random(in: -0.2...0.2) }
+                    let rightZones: [Float] = [29.0, 29.8, 28.5, 29.2].map { $0 + Float.random(in: -0.2...0.2) }
+                    self.leftTemps = BedTempSide(amb: ambC, hu: huPct, temps: leftZones)
+                    self.rightTemps = BedTempSide(amb: ambC, hu: huPct, temps: rightZones)
+                    if let avgL = self.leftTemps?.avgSurfaceTempF {
+                        self.leftTempHistory.append((.now, Float(avgL)))
+                        if self.leftTempHistory.count > self.maxTempHistory { self.leftTempHistory.removeFirst() }
+                    }
+                    if let avgR = self.rightTemps?.avgSurfaceTempF {
+                        self.rightTempHistory.append((.now, Float(avgR)))
+                        if self.rightTempHistory.count > self.maxTempHistory { self.rightTempHistory.removeFirst() }
+                    }
+                    self.trackDemoFrame("bedTemp2")
+                }
+            }
+        }
+    }
+
+    private func trackDemoFrame(_ type: String) {
+        frameCounts[type, default: 0] += 1
+        recentFrames.insert(
+            RawFrameEntry(timestamp: .now, type: type, json: "{\"type\":\"\(type)\",\"demo\":true}"),
+            at: 0
+        )
+        if recentFrames.count > maxRecentFrames { recentFrames.removeLast() }
+    }
+
+    func stopDemoStream() {
+        demoTask?.cancel()
+        demoTask = nil
+        isConnected = false
+    }
 
     // MARK: - Receive
 

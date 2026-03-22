@@ -150,11 +150,7 @@ struct HealthScreen: View {
     // MARK: - Side Toggle
 
     private var sideName: String {
-        guard let settings = settingsManager.settings else {
-            return metricsManager.selectedSide.displayName
-        }
-        let name = metricsManager.selectedSide == .left ? settings.left.name : settings.right.name
-        return name.isEmpty ? metricsManager.selectedSide.displayName : name
+        settingsManager.sideName(for: metricsManager.selectedSide)
     }
 
     private var sideBadge: String {
@@ -208,17 +204,21 @@ struct HealthScreen: View {
     // MARK: - Vitals Summary
 
     private var vitalsSummaryCard: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 0) {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
                 let hrs = smoothedVitals.compactMap(\.heartRate)
                 let hrvs = smoothedVitals.compactMap(\.hrv)
                 let brs = smoothedVitals.compactMap(\.breathingRate)
 
-                summaryItem(icon: "heart.fill", value: avg(hrs), unit: "BPM", color: Theme.error)
-                Spacer()
-                summaryItem(icon: "waveform.path.ecg", value: avg(hrvs), unit: "ms", color: Theme.accent)
-                Spacer()
-                summaryItem(icon: "lungs.fill", value: avg(brs), unit: "BR", color: Theme.healthy)
+                vitalCard(icon: "heart.fill", label: "Heart Rate", value: avg(hrs), unit: "bpm",
+                          min: hrs.isEmpty ? nil : "\(Int(hrs.min()!))", max: hrs.isEmpty ? nil : "\(Int(hrs.max()!))",
+                          color: Theme.error)
+                vitalCard(icon: "waveform.path.ecg", label: "HRV", value: avg(hrvs), unit: "ms",
+                          min: hrvs.isEmpty ? nil : "\(Int(hrvs.min()!))", max: hrvs.isEmpty ? nil : "\(Int(hrvs.max()!))",
+                          color: Theme.accent)
+                vitalCard(icon: "lungs.fill", label: "Breathing", value: avg(brs), unit: "brpm",
+                          min: brs.isEmpty ? nil : "\(Int(brs.min()!))", max: brs.isEmpty ? nil : "\(Int(brs.max()!))",
+                          color: Theme.healthy)
             }
 
             // Trend analysis
@@ -232,7 +232,43 @@ struct HealthScreen: View {
                 .foregroundColor(trend.color)
             }
         }
-        .cardStyle()
+    }
+
+    private func vitalCard(icon: String, label: String, value: String, unit: String,
+                           min: String?, max: String?, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+
+            Text(unit)
+                .font(.system(size: 9))
+                .foregroundColor(Theme.textMuted)
+
+            if let min, let max {
+                HStack(spacing: 2) {
+                    Text(min)
+                        .foregroundColor(Theme.cooling)
+                    Text("–")
+                        .foregroundColor(Theme.textMuted)
+                    Text(max)
+                        .foregroundColor(Theme.warming)
+                }
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(color.opacity(0.15), lineWidth: 1)
+        )
     }
 
     private var trendText: (text: String, icon: String, color: Color)? {

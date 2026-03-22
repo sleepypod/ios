@@ -52,7 +52,7 @@ struct SideSelectorView: View {
         } label: {
             VStack(spacing: 4) {
                 HStack(spacing: 6) {
-                    Text("\(side.displayName) Side")
+                    Text("\(settingsManager.sideName(for: side)) Side")
                         .font(.subheadline.weight(.medium))
 
                     if sideIsOn {

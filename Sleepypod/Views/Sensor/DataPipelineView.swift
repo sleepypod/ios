@@ -65,7 +65,7 @@ struct DataPipelineView: View {
     }
 
     private func isActive(_ types: [String]) -> Bool {
-        types.contains { (sensor.frameCounts[$0] ?? 0) > 0 }
+        types.contains { (rates[$0] ?? 0) > 0 }
     }
 
     // MARK: - DAG Layout

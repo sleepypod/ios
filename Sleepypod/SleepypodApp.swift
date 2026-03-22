@@ -329,7 +329,7 @@ struct DisconnectedTabView: View {
     private var statusText: String {
         switch podDiscovery.status {
         case .idle:
-            return "Tap to connect"
+            return "Connecting..."
         case .scanning:
             return "Scanning network..."
         case .found:
@@ -364,8 +364,24 @@ struct DisconnectedTabView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            // Pulsing logo
+            // Pulsing logo with radial gradient
             ZStack {
+                // Pulsing radial gradient — starts black to match icon bg, fades to accent
+                RadialGradient(
+                    colors: [
+                        Color.black,
+                        Theme.accent.opacity(0.12),
+                        Theme.accent.opacity(0.04),
+                        Color.clear,
+                    ],
+                    center: .center,
+                    startRadius: 35,
+                    endRadius: 130
+                )
+                .frame(width: 260, height: 260)
+                .scaleEffect(ringScale)
+                .blur(radius: 6)
+
                 // Outer glow rings
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
@@ -382,14 +398,12 @@ struct DisconnectedTabView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18))
                     .scaleEffect(ringScale)
 
-                // Arc spinner (visible when actively searching)
-                if isActive {
-                    Circle()
-                        .trim(from: 0, to: 0.3)
-                        .stroke(Theme.accent.opacity(0.6), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .frame(width: 100, height: 100)
-                        .rotationEffect(.degrees(phase))
-                }
+                // Arc spinner — always visible (auto-connecting)
+                Circle()
+                    .trim(from: 0, to: 0.3)
+                    .stroke(Theme.accent.opacity(0.6), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 100, height: 100)
+                    .rotationEffect(.degrees(phase))
             }
 
             // Status text
@@ -427,35 +441,43 @@ struct DisconnectedTabView: View {
                 .disabled(isActive)
                 .opacity(isActive ? 0.5 : 1)
 
-                // Manual IP entry
-                HStack(spacing: 8) {
-                    TextField("Pod IP address", text: Binding(
-                        get: { settingsManager.podIP },
-                        set: { settingsManager.podIP = $0 }
-                    ))
-                    .font(.system(size: 14, design: .monospaced))
-                    .keyboardType(.decimalPad)
-                    .textFieldStyle(.plain)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(Theme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Theme.cardBorder, lineWidth: 1)
-                    )
+                // Manual IP — accordion
+                DisclosureGroup {
+                    HStack(spacing: 8) {
+                        TextField("192.168.1.88", text: Binding(
+                            get: { settingsManager.podIP },
+                            set: { settingsManager.podIP = $0 }
+                        ))
+                        .font(.system(size: 14, design: .monospaced))
+                        .keyboardType(.decimalPad)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Theme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Theme.cardBorder, lineWidth: 1)
+                        )
 
-                    Button {
-                        Haptics.medium()
-                        deviceManager.retryConnection()
-                    } label: {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.title3)
-                            .foregroundColor(Theme.accent)
+                        Button {
+                            Haptics.medium()
+                            deviceManager.retryConnection()
+                        } label: {
+                            Image(systemName: "arrow.right.circle.fill")
+                                .font(.title3)
+                                .foregroundColor(Theme.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(settingsManager.podIP.isEmpty)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(settingsManager.podIP.isEmpty)
+                    .padding(.top, 8)
+                } label: {
+                    Text("Enter IP manually")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
                 }
+                .tint(Theme.textMuted)
             }
             .padding(.horizontal, 32)
 

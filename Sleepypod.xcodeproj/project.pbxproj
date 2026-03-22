@@ -77,6 +77,7 @@
 		BA94451123ED98F30EAC7AF8 /* Side.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB85BC15DC6D3030C728B6FC /* Side.swift */; };
 		BC37EEEE2AD3A4072D8141B0 /* InternetToggleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */; };
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
+		C0264F041E3EDCEB719883ED /* SanitizeIPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */; };
 		C4D7F73C779F1ED2B685A770 /* DataPipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C23ED1E696702811954A0DA /* DataPipelineView.swift */; };
 		C92D44C303EF1CBE9D6B8F3A /* SmartCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883B7737894F367125F721FF /* SmartCurveView.swift */; };
 		CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */; };
@@ -131,6 +132,7 @@
 		2F0AFD07A8CB0082733ACB36 /* SleepRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepRecord.swift; sourceTree = "<group>"; };
 		30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureConversion.swift; sourceTree = "<group>"; };
 		3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sleepypod.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SanitizeIPTests.swift; sourceTree = "<group>"; };
 		43F0D2022B6D8AF6E35D4562 /* MockClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockClient.swift; sourceTree = "<group>"; };
 		452905BE65E698AC3C3419A6 /* MovementCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementCardView.swift; sourceTree = "<group>"; };
 		489B1791FCB967E58E8D40F6 /* SensorFrames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorFrames.swift; sourceTree = "<group>"; };
@@ -339,6 +341,7 @@
 				AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */,
 				1BA5BFA567D7FBA54153B602 /* MockAPIClient.swift */,
 				DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */,
+				3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */,
 			);
 			path = SleepypodTests;
 			sourceTree = "<group>";
@@ -423,8 +426,6 @@
 				62711B6C4B544A5E5A0FCFBE /* PBXTargetDependency */,
 			);
 			name = SleepypodTests;
-			packageProductDependencies = (
-			);
 			productName = SleepypodTests;
 			productReference = B31B3D5B917F4A4D5DD9E99D /* SleepypodTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -441,8 +442,6 @@
 			dependencies = (
 			);
 			name = Sleepypod;
-			packageProductDependencies = (
-			);
 			productName = Sleepypod;
 			productReference = 3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */;
 			productType = "com.apple.product-type.application";
@@ -473,6 +472,7 @@
 			mainGroup = 3B37E02D8C926F0693D831AD;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 5AB86CD34B74128771C1B77A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -505,6 +505,7 @@
 				BC37EEEE2AD3A4072D8141B0 /* InternetToggleTests.swift in Sources */,
 				E14081657D38C6E39C493746 /* MockAPIClient.swift in Sources */,
 				CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */,
+				C0264F041E3EDCEB719883ED /* SanitizeIPTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

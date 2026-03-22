@@ -24,6 +24,8 @@ protocol SleepypodProtocol: Sendable {
     func triggerCalibration(side: Side, sensorType: String) async throws -> CalibrationTriggerResponse
     func triggerFullCalibration() async throws -> CalibrationTriggerResponse
 
+    func getLogSources() async throws -> [LogSource]
+
     // Beta features (PR #193)
     func getVersion() async throws -> SystemVersion
     func snoozeAlarm(side: Side, duration: Int) async throws -> SnoozeResponse
@@ -38,4 +40,11 @@ protocol SleepypodProtocol: Sendable {
 struct CalibrationTriggerResponse: Decodable, Sendable {
     let triggered: Bool
     let message: String
+}
+
+struct LogSource: Codable, Sendable, Identifiable {
+    let unit: String
+    let name: String
+    let active: Bool
+    var id: String { unit }
 }

@@ -33,6 +33,11 @@ struct StatusScreen: View {
                     }
                 }
 
+                // Systemd services
+                if !statusManager.logSources.isEmpty {
+                    servicesCard
+                }
+
                 // Logs
                 LogsView()
 
@@ -374,6 +379,93 @@ struct StatusScreen: View {
                 .font(.caption2)
                 .foregroundColor(color == Theme.textMuted ? Theme.textMuted : Theme.healthy)
         }
+    }
+
+    // MARK: - Services
+
+    @State private var servicesExpanded = false
+
+    private var servicesCard: some View {
+        let sources = statusManager.logSources
+        let activeCount = sources.filter(\.active).count
+        let allHealthy = activeCount == sources.count
+
+        return VStack(spacing: 0) {
+            // Header — matches ServiceCategoryView pattern
+            Button {
+                Haptics.light()
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    servicesExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "gearshape.2")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.cyan)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.cyan.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Services")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.white)
+                        Text("Systemd service units")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Image(systemName: allHealthy ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundColor(allHealthy ? Theme.healthy : Theme.amber)
+                        Text("\(activeCount)/\(sources.count)")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "222222"))
+                    .clipShape(Capsule())
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(Theme.textMuted)
+                        .rotationEffect(.degrees(servicesExpanded ? 90 : 0))
+                }
+                .padding(14)
+            }
+            .buttonStyle(.plain)
+
+            // Expanded — checkmark rows
+            if servicesExpanded {
+                Divider().background(Theme.cardBorder)
+
+                VStack(spacing: 0) {
+                    ForEach(sources) { source in
+                        HStack(spacing: 10) {
+                            Image(systemName: source.active ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(source.active ? Theme.healthy : Theme.error)
+                            Text(source.name)
+                                .font(.caption)
+                                .foregroundColor(.white)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                    }
+                }
+            }
+        }
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Theme.cardBorder, lineWidth: 1)
+        )
     }
 
     // MARK: - Network Discovery

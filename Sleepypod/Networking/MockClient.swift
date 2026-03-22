@@ -38,7 +38,8 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
             right: SideSettings(name: "Right", awayMode: false, scheduleOverrides: defaultOverrides, taps: defaultTaps),
             primePodDaily: PrimePodDaily(enabled: true, time: "14:00"),
             temperatureFormat: .fahrenheit,
-            rebootDaily: false
+            rebootDaily: false,
+            rebootTime: "03:00"
         )
 
         let defaultDaily = DailySchedule(
@@ -170,6 +171,17 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
 
     func updateServices(_ services: Services) async throws -> Services {
         services
+    }
+
+    // MARK: - Log Sources
+
+    func getLogSources() async throws -> [LogSource] {
+        [
+            LogSource(unit: "sleepypod.service", name: "Core", active: true),
+            LogSource(unit: "sleepypod-piezo-processor.service", name: "Piezo Processor", active: true),
+            LogSource(unit: "sleepypod-sleep-detector.service", name: "Sleep Detector", active: true),
+            LogSource(unit: "sleepypod-environment-monitor.service", name: "Environment Monitor", active: true),
+        ]
     }
 
     // MARK: - Sleep Records

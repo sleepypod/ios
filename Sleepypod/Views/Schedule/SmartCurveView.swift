@@ -63,8 +63,9 @@ struct SmartCurveView: View {
                 timePicker("Wake", icon: "sun.max.fill", color: Theme.amber, date: $wakeTime)
             }
 
-            // Profile picker — horizontal scroll
-            ScrollView(.horizontal, showsIndicators: false) {
+            // Profile picker — centered
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
                 HStack(spacing: 8) {
                     ForEach(SmartProfile.allProfiles) { profile in
                         let isSelected = selectedProfile.id == profile.id
@@ -122,6 +123,7 @@ struct SmartCurveView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                Spacer(minLength: 0)
             }
 
             Text(selectedProfile.description)
@@ -622,9 +624,22 @@ struct SmartCurveView: View {
         }
 
         // Check if the schedule has custom temperatures that don't match
-        // a generated curve — if so, display the actual schedule points
+        // any built-in profile curve — if so, display the actual schedule points
         if daily.temperatures.count >= 3 {
-            let generatedTemps = SleepCurve.toScheduleTemperatures(
+            let matchesAnyProfile = SmartProfile.allProfiles.contains { profile in
+                let profileTemps = SleepCurve.toScheduleTemperatures(
+                    SleepCurve.generate(
+                        bedtime: bedtime,
+                        wakeTime: wakeTime,
+                        coolingIntensity: profile.intensity,
+                        minTempF: profile.minTempF,
+                        maxTempF: profile.maxTempF
+                    )
+                )
+                return daily.temperatures == profileTemps
+            }
+            // Also check the current profile selection with current min/max
+            let currentProfileTemps = SleepCurve.toScheduleTemperatures(
                 SleepCurve.generate(
                     bedtime: bedtime,
                     wakeTime: wakeTime,
@@ -633,7 +648,7 @@ struct SmartCurveView: View {
                     maxTempF: Int(maxTemp)
                 )
             )
-            let isCustom = daily.temperatures != generatedTemps
+            let isCustom = !matchesAnyProfile && daily.temperatures != currentProfileTemps
             if isCustom {
                 customCurvePoints = Self.buildCurvePoints(
                     from: daily.temperatures,

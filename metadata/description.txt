@@ -13,7 +13,7 @@ SMART SCHEDULING
 - Save and reuse your favorite sleep profiles
 
 ON-DEVICE SLEEP ANALYSIS
-- Sleep stage classification powered by on-device ML (Accelerate/vDSP)
+- Sleep stage classification performed on-device using validated heuristics (ML-ready pipeline)
 - Heart rate and breathing rate extracted from raw piezo signals — no cloud processing
 - Sleep quality scoring with circadian-aware algorithms
 - Track weekly trends and movement patterns
@@ -30,7 +30,7 @@ HAPTIC ALARMS
 - Set per-side alarm schedules
 
 PRIVACY FIRST
-- All data stays on your local network
+- Data is processed and stored locally on your pod — no cloud account required
 - No cloud accounts required
 - No telemetry or tracking
 - Your sleep data belongs to you

@@ -7,9 +7,7 @@ struct TempScreen: View {
     @State private var bgPulse = false
 
     private var sideName: String {
-        let side = deviceManager.selectedSide.primarySide
-        if side == .left { return settingsManager.settings?.left.name ?? "Left" }
-        return settingsManager.settings?.right.name ?? "Right"
+        settingsManager.sideName(for: deviceManager.selectedSide.primarySide)
     }
 
     private var ambientColor: Color {

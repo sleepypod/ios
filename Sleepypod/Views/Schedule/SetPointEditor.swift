@@ -54,7 +54,7 @@ struct SetPointEditor: View {
             }
 
             // Rows
-            let sorted = points.sorted { $0.time < $1.time }
+            let sorted = points.sorted { overnightSort($0.time, $1.time) }
             ForEach(sorted) { point in
                 VStack(spacing: 0) {
                     setPointRow(point: point)
@@ -68,15 +68,9 @@ struct SetPointEditor: View {
                 .background(Theme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
-            .onMove { source, destination in
-                var sorted = points.sorted { $0.time < $1.time }
-                sorted.move(fromOffsets: source, toOffset: destination)
-                points = sorted
-                onChanged?()
-            }
             .onDelete { offsets in
                 guard points.count > 3 else { return }
-                var sorted = points.sorted { $0.time < $1.time }
+                var sorted = points.sorted { overnightSort($0.time, $1.time) }
                 sorted.remove(atOffsets: offsets)
                 points = sorted
                 onChanged?()
@@ -88,11 +82,6 @@ struct SetPointEditor: View {
 
     private func setPointRow(point: SetPoint) -> some View {
         HStack(spacing: 10) {
-            // Drag handle
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 10))
-                .foregroundColor(Theme.textMuted)
-
             // Phase dot
             Circle()
                 .fill(phaseColor(point.phase))
@@ -221,7 +210,7 @@ struct SetPointEditor: View {
             fmt.dateFormat = "HH:mm"
             points[index].time = fmt.string(from: date)
             // Auto-sort after time change
-            points.sort { $0.time < $1.time }
+            points.sort { overnightSort($0.time, $1.time) }
             onChanged?()
         }
     }
@@ -233,7 +222,7 @@ struct SetPointEditor: View {
     }
 
     private func addPoint() {
-        let sorted = points.sorted { $0.time < $1.time }
+        let sorted = points.sorted { overnightSort($0.time, $1.time) }
         let midIndex = sorted.count / 2
         let refTime = sorted.indices.contains(midIndex) ? sorted[midIndex].time : "02:00"
         let refTemp = sorted.indices.contains(midIndex) ? sorted[midIndex].tempF : 74
@@ -241,7 +230,7 @@ struct SetPointEditor: View {
         let newTime = nudgeTime(refTime, by: 15)
         let newPoint = SetPoint(time: newTime, tempF: refTemp, phase: "Maintain")
         points.append(newPoint)
-        points.sort { $0.time < $1.time }
+        points.sort { overnightSort($0.time, $1.time) }
         onChanged?()
     }
 
@@ -261,6 +250,15 @@ struct SetPointEditor: View {
         components.hour = parts[0]
         components.minute = parts[1]
         return Calendar.current.date(from: components)
+    }
+
+    /// Overnight-aware time sort: times >= 12:00 (evening) come before times < 12:00 (morning).
+    /// This ensures "22:00", "23:30", "01:00", "05:00" sort in overnight order.
+    private func overnightSort(_ a: String, _ b: String) -> Bool {
+        let aIsEvening = a >= "12:00"
+        let bIsEvening = b >= "12:00"
+        if aIsEvening == bIsEvening { return a < b }
+        return aIsEvening // evenings first
     }
 
     private func phaseColor(_ phase: String) -> Color {

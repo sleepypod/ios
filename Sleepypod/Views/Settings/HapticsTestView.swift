@@ -380,6 +380,7 @@ struct HapticsTestView: View {
         isVibrating = true
 
         do {
+            var triggeredSides: [Side] = []
             for side in selectedSide.sides {
                 let job = AlarmJob(
                     side: side,
@@ -388,7 +389,16 @@ struct HapticsTestView: View {
                     duration: preset.duration,
                     force: true
                 )
-                try await api.triggerAlarm(job)
+                do {
+                    try await api.triggerAlarm(job)
+                    triggeredSides.append(side)
+                } catch {
+                    // Rollback: clear any sides that were already triggered
+                    for triggered in triggeredSides {
+                        try? await api.clearAlarm(side: triggered)
+                    }
+                    throw error
+                }
             }
 
             // Auto-dismiss active state after duration
@@ -414,6 +424,7 @@ struct HapticsTestView: View {
         isVibrating = true
 
         do {
+            var triggeredSides: [Side] = []
             for side in selectedSide.sides {
                 let job = AlarmJob(
                     side: side,
@@ -422,7 +433,16 @@ struct HapticsTestView: View {
                     duration: Int(customDuration),
                     force: true
                 )
-                try await api.triggerAlarm(job)
+                do {
+                    try await api.triggerAlarm(job)
+                    triggeredSides.append(side)
+                } catch {
+                    // Rollback: clear any sides that were already triggered
+                    for triggered in triggeredSides {
+                        try? await api.clearAlarm(side: triggered)
+                    }
+                    throw error
+                }
             }
 
             let dur = Int(customDuration)
@@ -438,12 +458,16 @@ struct HapticsTestView: View {
 
     private func stopAllVibration() async {
         errorMessage = nil
-        do {
-            for side in [Side.left, .right] {
+        var errors: [String] = []
+        for side in [Side.left, .right] {
+            do {
                 try await api.clearAlarm(side: side)
+            } catch {
+                errors.append("\(side): \(error.localizedDescription)")
             }
-        } catch {
-            errorMessage = "Stop failed: \(error.localizedDescription)"
+        }
+        if !errors.isEmpty {
+            errorMessage = "Stop failed: \(errors.joined(separator: ", "))"
         }
         activePresetID = nil
         isVibrating = false

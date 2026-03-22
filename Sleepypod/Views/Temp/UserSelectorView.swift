@@ -48,9 +48,6 @@ private struct ProfileAndSettingsSheet: View {
                         demoModeCard
                     }
 
-                    // Profile section
-                    profileSection
-
                     // Connection
                     if deviceManager.isConnected && !isDemo {
                         connectionSection
@@ -60,36 +57,35 @@ private struct ProfileAndSettingsSheet: View {
                     if settingsManager.settings != nil {
                         DeviceSettingsCardView()
 
-                        // Gestures & Haptics (grouped together)
-                        VStack(spacing: 0) {
-                            TapGestureConfigView()
+                        SidesCardView()
 
-                            if deviceManager.isConnected || isDemo {
-                                Divider().background(Theme.cardBorder).padding(.horizontal, 12)
+                        // Tap Gestures (already applies .cardStyle() internally)
+                        TapGestureConfigView()
 
-                                NavigationLink {
-                                    HapticsTestView()
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "waveform")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(Theme.accent)
-                                            .frame(width: 24)
-                                        Text("Test Vibration Patterns")
-                                            .font(.subheadline)
-                                            .foregroundColor(.white)
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundColor(Theme.textMuted)
-                                    }
-                                    .frame(minHeight: 44)
-                                    .padding(.horizontal, 12)
+                        // Haptics & Vibration
+                        if deviceManager.isConnected || isDemo {
+                            NavigationLink {
+                                HapticsTestView()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "waveform")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Theme.accent)
+                                        .frame(width: 24)
+                                    Text("Haptics & Vibration")
+                                        .font(.subheadline)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(Theme.textMuted)
                                 }
-                                .buttonStyle(.plain)
+                                .frame(minHeight: 44)
+                                .padding(.horizontal, 12)
                             }
+                            .buttonStyle(.plain)
+                            .cardStyle()
                         }
-                        .cardStyle()
                     }
 
                 }
@@ -151,68 +147,12 @@ private struct ProfileAndSettingsSheet: View {
     }
 
     private func exitDemoMode() {
+        // Clear stale demo data before switching backend
+        deviceManager.deviceStatus = nil
         APIBackend.current = .sleepypodCore
         let client = APIBackend.sleepypodCore.createClient()
         deviceManager.switchBackend(client)
         dismiss()
-    }
-
-    // MARK: - Profile (DB-backed side cards)
-
-    private var profileSection: some View {
-        VStack(spacing: 12) {
-            sideCard(side: .left)
-            sideCard(side: .right)
-        }
-        .padding(.top, 8)
-    }
-
-    private func sideCard(side: Side) -> some View {
-        let sideSettings: SideSettings? = side == .left
-            ? settingsManager.settings?.left
-            : settingsManager.settings?.right
-        let sideName = sideSettings?.name ?? ""
-        let awayMode = sideSettings?.awayMode ?? false
-        let label = side == .left ? "Left Side" : "Right Side"
-
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(label)
-                .font(.caption.weight(.medium))
-                .foregroundColor(Theme.textSecondary)
-
-            // Name field
-            HStack(spacing: 8) {
-                Text("Name")
-                    .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
-                    .frame(width: 50, alignment: .leading)
-
-                SideNameTextField(
-                    placeholder: side == .left ? "Left" : "Right",
-                    initialValue: sideName
-                ) { newName in
-                    Task { await settingsManager.updateSideName(side, name: newName) }
-                }
-            }
-
-            // Away mode toggle
-            HStack {
-                Text("Away Mode")
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { awayMode },
-                    set: { _ in
-                        Haptics.medium()
-                        Task { await settingsManager.toggleAwayMode(side) }
-                    }
-                ))
-                .tint(Theme.cooling)
-                .labelsHidden()
-            }
-        }
-        .cardStyle()
     }
 
     // MARK: - Connection
@@ -223,15 +163,18 @@ private struct ProfileAndSettingsSheet: View {
                 Image(systemName: "wifi")
                     .font(.system(size: 12))
                     .foregroundColor(Theme.healthy)
+                Text("sleepypod")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(.white)
+                Spacer()
                 Text(settingsManager.podIP)
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
-                Spacer()
-                if let name = podDiscovery.connectedPodName {
-                    Text(name)
-                        .font(.caption2)
-                        .foregroundColor(Theme.textMuted)
-                }
+            }
+            if let name = podDiscovery.connectedPodName {
+                Text(name)
+                    .font(.caption2)
+                    .foregroundColor(Theme.textMuted)
             }
 
             HStack(spacing: 10) {
@@ -271,7 +214,7 @@ private struct ProfileAndSettingsSheet: View {
 // MARK: - Side Name Text Field
 
 /// A text field that manages its own state from an initial value and saves on submit/blur.
-private struct SideNameTextField: View {
+struct SideNameTextField: View {
     let placeholder: String
     let initialValue: String
     let onCommit: (String) -> Void

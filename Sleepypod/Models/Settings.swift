@@ -108,4 +108,5 @@ struct PodSettings: Codable, Sendable {
     var primePodDaily: PrimePodDaily
     var temperatureFormat: TemperatureFormat
     var rebootDaily: Bool
+    var rebootTime: String  // "HH:mm"
 }

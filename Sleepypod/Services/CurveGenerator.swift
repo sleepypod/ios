@@ -123,7 +123,7 @@ final class CurveGenerator {
         }
 
         // Validate time format
-        let timeRegex = /^\d{2}:\d{2}$/
+        let timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/
         guard bedtime.wholeMatch(of: timeRegex) != nil,
               wake.wholeMatch(of: timeRegex) != nil else {
             error = "Bedtime and wake must be in HH:mm format."

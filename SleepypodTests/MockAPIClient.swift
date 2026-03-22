@@ -26,6 +26,7 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func getVitalsSummary(side: Side?, start: Date?, end: Date?) async throws -> VitalsSummary { VitalsSummary(avgHeartRate: nil, minHeartRate: nil, maxHeartRate: nil, avgHRV: nil, avgBreathingRate: nil) }
     func getMovement(side: Side?, start: Date?, end: Date?) async throws -> [MovementRecord] { [] }
     func triggerAlarm(_ alarm: AlarmJob) async throws {}
+    func clearAlarm(side: Side) async throws {}
     func reboot() async throws {}
     func getDiskUsage() async throws -> DiskUsage { throw APIError.noBaseURL }
     func getFileCount() async throws -> FileCount { throw APIError.noBaseURL }

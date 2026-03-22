@@ -114,6 +114,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         deviceInput["timezone"] = settings.timeZone
         deviceInput["temperatureUnit"] = settings.temperatureFormat == .fahrenheit ? "F" : "C"
         deviceInput["rebootDaily"] = settings.rebootDaily
+        deviceInput["rebootTime"] = settings.rebootTime.isEmpty ? "03:00" : settings.rebootTime
         deviceInput["primePodDaily"] = primePodEnabled
         deviceInput["primePodTime"] = primePodTime
 
@@ -286,6 +287,16 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         return services
     }
 
+    // MARK: - Log Sources
+
+    func getLogSources() async throws -> [LogSource] {
+        struct LogSourcesResponse: Decodable {
+            let sources: [LogSource]
+        }
+        let response: LogSourcesResponse = try await query("system.getLogSources")
+        return response.sources
+    }
+
     // MARK: - Metrics
 
     func getSleepRecords(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [SleepRecord] {
@@ -335,6 +346,12 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             "vibrationIntensity": alarm.vibrationIntensity,
             "vibrationPattern": alarm.vibrationPattern.rawValue,
             "duration": alarm.duration,
+        ])
+    }
+
+    func clearAlarm(side: Side) async throws {
+        let _: TRPCSuccess = try await mutate("device.clearAlarm", input: [
+            "side": side.rawValue,
         ])
     }
 
@@ -584,7 +601,8 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                 time: device?.primePodTime ?? "14:00"
             ),
             temperatureFormat: device?.temperatureUnit == "C" ? .celsius : .fahrenheit,
-            rebootDaily: device?.rebootDaily ?? false
+            rebootDaily: device?.rebootDaily ?? false,
+            rebootTime: device?.rebootTime ?? "03:00"
         )
     }
 

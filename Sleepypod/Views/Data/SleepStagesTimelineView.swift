@@ -157,8 +157,10 @@ struct SleepStagesTimelineView: View {
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                                     .foregroundColor(scoreColor)
                                 Text(scoreLabel)
-                                    .font(.system(size: 7, weight: .medium))
+                                    .font(.system(size: 6, weight: .medium))
                                     .foregroundColor(scoreColor.opacity(0.8))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
                             }
                         }
                         .frame(width: 40, height: 40)

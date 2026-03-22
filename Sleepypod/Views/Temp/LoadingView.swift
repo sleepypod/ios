@@ -21,17 +21,13 @@ struct LoadingView: View {
                 }
 
                 // Center icon
-                Image(systemName: "bed.double.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(Theme.accent)
+                Image("WelcomeLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
                     .scaleEffect(ringScale)
 
-                // Arc spinner
-                Circle()
-                    .trim(from: 0, to: 0.3)
-                    .stroke(Theme.accent.opacity(0.6), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 70, height: 70)
-                    .rotationEffect(.degrees(phase))
             }
 
             if !message.isEmpty {
@@ -48,9 +44,6 @@ struct LoadingView: View {
             withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
                 ringScale = 1.0
                 textOpacity = 0.8
-            }
-            withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                phase = 360
             }
         }
     }

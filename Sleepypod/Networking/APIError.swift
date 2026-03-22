@@ -8,6 +8,7 @@ enum APIError: LocalizedError, Sendable {
     case networkError(Error)
     case serverError(message: String)
     case noBaseURL
+    case notSupported(String)
 
     var errorDescription: String? {
         switch self {
@@ -25,6 +26,8 @@ enum APIError: LocalizedError, Sendable {
             "Server error: \(message)"
         case .noBaseURL:
             "Pod IP address not configured"
+        case .notSupported(let feature):
+            "Not supported: \(feature)"
         }
     }
 }

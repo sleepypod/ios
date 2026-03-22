@@ -14,6 +14,25 @@ final class SettingsManager {
         self.api = api
     }
 
+    // MARK: - Side Names (single source of truth)
+
+    /// Display name for the left side. Falls back to "Left" if not set or empty.
+    var leftName: String {
+        let name = settings?.left.name ?? ""
+        return name.isEmpty ? "Left" : name
+    }
+
+    /// Display name for the right side. Falls back to "Right" if not set or empty.
+    var rightName: String {
+        let name = settings?.right.name ?? ""
+        return name.isEmpty ? "Right" : name
+    }
+
+    /// Display name for a given side.
+    func sideName(for side: Side) -> String {
+        side == .left ? leftName : rightName
+    }
+
     // MARK: - Computed
 
     var temperatureFormat: TemperatureFormat {
@@ -31,7 +50,18 @@ final class SettingsManager {
 
     var podIP: String {
         get { UserDefaults.standard.string(forKey: "podIPAddress") ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: "podIPAddress") }
+        set {
+            // Strip IPv6 zone IDs (%en0, %%en0) and whitespace
+            var clean = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let pct = clean.firstIndex(of: "%") {
+                clean = String(clean[clean.startIndex..<pct])
+            }
+            // Strip ::ffff: IPv4-mapped prefix
+            if clean.hasPrefix("::ffff:") {
+                clean = String(clean.dropFirst(7))
+            }
+            UserDefaults.standard.set(clean, forKey: "podIPAddress")
+        }
     }
 
     // MARK: - Fetch
@@ -72,6 +102,20 @@ final class SettingsManager {
     func toggleRebootDaily() async {
         guard var settings else { return }
         settings.rebootDaily.toggle()
+        self.settings = settings
+        await saveSettings(settings)
+    }
+
+    func updateRebootTime(_ time: String) async {
+        guard var settings else { return }
+        settings.rebootTime = time
+        self.settings = settings
+        await saveSettings(settings)
+    }
+
+    func togglePrimePodDaily() async {
+        guard var settings else { return }
+        settings.primePodDaily.enabled.toggle()
         self.settings = settings
         await saveSettings(settings)
     }

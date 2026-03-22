@@ -40,7 +40,7 @@ struct HealthCircleView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     // Title row: "Sleepypod" + Pod model chip
                     HStack(spacing: 8) {
-                        Text("Sleepypod")
+                        Text("sleepypod")
                             .font(.subheadline.weight(.semibold))
                             .foregroundColor(.white)
 

@@ -12,6 +12,9 @@ DerivedData/
 .build/
 Packages/
 
+# Build artifacts
+build/
+
 # Misc
 .DS_Store
 *.swp

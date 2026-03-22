@@ -15,6 +15,7 @@ protocol SleepypodProtocol: Sendable {
     func getVitalsSummary(side: Side?, start: Date?, end: Date?) async throws -> VitalsSummary
     func getMovement(side: Side?, start: Date?, end: Date?) async throws -> [MovementRecord]
     func triggerAlarm(_ alarm: AlarmJob) async throws
+    func clearAlarm(side: Side) async throws
     func reboot() async throws
     func setInternetAccess(blocked: Bool) async throws
     func getCalibrationStatus(side: Side) async throws -> CalibrationStatus
@@ -22,6 +23,8 @@ protocol SleepypodProtocol: Sendable {
     func getFileCount() async throws -> FileCount
     func triggerCalibration(side: Side, sensorType: String) async throws -> CalibrationTriggerResponse
     func triggerFullCalibration() async throws -> CalibrationTriggerResponse
+
+    func getLogSources() async throws -> [LogSource]
 
     // Beta features (PR #193)
     func getVersion() async throws -> SystemVersion
@@ -37,4 +40,11 @@ protocol SleepypodProtocol: Sendable {
 struct CalibrationTriggerResponse: Decodable, Sendable {
     let triggered: Bool
     let message: String
+}
+
+struct LogSource: Codable, Sendable, Identifiable {
+    let unit: String
+    let name: String
+    let active: Bool
+    var id: String { unit }
 }

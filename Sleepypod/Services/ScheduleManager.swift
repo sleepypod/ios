@@ -177,6 +177,68 @@ final class ScheduleManager {
         }
     }
 
+    // MARK: - Update Power Schedule
+
+    func updatePowerSchedule(_ power: PowerSchedule) async {
+        guard var schedules else { return }
+        let side = selectedSide.primarySide
+
+        for day in selectedDays {
+            var sideSchedule = schedules.schedule(for: side)
+            var daily = sideSchedule[day]
+            daily.power = power
+            sideSchedule[day] = daily
+            schedules.setSchedule(sideSchedule, for: side)
+
+            if selectedSide == .both {
+                var other = schedules.schedule(for: side == .left ? .right : .left)
+                var otherDaily = other[day]
+                otherDaily.power = power
+                other[day] = otherDaily
+                schedules.setSchedule(other, for: side == .left ? .right : .left)
+            }
+        }
+
+        self.schedules = schedules
+        do {
+            self.schedules = try await api.updateSchedules(schedules, days: selectedDays)
+        } catch {
+            self.error = error.localizedDescription
+            await fetchSchedules()
+        }
+    }
+
+    // MARK: - Update Alarm Schedule
+
+    func updateAlarmSchedule(_ alarm: AlarmSchedule) async {
+        guard var schedules else { return }
+        let side = selectedSide.primarySide
+
+        for day in selectedDays {
+            var sideSchedule = schedules.schedule(for: side)
+            var daily = sideSchedule[day]
+            daily.alarm = alarm
+            sideSchedule[day] = daily
+            schedules.setSchedule(sideSchedule, for: side)
+
+            if selectedSide == .both {
+                var other = schedules.schedule(for: side == .left ? .right : .left)
+                var otherDaily = other[day]
+                otherDaily.alarm = alarm
+                other[day] = otherDaily
+                schedules.setSchedule(other, for: side == .left ? .right : .left)
+            }
+        }
+
+        self.schedules = schedules
+        do {
+            self.schedules = try await api.updateSchedules(schedules, days: selectedDays)
+        } catch {
+            self.error = error.localizedDescription
+            await fetchSchedules()
+        }
+    }
+
     // MARK: - Profile Presets
 
     func applyProfile(_ profile: SleepProfile) async {

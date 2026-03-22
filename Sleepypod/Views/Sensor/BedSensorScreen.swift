@@ -7,11 +7,47 @@ struct BedSensorScreen: View {
 
     @State private var livePulse = false
     @State private var fanRotation: Double = 0
+    @State private var showGestureBadge = false
+    @State private var gestureSide: String = ""
+    @State private var gestureTapType: String = ""
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
                 connectionBar
+
+                // Gesture tap indicator
+                if showGestureBadge {
+                    HStack {
+                        if gestureSide == "left" || gestureSide == "both" {
+                            Spacer()
+                        }
+                        HStack(spacing: 6) {
+                            Image(systemName: "hand.tap.fill")
+                                .font(.system(size: 12))
+                            Text("TAP")
+                                .font(.caption.weight(.bold))
+                            Text(gestureTapType)
+                                .font(.caption2)
+                                .foregroundColor(Theme.textSecondary)
+                            Text(gestureSide.capitalized)
+                                .font(.caption2)
+                                .foregroundColor(Theme.textSecondary)
+                        }
+                        .foregroundColor(Theme.amber)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Theme.amber.opacity(0.15))
+                        .clipShape(Capsule())
+                        .transition(.scale.combined(with: .opacity))
+                        if gestureSide == "right" || gestureSide == "both" {
+                            Spacer()
+                        }
+                    }
+                }
+
+                // Data pipeline DAG
+                DataPipelineView()
 
                 // Sensor matrix (cap + temp)
                 sensorMatrixCard
@@ -36,11 +72,7 @@ struct BedSensorScreen: View {
                 // System
                 systemCard
 
-                // Firmware console
-                FirmwareLogConsoleView(
-                    logs: sensor.firmwareLogs,
-                    onClear: { sensor.clearLogs() }
-                )
+                // Sensor console moved to Status screen
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 20)
@@ -53,6 +85,16 @@ struct BedSensorScreen: View {
             livePulse = true
         }
         .onDisappear { sensor.disconnect() }
+        .onChange(of: sensor.lastGesture?.ts) { _, newTs in
+            guard newTs != nil, let g = sensor.lastGesture else { return }
+            gestureSide = g.side
+            gestureTapType = g.tapType
+            withAnimation(.spring(duration: 0.3)) { showGestureBadge = true }
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                withAnimation(.easeOut(duration: 0.4)) { showGestureBadge = false }
+            }
+        }
     }
 
     // MARK: - Sensor Matrix Card
@@ -269,14 +311,21 @@ struct BedSensorScreen: View {
 
     private var tempTrendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 10))
-                    .foregroundColor(Theme.amber)
-                Text("TEMPERATURE TREND")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(Theme.textSecondary)
-                    .tracking(1)
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.amber)
+                    Text("TEMPERATURE TREND")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Theme.textSecondary)
+                        .tracking(1)
+                }
+                Spacer()
+                HStack(spacing: 10) {
+                    legendDot(color: Theme.accent, label: "Left")
+                    legendDot(color: Color(hex: "40e0d0"), label: "Right")
+                }
             }
 
             Chart {
@@ -285,14 +334,12 @@ struct BedSensorScreen: View {
                         .foregroundStyle(Theme.accent)
                         .interpolationMethod(.catmullRom)
                         .lineStyle(StrokeStyle(lineWidth: 1.5))
-                        .symbol { Circle().fill(Theme.accent).frame(width: 3, height: 3) }
                 }
                 ForEach(Array(sensor.rightTempHistory.enumerated()), id: \.offset) { _, point in
                     LineMark(x: .value("Time", point.0), y: .value("°F", point.1))
                         .foregroundStyle(Color(hex: "40e0d0"))
                         .interpolationMethod(.catmullRom)
                         .lineStyle(StrokeStyle(lineWidth: 1.5))
-                        .symbol { Circle().fill(Color(hex: "40e0d0")).frame(width: 3, height: 3) }
                 }
             }
             .transaction { $0.animation = nil }
@@ -312,11 +359,6 @@ struct BedSensorScreen: View {
             }
             .frame(height: 100)
 
-            HStack(spacing: 12) {
-                legendDot(color: Theme.accent, label: "Left")
-                legendDot(color: Color(hex: "40e0d0"), label: "Right")
-            }
-            .frame(maxWidth: .infinity)
         }
         .cardStyle()
     }

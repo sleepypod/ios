@@ -5,6 +5,13 @@ struct DeviceSettingsCardView: View {
     @Environment(StatusManager.self) private var statusManager
     @Environment(DeviceManager.self) private var deviceManager
     @State private var ledValue: Double = 50
+    @State private var rebootTime: Date = {
+        // Default 3:00 AM
+        var comps = DateComponents()
+        comps.hour = 3
+        comps.minute = 0
+        return Calendar.current.date(from: comps) ?? Date()
+    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -41,8 +48,8 @@ struct DeviceSettingsCardView: View {
                     .foregroundColor(Theme.textSecondary)
 
                 HStack(spacing: 0) {
-                    formatButton(title: "°F", format: .fahrenheit)
-                    formatButton(title: "°C", format: .celsius)
+                    formatButton(title: "\u{00B0}F", format: .fahrenheit)
+                    formatButton(title: "\u{00B0}C", format: .celsius)
                     formatButton(title: "+/-", format: .relative)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -62,6 +69,40 @@ struct DeviceSettingsCardView: View {
                 Toggle("", isOn: Binding(
                     get: { settingsManager.settings?.rebootDaily ?? false },
                     set: { _ in Haptics.medium(); Task { await settingsManager.toggleRebootDaily() } }
+                ))
+                .tint(Theme.cooling)
+                .labelsHidden()
+            }
+
+            // Reboot time picker (visible when reboot is enabled)
+            if settingsManager.settings?.rebootDaily == true {
+                DatePicker("Reboot Time", selection: $rebootTime, displayedComponents: .hourAndMinute)
+                    .datePickerStyle(.compact)
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                    .tint(Theme.accent)
+                    .onChange(of: rebootTime) { _, newValue in
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "HH:mm"
+                        let timeString = formatter.string(from: newValue)
+                        Task { await settingsManager.updateRebootTime(timeString) }
+                    }
+            }
+
+            // Auto Prime Daily
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auto Prime Daily")
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                    Text("Runs 1 hour after daily reboot")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { settingsManager.settings?.primePodDaily.enabled ?? false },
+                    set: { _ in Haptics.medium(); Task { await settingsManager.togglePrimePodDaily() } }
                 ))
                 .tint(Theme.cooling)
                 .labelsHidden()
@@ -93,115 +134,29 @@ struct DeviceSettingsCardView: View {
             .onAppear {
                 ledValue = Double(deviceManager.deviceStatus?.settings.ledBrightness ?? 50)
             }
-
-            // Side settings
-            if let settings = settingsManager.settings {
-                Divider().background(Theme.cardBorder)
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Side Names")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-
-                    HStack(spacing: 10) {
-                        sideNameField("Left", value: settings.left.name) { name in
-                            Task { await settingsManager.updateSideName(.left, name: name) }
-                        }
-                        sideNameField("Right", value: settings.right.name) { name in
-                            Task { await settingsManager.updateSideName(.right, name: name) }
-                        }
-                    }
-                }
-
-                // Away mode
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Away Mode (Left)")
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                        Text("Disable heating when away")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { settings.left.awayMode },
-                        set: { _ in Haptics.medium(); Task { await settingsManager.toggleAwayMode(.left) } }
-                    ))
-                    .tint(Theme.cooling)
-                    .labelsHidden()
-                }
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Away Mode (Right)")
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                        Text("Disable heating when away")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { settings.right.awayMode },
-                        set: { _ in Haptics.medium(); Task { await settingsManager.toggleAwayMode(.right) } }
-                    ))
-                    .tint(Theme.cooling)
-                    .labelsHidden()
-                }
-            }
-
-            // Services
-            if let services = statusManager.services {
-                Divider().background(Theme.cardBorder)
-
-                serviceToggle(
-                    title: "Biometrics",
-                    description: "Sleep tracking and analysis",
-                    isOn: services.biometrics.enabled
-                ) {
-                    Task { await statusManager.toggleBiometrics() }
-                }
-
-                serviceToggle(
-                    title: "Sentry Logging",
-                    description: "Error reporting service",
-                    isOn: services.sentryLogging.enabled
-                ) {
-                    Task { await statusManager.toggleSentryLogging() }
-                }
-            }
         }
         .cardStyle()
-    }
-
-    private func serviceToggle(title: String, description: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-            }
-            Spacer()
-            Toggle("", isOn: Binding(get: { isOn }, set: { _ in Haptics.medium(); action() }))
-                .tint(Theme.cooling)
-                .labelsHidden()
+        .onAppear {
+            syncRebootTime()
+        }
+        .onChange(of: settingsManager.settings?.rebootTime) { _, _ in
+            syncRebootTime()
         }
     }
 
-    private func sideNameField(_ placeholder: String, value: String, onCommit: @escaping (String) -> Void) -> some View {
-        @State var text = value
-        return TextField(placeholder, text: $text)
-            .font(.subheadline)
-            .foregroundColor(.white)
-            .textFieldStyle(.plain)
-            .padding(10)
-            .background(Theme.cardElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .onSubmit { onCommit(text) }
+    private func syncRebootTime() {
+        let timeStr = settingsManager.settings?.rebootTime ?? "03:00"
+        let parts = timeStr.split(separator: ":")
+        if parts.count == 2,
+           let hour = Int(parts[0]),
+           let minute = Int(parts[1]) {
+            var comps = DateComponents()
+            comps.hour = hour
+            comps.minute = minute
+            if let date = Calendar.current.date(from: comps) {
+                rebootTime = date
+            }
+        }
     }
 
     private func formatButton(title: String, format: TemperatureFormat) -> some View {
@@ -218,5 +173,87 @@ struct DeviceSettingsCardView: View {
                 .background(isSelected ? Theme.cooling : Color(hex: "2a2a3a"))
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Sides Card
+
+struct SidesCardView: View {
+    @Environment(SettingsManager.self) private var settingsManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Sides")
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.white)
+
+            if let settings = settingsManager.settings {
+                // Left side
+                sideRow(
+                    badge: "L",
+                    label: "Left Side",
+                    name: settings.left.name,
+                    placeholder: "Left",
+                    awayMode: settings.left.awayMode,
+                    side: .left
+                )
+
+                Divider().background(Theme.cardBorder)
+
+                // Right side
+                sideRow(
+                    badge: "R",
+                    label: "Right Side",
+                    name: settings.right.name,
+                    placeholder: "Right",
+                    awayMode: settings.right.awayMode,
+                    side: .right
+                )
+            }
+        }
+        .cardStyle()
+    }
+
+    private func sideRow(badge: String, label: String, name: String, placeholder: String, awayMode: Bool, side: Side) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Text(badge)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(Theme.accent)
+                    .frame(width: 28, height: 28)
+                    .background(Theme.accent.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label)
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+
+                    SideNameTextField(
+                        placeholder: placeholder,
+                        initialValue: name
+                    ) { newName in
+                        Task { await settingsManager.updateSideName(side, name: newName) }
+                    }
+                }
+                Spacer()
+            }
+
+            HStack {
+                Text("Away Mode")
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { awayMode },
+                    set: { _ in
+                        Haptics.medium()
+                        Task { await settingsManager.toggleAwayMode(side) }
+                    }
+                ))
+                .tint(Theme.cooling)
+                .labelsHidden()
+            }
+        }
     }
 }

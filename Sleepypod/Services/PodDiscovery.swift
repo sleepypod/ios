@@ -158,6 +158,11 @@ final class PodDiscovery {
                 interface: nil
             )
             let params = NWParameters.tcp
+            // Prefer IPv4 — some networks have flaky IPv6 that stalls resolution
+            params.requiredInterfaceType = .wifi
+            if let ip = params.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options {
+                ip.version = .v4
+            }
             let connection = NWConnection(to: endpoint, using: params)
             let once = OnceFlag()
 
@@ -169,14 +174,43 @@ final class PodDiscovery {
                        case .hostPort(let host, _) = endpoint {
                         let hostString: String
                         switch host {
-                        case .ipv4(let addr): hostString = "\(addr)"
-                        case .ipv6(let addr): hostString = "\(addr)"
-                        case .name(let name, _): hostString = name
-                        @unknown default: hostString = "\(host)"
+                        case .ipv4(let addr):
+                            hostString = "\(addr)"
+                        case .ipv6(let addr):
+                            // Strip zone ID (%en0) and convert IPv4-mapped IPv6 to plain IPv4
+                            var raw = "\(addr)"
+                            // Remove zone ID (e.g., "%en0", "%%en0")
+                            if let pct = raw.firstIndex(of: "%") {
+                                raw = String(raw[raw.startIndex..<pct])
+                            }
+                            // Convert ::ffff:192.168.1.88 → 192.168.1.88
+                            if raw.hasPrefix("::ffff:") {
+                                raw = String(raw.dropFirst(7))
+                            }
+                            hostString = raw
+                        case .name(let name, _):
+                            // Got hostname (e.g. "eight-pod.local") — resolve to IPv4 on background thread
+                            Task {
+                                if let resolved = await resolveHostnameToIPv4(name), isValidIPv4(resolved) {
+                                    if once.fire() {
+                                        connection.cancel()
+                                        continuation.resume(returning: sanitizeIP(resolved))
+                                    }
+                                } else {
+                                    // Resolution failed or returned non-IPv4 — don't store bare hostname
+                                    if once.fire() {
+                                        connection.cancel()
+                                        continuation.resume(returning: nil)
+                                    }
+                                }
+                            }
+                            return
+                        @unknown default:
+                            hostString = "\(host)"
                         }
                         if once.fire() {
                             connection.cancel()
-                            continuation.resume(returning: hostString)
+                            continuation.resume(returning: sanitizeIP(hostString))
                         }
                     } else {
                         if once.fire() {
@@ -201,6 +235,55 @@ final class PodDiscovery {
                     continuation.resume(returning: nil)
                 }
             }
+        }
+    }
+
+}
+
+/// Check if a string is a valid IPv4 address (not a hostname).
+private func isValidIPv4(_ string: String) -> Bool {
+    let parts = string.split(separator: ".")
+    guard parts.count == 4 else { return false }
+    return parts.allSatisfy { part in
+        guard let num = Int(part), (0...255).contains(num) else { return false }
+        return true
+    }
+}
+
+/// Strip IPv6 zone IDs (%en0, %%en0) and ::ffff: prefix from an IP string.
+func sanitizeIP(_ ip: String) -> String {
+    var clean = ip.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let pct = clean.firstIndex(of: "%") {
+        clean = String(clean[clean.startIndex..<pct])
+    }
+    if clean.hasPrefix("::ffff:") {
+        clean = String(clean.dropFirst(7))
+    }
+    return clean
+}
+
+/// Resolve a hostname (e.g. "eight-pod.local") to an IPv4 address string.
+/// Runs on a background thread to avoid blocking the main queue with `getaddrinfo`.
+private func resolveHostnameToIPv4(_ hostname: String) async -> String? {
+    await withCheckedContinuation { continuation in
+        DispatchQueue.global(qos: .userInitiated).async {
+            var hints = addrinfo()
+            hints.ai_family = AF_INET // IPv4 only
+            hints.ai_socktype = SOCK_STREAM
+
+            var result: UnsafeMutablePointer<addrinfo>?
+            let status = getaddrinfo(hostname, nil, &hints, &result)
+            defer { if result != nil { freeaddrinfo(result) } }
+
+            guard status == 0, let info = result else {
+                continuation.resume(returning: nil)
+                return
+            }
+
+            var addr = info.pointee.ai_addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+            var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+            inet_ntop(AF_INET, &addr.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN))
+            continuation.resume(returning: String(decoding: buf.prefix(while: { $0 != 0 }).map(UInt8.init), as: UTF8.self))
         }
     }
 }

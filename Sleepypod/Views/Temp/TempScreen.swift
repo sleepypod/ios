@@ -6,6 +6,10 @@ struct TempScreen: View {
 
     @State private var bgPulse = false
 
+    private var sideName: String {
+        settingsManager.sideName(for: deviceManager.selectedSide.primarySide)
+    }
+
     private var ambientColor: Color {
         guard deviceManager.isConnected, deviceManager.isOn else { return .clear }
         let status = deviceManager.currentSideStatus
@@ -37,8 +41,11 @@ struct TempScreen: View {
 
                 if deviceManager.isConnected {
                     VStack(spacing: 0) {
-                        // Top bar — priming indicator + profile
+                        // Top bar — name + priming + settings gear
                         HStack {
+                            Text(sideName)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundColor(Theme.textSecondary)
                             if deviceManager.deviceStatus?.isPriming == true {
                                 PrimingIndicator()
                             }
@@ -54,6 +61,7 @@ struct TempScreen: View {
                             // Side selector
                             SideSelectorView()
                                 .padding(.horizontal, 16)
+                                .padding(.top, 8)
                                 .padding(.bottom, 12)
 
                             // Alerts
@@ -228,9 +236,11 @@ private struct EnvironmentInfoView: View {
     }
 
     private var autoOffText: String? {
-        guard let remaining = deviceManager.currentSideStatus?.secondsRemaining, remaining > 0 else { return nil }
-        let hours = remaining / 3600
-        let minutes = (remaining % 3600) / 60
+        guard let status = deviceManager.currentSideStatus,
+              status.isOn,
+              status.secondsRemaining > 0 else { return nil }
+        let hours = status.secondsRemaining / 3600
+        let minutes = (status.secondsRemaining % 3600) / 60
         if hours > 0 { return "\(hours)h \(minutes)m" }
         return "\(minutes)m"
     }

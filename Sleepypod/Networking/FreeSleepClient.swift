@@ -88,6 +88,10 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
         let _: Schedules = try await post(.alarm, body: alarm)
     }
 
+    func clearAlarm(side: Side) async throws {
+        throw APIError.notSupported("Alarm control not available on free-sleep")
+    }
+
     func reboot() async throws {
         try await postEmpty(path: "/api/execute", body: ["command": "reboot"])
     }
@@ -125,6 +129,7 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws { throw APIError.invalidResponse(statusCode: 404) }
     func deleteSleepRecord(id: Int) async throws { throw APIError.invalidResponse(statusCode: 404) }
     func dismissPrimeNotification() async throws {}
+    func getLogSources() async throws -> [LogSource] { [] }
 
     // MARK: - Private Helpers
 

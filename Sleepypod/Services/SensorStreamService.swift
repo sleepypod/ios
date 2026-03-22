@@ -26,6 +26,15 @@ struct FirmwareLogEntry: Identifiable, Sendable {
     }
 }
 
+// MARK: - Raw Frame Entry
+
+struct RawFrameEntry: Identifiable, Sendable {
+    let id = UUID()
+    let timestamp: Date
+    let type: String
+    let json: String
+}
+
 // MARK: - Service
 
 @MainActor
@@ -55,6 +64,17 @@ final class SensorStreamService {
     var firmwareLogs: [FirmwareLogEntry] = []
     var leftTempHistory: [(Date, Float)] = []
     var rightTempHistory: [(Date, Float)] = []
+
+    // Pipeline metrics — per-type frame counts and raw frame buffer
+    var frameCounts: [String: Int] = [:]
+    var recentFrames: [RawFrameEntry] = []
+    private let maxRecentFrames = 200
+
+    /// Latest gesture event from WebSocket
+    var lastGesture: GestureFrame?
+
+    /// Latest device status frame from WebSocket (replaces HTTP polling)
+    var latestDeviceStatus: DeviceStatusFrame?
 
     /// Notification relay — set by app to forward pod events
     var notificationRelay: NotificationRelay?
@@ -119,6 +139,7 @@ final class SensorStreamService {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         isConnected = false
+        latestDeviceStatus = nil
     }
 
     func clearLogs() { firmwareLogs.removeAll() }
@@ -156,6 +177,14 @@ final class SensorStreamService {
             framesPerSecond = Int(Double(frameCount) / elapsed)
             frameCount = 0
             fpsTimer = .now
+        }
+
+        // Track per-type counts and raw frames for pipeline view
+        let frameType = frame.typeName
+        frameCounts[frameType, default: 0] += 1
+        if let jsonStr = String(data: data, encoding: .utf8) {
+            recentFrames.insert(RawFrameEntry(timestamp: .now, type: frameType, json: jsonStr), at: 0)
+            if recentFrames.count > maxRecentFrames { recentFrames.removeLast() }
         }
 
         switch frame {
@@ -224,6 +253,19 @@ final class SensorStreamService {
                     message: notif.message
                 )
             }
+
+        case .deviceStatus(let status):
+            latestDeviceStatus = status
+
+        case .gesture(let g):
+            lastGesture = g
+            let entry = FirmwareLogEntry(
+                timestamp: Date(),
+                level: .info,
+                message: "[\(g.tapType)] \(g.side) side tapped"
+            )
+            firmwareLogs.append(entry)
+            if firmwareLogs.count > maxLogLines { firmwareLogs.removeFirst() }
 
         case .unknown: break
         }

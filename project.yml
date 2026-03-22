@@ -38,7 +38,7 @@ targets:
         INFOPLIST_KEY_NSHealthShareUsageDescription: "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Sleepypod needs local network access to communicate with your pod"
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: 1
         CODE_SIGN_STYLE: Automatic

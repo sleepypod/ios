@@ -6,6 +6,7 @@ import Observation
 final class StatusManager {
     var serverStatus: ServerStatus?
     var services: Services?
+    var logSources: [LogSource] = []
     var isLoading = false
     var error: String?
     var lastUpdated: Date?
@@ -136,7 +137,8 @@ final class StatusManager {
         async let statusTask: () = fetchServerStatus()
         async let servicesTask: () = fetchServices()
         async let internetTask: () = fetchInternetStatus()
-        _ = await (statusTask, servicesTask, internetTask)
+        async let logSourcesTask: () = fetchLogSources()
+        _ = await (statusTask, servicesTask, internetTask, logSourcesTask)
 
         lastUpdated = Date()
         isLoading = false
@@ -239,6 +241,14 @@ final class StatusManager {
             services = try await api.getServices()
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    private func fetchLogSources() async {
+        do {
+            logSources = try await api.getLogSources()
+        } catch {
+            // Non-critical — keep previous value
         }
     }
 }

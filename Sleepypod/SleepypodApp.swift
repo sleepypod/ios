@@ -444,7 +444,7 @@ struct DisconnectedTabView: View {
                     .buttonStyle(.plain)
                 }
 
-                // Manual IP — accordion
+                // Manual IP — accordion (muted until expanded)
                 DisclosureGroup {
                     HStack(spacing: 8) {
                         TextField("192.168.1.88", text: Binding(
@@ -476,11 +476,14 @@ struct DisconnectedTabView: View {
                     }
                     .padding(.top, 8)
                 } label: {
-                    Text("Enter IP manually")
-                        .font(.caption)
-                        .foregroundColor(Theme.textMuted)
+                    HStack(spacing: 6) {
+                        Text("Enter IP manually")
+                            .font(.caption)
+                    }
+                    .foregroundColor(Theme.textMuted)
                 }
                 .tint(Theme.textMuted)
+                .accentColor(Theme.textMuted)
             }
             .padding(.horizontal, 32)
 

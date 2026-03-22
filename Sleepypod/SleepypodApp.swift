@@ -419,29 +419,30 @@ struct DisconnectedTabView: View {
 
             // Actions
             VStack(spacing: 12) {
-                Button {
-                    Haptics.light()
-                    Task {
-                        await podDiscovery.autoConnect(
-                            settingsManager: settingsManager,
-                            deviceManager: deviceManager
-                        )
+                // Retry — only after failure
+                if podDiscovery.status == .failed {
+                    Button {
+                        Haptics.light()
+                        Task {
+                            await podDiscovery.autoConnect(
+                                settingsManager: settingsManager,
+                                deviceManager: deviceManager
+                            )
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Retry")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                        Text("Search for sleepypod")
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .disabled(isActive)
-                .opacity(isActive ? 0.5 : 1)
 
                 // Manual IP — accordion
                 DisclosureGroup {

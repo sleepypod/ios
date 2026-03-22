@@ -110,12 +110,14 @@ final class SensorStreamService {
     }
 
     func connect() {
-        guard !isConnected else { return }
-
         // Demo mode — generate fake sensor data instead of connecting WS
         if APIBackend.current.isDemo {
+            guard demoTask == nil else { return }
             startDemoStream()
             return
+        }
+
+        guard !isConnected else { return
         }
 
         guard let url = podURL else { error = "No pod IP"; return }

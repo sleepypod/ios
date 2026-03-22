@@ -617,7 +617,8 @@
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = sleepypod;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads your sleep schedule to set bedtime and wake temperatures automatically";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "sleepypod writes sleep session data including duration, heart rate, and sleep stages to Health";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -625,7 +626,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sleepypod.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod;
 				PRODUCT_NAME = Sleepypod;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -706,7 +707,8 @@
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = sleepypod;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads your sleep schedule to set bedtime and wake temperatures automatically";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "sleepypod writes sleep session data including duration, heart rate, and sleep stages to Health";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -714,7 +716,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sleepypod.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod;
 				PRODUCT_NAME = Sleepypod;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -730,7 +732,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sleepypod.ios.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sleepypod.app/Sleepypod";
@@ -817,7 +819,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sleepypod.ios.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sleepypod.app/Sleepypod";

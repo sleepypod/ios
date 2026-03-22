@@ -15,6 +15,9 @@ Packages/
 # Build artifacts
 build/
 
+# Node (semantic-release)
+node_modules/
+
 # Misc
 .DS_Store
 *.swp

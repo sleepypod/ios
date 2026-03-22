@@ -138,6 +138,8 @@ struct ContentView: View {
             deviceManager.startPolling()
 
             // Demo mode — just fetch mock status, skip mDNS
+            // Sensor demo stream starts automatically when Sensors tab is visited
+            // via BedSensorScreen.onAppear -> connect() -> startDemoStream()
             if isDemo {
                 await deviceManager.fetchStatus()
                 return

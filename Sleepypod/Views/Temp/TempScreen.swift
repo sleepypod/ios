@@ -54,15 +54,13 @@ struct TempScreen: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 4)
-                        .padding(.bottom, 4)
 
                     ScrollView {
                         VStack(spacing: 0) {
-                            // Side selector
+                            // Side selector — below toolbar with a gap
                             SideSelectorView()
                                 .padding(.horizontal, 16)
-                                .padding(.top, 8)
-                                .padding(.bottom, 12)
+                                .padding(.top, 12)
 
                             // Alerts
                             VStack(spacing: 8) {
@@ -74,8 +72,10 @@ struct TempScreen: View {
                             }
                             .padding(.horizontal, 16)
 
-                            // Dial + controls
-                            VStack(spacing: 32) {
+                            Spacer(minLength: 0)
+
+                            // Dial + controls — vertically centered in remaining space
+                            VStack(spacing: 28) {
                                 TemperatureDialView()
                                     .onTapGesture {
                                         Haptics.medium()
@@ -87,9 +87,10 @@ struct TempScreen: View {
                                 EnvironmentInfoView()
                             }
                             .padding(.horizontal, 16)
-                            .padding(.top, 12)
+
+                            Spacer(minLength: 0)
                         }
-                        .frame(maxWidth: .infinity, minHeight: geo.size.height)
+                        .frame(maxWidth: .infinity, minHeight: geo.size.height - 60)
                     }
                     .refreshable {
                         await deviceManager.fetchStatus()

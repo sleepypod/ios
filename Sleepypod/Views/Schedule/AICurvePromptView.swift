@@ -17,6 +17,7 @@ struct AICurvePromptView: View {
     @State private var parsedResult: CurveGenerator.GeneratedCurve?
     @State private var editablePoints: [SetPoint] = []
     @State private var isApplied = false
+    @State private var isRunOnce = false
     @State private var copiedPrompt = false
     @State private var copiedJSON = false
     @State private var showSaveDialog = false
@@ -482,6 +483,12 @@ struct AICurvePromptView: View {
                 floatingButton(title: isApplied ? "Applied!" : "Apply", icon: isApplied ? "checkmark" : "calendar.badge.plus") {
                     applyToSchedule()
                 }
+
+                Divider().frame(height: 20).background(Color.white.opacity(0.2))
+
+                floatingButton(title: isRunOnce ? "Started!" : "Use Now", icon: isRunOnce ? "checkmark" : "play.fill") {
+                    useNow()
+                }
             }
         }
     }
@@ -568,15 +575,14 @@ struct AICurvePromptView: View {
 
             ForEach(sorted) { point in
                 let offset = point.tempF - 80
-                let color = phaseColor(point.phase)
 
                 LineMark(
                     x: .value("Time", point.time),
                     y: .value("Offset", offset)
                 )
-                .foregroundStyle(color)
+                .foregroundStyle(Theme.accent)
                 .interpolationMethod(.catmullRom)
-                .lineStyle(StrokeStyle(lineWidth: 3))
+                .lineStyle(StrokeStyle(lineWidth: 2.5))
 
                 AreaMark(
                     x: .value("Time", point.time),
@@ -584,7 +590,7 @@ struct AICurvePromptView: View {
                 )
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [color.opacity(0.2), Color.clear],
+                        colors: [Theme.accent.opacity(0.15), Color.clear],
                         startPoint: offset > 0 ? .top : .bottom,
                         endPoint: offset > 0 ? .bottom : .top
                     )
@@ -595,7 +601,7 @@ struct AICurvePromptView: View {
                     x: .value("Time", point.time),
                     y: .value("Offset", offset)
                 )
-                .foregroundStyle(color)
+                .foregroundStyle(phaseColor(point.phase))
                 .symbolSize(20)
             }
         }
@@ -646,6 +652,7 @@ struct AICurvePromptView: View {
             ("Pre-Wake", Theme.amber),
         ]
         return HStack(spacing: 10) {
+            Spacer()
             ForEach(phases, id: \.name) { phase in
                 HStack(spacing: 4) {
                     Circle().fill(phase.color).frame(width: 6, height: 6)
@@ -654,6 +661,7 @@ struct AICurvePromptView: View {
                         .foregroundColor(Theme.textSecondary)
                 }
             }
+            Spacer()
         }
     }
 
@@ -867,5 +875,63 @@ struct AICurvePromptView: View {
                 Log.general.error("Failed to apply AI curve: \(error)")
             }
         }
+    }
+
+    private func useNow() {
+        guard let result = parsedResult else { return }
+        let side = scheduleManager.selectedSide.primarySide
+
+        // Shift curve times: remap so bedtime=now, wake stays the same
+        let now = Date()
+        let cal = Calendar.current
+        let nowMins = cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now)
+        let roundedNow = (nowMins / 5) * 5 // round to nearest 5 min
+        let bedMins = hhmm(result.bedtime)
+        let wakeMins = hhmm(result.wake)
+        let originalSpan = (wakeMins - bedMins + 1440) % 1440
+        let newSpan = (wakeMins - roundedNow + 1440) % 1440
+
+        let setPoints: [[String: Any]] = editablePoints.map { p in
+            let ptMins = hhmm(p.time)
+            let origOffset = (ptMins - bedMins + 1440) % 1440
+            // Scale proportionally into the new span
+            let newOffset = originalSpan > 0 ? origOffset * newSpan / originalSpan : origOffset
+            let newMins = (roundedNow + newOffset) % 1440
+            let newTime = String(format: "%02d:%02d", newMins / 60, newMins % 60)
+            return ["time": newTime, "temperature": p.tempF]
+        }
+
+        Task {
+            do {
+                let api = APIBackend.current.createClient()
+                let _ = try await api.startRunOnce(
+                    side: side,
+                    setPoints: setPoints,
+                    wakeTime: result.wake
+                )
+
+                if scheduleManager.selectedSide == .both {
+                    let other: Side = side == .left ? .right : .left
+                    let _ = try await api.startRunOnce(
+                        side: other,
+                        setPoints: setPoints,
+                        wakeTime: result.wake
+                    )
+                }
+
+                withAnimation { isRunOnce = true }
+                Haptics.success()
+                try? await Task.sleep(for: .seconds(1))
+                NotificationCenter.default.post(name: .switchToTempTab, object: nil)
+            } catch {
+                Log.general.error("Failed to start run-once from AI curve: \(error)")
+            }
+        }
+    }
+
+    private func hhmm(_ time: String) -> Int {
+        let parts = time.split(separator: ":")
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return 0 }
+        return h * 60 + m
     }
 }

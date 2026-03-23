@@ -844,11 +844,18 @@ struct SmartCurveView: View {
             isSaving = false
             withAnimation { showSuccess = true }
             Haptics.heavy()
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: .seconds(1))
             withAnimation { showSuccess = false }
             isRunOnce = false
+
+            // Switch to Temp tab to show the active curve
+            NotificationCenter.default.post(name: .switchToTempTab, object: nil)
         }
     }
+}
+
+extension Notification.Name {
+    static let switchToTempTab = Notification.Name("switchToTempTab")
 }
 
 // MARK: - TempColor helper

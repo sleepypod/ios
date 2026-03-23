@@ -5,6 +5,31 @@ struct TempScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
 
     @State private var bgPulse = false
+    @State private var activeRunOnce: RunOnceSession?
+
+    private func stopCurve() {
+        let side = deviceManager.selectedSide.primarySide
+        Task {
+            let api = APIBackend.current.createClient()
+            try? await api.cancelRunOnce(side: side)
+            // Power off the side
+            let powerOff = SideStatusUpdate(isOn: false)
+            var update = DeviceStatusUpdate()
+            if side == .left { update.left = powerOff } else { update.right = powerOff }
+            try? await api.updateDeviceStatus(update)
+            await deviceManager.fetchStatus()
+            withAnimation { activeRunOnce = nil }
+        }
+    }
+
+    private func fetchActiveRunOnce() async {
+        do {
+            let api = APIBackend.current.createClient()
+            activeRunOnce = try await api.getActiveRunOnce(side: deviceManager.selectedSide.primarySide)
+        } catch {
+            activeRunOnce = nil
+        }
+    }
 
     private var sideName: String {
         settingsManager.sideName(for: deviceManager.selectedSide.primarySide)
@@ -75,17 +100,27 @@ struct TempScreen: View {
                             Spacer(minLength: 0)
 
                             // Dial + controls — vertically centered in remaining space
-                            VStack(spacing: 28) {
+                            VStack(spacing: 20) {
                                 TemperatureDialView()
                                     .onTapGesture {
                                         Haptics.medium()
                                         deviceManager.togglePower()
                                     }
+                                    .padding(.top, 8)
 
-                                TempControlsView()
+                                if let session = activeRunOnce {
+                                    RunOnceActiveBanner(session: session, onCancel: {
+                                        stopCurve()
+                                    }, compact: true)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                } else {
+                                    TempControlsView()
+                                        .transition(.opacity)
+                                }
 
                                 EnvironmentInfoView()
                             }
+                            .animation(.easeInOut(duration: 0.3), value: activeRunOnce != nil)
                             .padding(.horizontal, 16)
 
                             Spacer(minLength: 0)
@@ -94,8 +129,12 @@ struct TempScreen: View {
                     }
                     .refreshable {
                         await deviceManager.fetchStatus()
+                        await fetchActiveRunOnce()
                     }
                     .scrollBounceBehavior(.basedOnSize)
+                    .task(id: deviceManager.selectedSide) {
+                        await fetchActiveRunOnce()
+                    }
                     } // VStack
                 } else {
                     DisconnectedTabView(tab: "Temp")

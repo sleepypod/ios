@@ -21,6 +21,7 @@ struct SmartCurveView: View {
     @State private var intensity: CoolingIntensity = .balanced
     @State private var selectedProfile: SmartProfile = .balanced
     @State private var isSaving = false
+    @State private var isRunOnce = false
     @State private var showSuccess = false
     @State private var healthSynced = false
     @State private var healthError: String?
@@ -194,30 +195,57 @@ struct SmartCurveView: View {
             .frame(maxWidth: .infinity)
 
 
-            // Apply button
-            Button {
-                Haptics.medium()
-                applyToSchedule()
-            } label: {
-                HStack(spacing: 8) {
-                    if isSaving {
-                        ProgressView().tint(.white).scaleEffect(0.8)
-                    } else if showSuccess {
-                        Image(systemName: "checkmark")
-                    } else {
-                        Image(systemName: "calendar.badge.plus")
+            // Split button: Apply to Schedule | Use Now
+            HStack(spacing: 0) {
+                Button {
+                    Haptics.medium()
+                    applyToSchedule()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isSaving && !isRunOnce {
+                            ProgressView().tint(.white).scaleEffect(0.8)
+                        } else if showSuccess && !isRunOnce {
+                            Image(systemName: "checkmark")
+                        } else {
+                            Image(systemName: "calendar.badge.plus")
+                        }
+                        Text(showSuccess && !isRunOnce ? "Applied!" : isSaving && !isRunOnce ? "Saving…" : "Apply to Schedule")
                     }
-                    Text(showSuccess ? "Applied!" : isSaving ? "Saving…" : "Apply to Schedule")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
                 }
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(showSuccess ? Theme.healthy : Theme.accent)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .disabled(isSaving)
+
+                Divider()
+                    .frame(height: 24)
+                    .background(Color.white.opacity(0.3))
+
+                Button {
+                    Haptics.medium()
+                    useNow()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isSaving && isRunOnce {
+                            ProgressView().tint(.white).scaleEffect(0.8)
+                        } else if showSuccess && isRunOnce {
+                            Image(systemName: "checkmark")
+                        } else {
+                            Image(systemName: "play.fill")
+                        }
+                        Text(showSuccess && isRunOnce ? "Started!" : isSaving && isRunOnce ? "Starting…" : "Use Now")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .disabled(isSaving)
             }
+            .background(showSuccess ? Theme.healthy : Theme.accent)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .buttonStyle(.plain)
-            .disabled(isSaving)
         }
         .onAppear { loadFromSchedule() }
         .onChange(of: scheduleManager.selectedDay) { loadFromSchedule() }
@@ -757,6 +785,68 @@ struct SmartCurveView: View {
             Haptics.heavy()
             try? await Task.sleep(for: .seconds(2))
             withAnimation { showSuccess = false }
+        }
+    }
+
+    private func useNow() {
+        isSaving = true
+        isRunOnce = true
+
+        // Regenerate curve with bedtime = now
+        let now = Date()
+        let roundedNow = Calendar.current.date(
+            bySetting: .minute,
+            value: (Calendar.current.component(.minute, from: now) / 5) * 5,
+            of: now
+        ) ?? now
+
+        let nowCurve = SleepCurve.generate(
+            bedtime: roundedNow,
+            wakeTime: wakeTime,
+            coolingIntensity: intensity,
+            minTempF: Int(minTemp),
+            maxTempF: Int(maxTemp)
+        )
+
+        let temps = SleepCurve.toScheduleTemperatures(nowCurve)
+        let side = scheduleManager.selectedSide.primarySide
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+        let wakeTimeStr = fmt.string(from: wakeTime)
+
+        // Convert to set points array for the API
+        let setPoints: [[String: Any]] = temps.sorted(by: { $0.key < $1.key }).map { time, temp in
+            ["time": time, "temperature": temp]
+        }
+
+        Task {
+            do {
+                let api = APIBackend.current.createClient()
+                let _ = try await api.startRunOnce(
+                    side: side,
+                    setPoints: setPoints,
+                    wakeTime: wakeTimeStr
+                )
+
+                // If both sides, start the other side too
+                if scheduleManager.selectedSide == .both {
+                    let otherSide: Side = side == .left ? .right : .left
+                    let _ = try await api.startRunOnce(
+                        side: otherSide,
+                        setPoints: setPoints,
+                        wakeTime: wakeTimeStr
+                    )
+                }
+            } catch {
+                Log.general.error("Failed to start run-once: \(error)")
+            }
+
+            isSaving = false
+            withAnimation { showSuccess = true }
+            Haptics.heavy()
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { showSuccess = false }
+            isRunOnce = false
         }
     }
 }

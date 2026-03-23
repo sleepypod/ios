@@ -36,6 +36,11 @@ protocol SleepypodProtocol: Sendable {
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws
     func deleteSleepRecord(id: Int) async throws
     func dismissPrimeNotification() async throws
+
+    // Run-once curve (#251)
+    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse
+    func getActiveRunOnce(side: Side) async throws -> RunOnceSession?
+    func cancelRunOnce(side: Side) async throws
 }
 
 struct CalibrationTriggerResponse: Decodable, Sendable {

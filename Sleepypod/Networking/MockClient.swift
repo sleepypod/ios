@@ -446,6 +446,8 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
         )
     }
 
+    func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading] { [] }
+
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {
         // no-op in demo
     }

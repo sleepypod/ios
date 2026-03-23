@@ -392,6 +392,17 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         try await query("environment.getLatestAmbientLight")
     }
 
+    func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading] {
+        let fmt = ISO8601DateFormatter()
+        let input: [String: Any] = [
+            "startDate": fmt.string(from: start),
+            "endDate": fmt.string(from: end),
+            "limit": limit,
+            "unit": unit,
+        ]
+        return try await query("environment.getBedTemp", input: input, dateKeys: ["startDate", "endDate"])
+    }
+
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {
         var input: [String: Any] = ["id": id]
         let fmt = ISO8601DateFormatter()

@@ -126,6 +126,7 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
     func getWaterLevelLatest() async throws -> WaterLevelReading? { nil }
     func getWaterLevelTrend(hours: Int) async throws -> WaterLevelTrend { throw APIError.invalidResponse(statusCode: 404) }
     func getAmbientLightLatest() async throws -> AmbientLightReading? { nil }
+    func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading] { [] }
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws { throw APIError.invalidResponse(statusCode: 404) }
     func deleteSleepRecord(id: Int) async throws { throw APIError.invalidResponse(statusCode: 404) }
     func dismissPrimeNotification() async throws {}

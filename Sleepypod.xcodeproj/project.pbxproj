@@ -11,6 +11,7 @@
 		041D6F2AA0D299253FFA1B27 /* Services.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8F3BFDBBA72B77A16C8606 /* Services.swift */; };
 		0888B106CC86FB2F3C652F8D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B7ADF7C27937207223FDBAD9 /* PrivacyInfo.xcprivacy */; };
 		0911824544AF401433A9DC43 /* PiezoWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */; };
+		BEDTEMPTV002BEDTEMPTV002 /* BedTempTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEDTEMPTV001BEDTEMPTV001 /* BedTempTrendView.swift */; };
 		0B484FB88EA2286B4B2B83EB /* ScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00032A1688C27E11B0BF64CC /* ScheduleScreen.swift */; };
 		1201459B0B50A7E1250D248B /* openapi.json in Resources */ = {isa = PBXBuildFile; fileRef = B881147C7D2F0ADEBAD1AD02 /* openapi.json */; };
 		1558A064C84FC3F65897D129 /* TemperatureConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */; };
@@ -153,6 +154,7 @@
 		7A89CDBBC9BF2AAE10BA0302 /* SleepProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepProfile.swift; sourceTree = "<group>"; };
 		7B4A78F7220A8976E8047BF2 /* TempControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempControlsView.swift; sourceTree = "<group>"; };
 		7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoWaveformView.swift; sourceTree = "<group>"; };
+		BEDTEMPTV001BEDTEMPTV001 /* BedTempTrendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedTempTrendView.swift; sourceTree = "<group>"; };
 		7E2FC5FEF1954A73556633CF /* Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Schedule.swift; sourceTree = "<group>"; };
 		81EF4CCF024C14C6F5034605 /* SensorStreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorStreamService.swift; sourceTree = "<group>"; };
 		83EF454801FB06154522C928 /* StatusScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusScreen.swift; sourceTree = "<group>"; };
@@ -288,6 +290,7 @@
 			isa = PBXGroup;
 			children = (
 				77A6653DA02CC01836DB61EA /* BedSensorScreen.swift */,
+				BEDTEMPTV001BEDTEMPTV001 /* BedTempTrendView.swift */,
 				9C23ED1E696702811954A0DA /* DataPipelineView.swift */,
 				948F9BAA88B81D25AA9E0B6F /* FirmwareLogConsoleView.swift */,
 				7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */,
@@ -544,6 +547,7 @@
 				59D63C6FB621C08C2D068AA7 /* NotificationRelay.swift in Sources */,
 				F43BB4E4BD6341C7700A6480 /* PhaseBlockView.swift in Sources */,
 				874862C240D71E13B2FE3722 /* PiezoAnalyzer.swift in Sources */,
+				BEDTEMPTV002BEDTEMPTV002 /* BedTempTrendView.swift in Sources */,
 				0911824544AF401433A9DC43 /* PiezoWaveformView.swift in Sources */,
 				AF368CE52344A599C020EA68 /* PodDiscovery.swift in Sources */,
 				1C1212D4AE1E9773A795BCD8 /* PresenceHeatmapView.swift in Sources */,

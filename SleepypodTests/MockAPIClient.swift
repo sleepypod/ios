@@ -35,6 +35,7 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func getWaterLevelLatest() async throws -> WaterLevelReading? { nil }
     func getWaterLevelTrend(hours: Int) async throws -> WaterLevelTrend { WaterLevelTrend(totalReadings: 0, okPercent: 100, lowPercent: 0, trend: "stable", latestLevel: "ok") }
     func getAmbientLightLatest() async throws -> AmbientLightReading? { nil }
+    func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading] { [] }
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {}
     func deleteSleepRecord(id: Int) async throws {}
     func dismissPrimeNotification() async throws {}

@@ -32,6 +32,7 @@ protocol SleepypodProtocol: Sendable {
     func getWaterLevelLatest() async throws -> WaterLevelReading?
     func getWaterLevelTrend(hours: Int) async throws -> WaterLevelTrend
     func getAmbientLightLatest() async throws -> AmbientLightReading?
+    func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading]
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws
     func deleteSleepRecord(id: Int) async throws
     func dismissPrimeNotification() async throws

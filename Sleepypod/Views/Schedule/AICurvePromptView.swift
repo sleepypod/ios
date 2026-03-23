@@ -774,7 +774,7 @@ struct AICurvePromptView: View {
             wake: old.wake,
             points: newPoints,
             reasoning: old.reasoning,
-            profileName: old.profileName
+            profileName: old.profileName, nowCurve: old.nowCurve
         )
         generator.lastResult = parsedResult
         isApplied = false
@@ -788,7 +788,7 @@ struct AICurvePromptView: View {
             wake: template.wake,
             points: template.points,
             reasoning: template.reasoning,
-            profileName: template.name
+            profileName: template.name, nowCurve: nil
         )
         generator.lastResult = result
         applyParsedResult(result)
@@ -836,7 +836,7 @@ struct AICurvePromptView: View {
             wake: result.wake,
             points: finalPoints,
             reasoning: result.reasoning,
-            profileName: result.profileName
+            profileName: result.profileName, nowCurve: result.nowCurve
         )
         applyResult(finalResult)
     }
@@ -881,24 +881,32 @@ struct AICurvePromptView: View {
         guard let result = parsedResult else { return }
         let side = scheduleManager.selectedSide.primarySide
 
-        // Shift curve times: remap so bedtime=now, wake stays the same
-        let now = Date()
-        let cal = Calendar.current
-        let nowMins = cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now)
-        let roundedNow = (nowMins / 5) * 5 // round to nearest 5 min
-        let bedMins = hhmm(result.bedtime)
-        let wakeMins = hhmm(result.wake)
-        let originalSpan = (wakeMins - bedMins + 1440) % 1440
-        let newSpan = (wakeMins - roundedNow + 1440) % 1440
+        let setPoints: [[String: Any]]
 
-        let setPoints: [[String: Any]] = editablePoints.map { p in
-            let ptMins = hhmm(p.time)
-            let origOffset = (ptMins - bedMins + 1440) % 1440
-            // Scale proportionally into the new span
-            let newOffset = originalSpan > 0 ? origOffset * newSpan / originalSpan : origOffset
-            let newMins = (roundedNow + newOffset) % 1440
-            let newTime = String(format: "%02d:%02d", newMins / 60, newMins % 60)
-            return ["time": newTime, "temperature": p.tempF]
+        if let nowCurve = result.nowCurve, !nowCurve.isEmpty {
+            // Use the AI-generated "start now" curve (properly shaped for shorter duration)
+            setPoints = nowCurve.map { time, temp in
+                ["time": time, "temperature": temp] as [String: Any]
+            }
+        } else {
+            // Fallback: proportionally shift the original curve times
+            let now = Date()
+            let cal = Calendar.current
+            let nowMins = cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now)
+            let roundedNow = (nowMins / 5) * 5
+            let bedMins = hhmm(result.bedtime)
+            let wakeMins = hhmm(result.wake)
+            let originalSpan = (wakeMins - bedMins + 1440) % 1440
+            let newSpan = (wakeMins - roundedNow + 1440) % 1440
+
+            setPoints = editablePoints.map { p in
+                let ptMins = hhmm(p.time)
+                let origOffset = (ptMins - bedMins + 1440) % 1440
+                let newOffset = originalSpan > 0 ? origOffset * newSpan / originalSpan : origOffset
+                let newMins = (roundedNow + newOffset) % 1440
+                let newTime = String(format: "%02d:%02d", newMins / 60, newMins % 60)
+                return ["time": newTime, "temperature": p.tempF] as [String: Any]
+            }
         }
 
         Task {

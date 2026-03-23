@@ -16,6 +16,9 @@ final class CurveGenerator {
         let points: [String: Int] // "HH:mm" -> tempF
         let reasoning: String
         let profileName: String
+        /// AI-generated curve variant starting from the current time.
+        /// Properly shaped for the shorter duration (not just time-shifted).
+        let nowCurve: [String: Int]?
     }
 
     // MARK: - Prompt Generation
@@ -75,10 +78,22 @@ final class CurveGenerator {
             "HH:mm": temperatureF,
             "HH:mm": temperatureF
           },
+          "nowCurve": {
+            "HH:mm": temperatureF,
+            "HH:mm": temperatureF
+          },
           "reasoning": "Brief explanation of the curve design choices"
         }
 
-        IMPORTANT: The "name" field must be 2-3 words maximum. It is used as a label in the UI.
+        IMPORTANT:
+        - The "name" field must be 2-3 words maximum. It is used as a label in the UI.
+        - "points" is the full reusable curve (bedtime to wake, 8-15 set points).
+        - "nowCurve" is a variant designed to start RIGHT NOW \
+        (current time is approximately \(currentTimeString())). It should have the \
+        same wake time but properly adapted phases for the shorter remaining \
+        duration \u{2014} not just a compressed version. For example, if there are \
+        only 4 hours until wake, skip the warm-up phase, start cooling \
+        immediately, shorten deep sleep, and keep the pre-wake ramp intact.
         """
 
         return prompt
@@ -151,12 +166,30 @@ final class CurveGenerator {
             return nil
         }
 
+        // Parse optional nowCurve
+        var nowCurve: [String: Int]?
+        if let nowRaw = curveJSON["nowCurve"] as? [String: Any] {
+            var nowPoints: [String: Int] = [:]
+            for (time, temp) in nowRaw {
+                guard time.wholeMatch(of: timeRegex) != nil else { continue }
+                if let t = temp as? Int {
+                    nowPoints[time] = max(55, min(110, t))
+                } else if let t = temp as? Double {
+                    nowPoints[time] = max(55, min(110, Int(t)))
+                }
+            }
+            if nowPoints.count >= 3 {
+                nowCurve = nowPoints
+            }
+        }
+
         let result = GeneratedCurve(
             bedtime: bedtime,
             wake: wake,
             points: points,
             reasoning: curveJSON["reasoning"] as? String ?? "",
-            profileName: curveJSON["name"] as? String ?? "Custom"
+            profileName: curveJSON["name"] as? String ?? "Custom",
+            nowCurve: nowCurve
         )
         lastResult = result
         return result
@@ -229,10 +262,17 @@ final class CurveGenerator {
             wake: wake,
             points: points,
             reasoning: reasoning,
-            profileName: profile.name
+            profileName: profile.name,
+            nowCurve: nil
         )
         lastResult = result
         return result
+    }
+
+    private func currentTimeString() -> String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "h:mm a"
+        return fmt.string(from: Date())
     }
 
     private func extractTime(from text: String, keywords: [String]) -> String? {

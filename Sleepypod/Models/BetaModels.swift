@@ -94,6 +94,38 @@ struct BedTempReading: Decodable, Sendable {
     }
 }
 
+// MARK: - Run-Once Session (#251)
+
+struct RunOnceStartResponse: Decodable, Sendable {
+    let sessionId: Int
+    let expiresAt: Int  // unix timestamp
+}
+
+struct RunOnceSession: Decodable, Sendable {
+    let id: Int
+    let side: String
+    let setPoints: [RunOnceSetPoint]
+    let wakeTime: String
+    let startedAt: Int
+    let expiresAt: Int
+    let status: String
+
+    var expiresAtDate: Date { Date(timeIntervalSince1970: TimeInterval(expiresAt)) }
+
+    var wakeTimeFormatted: String {
+        let parts = wakeTime.split(separator: ":")
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return wakeTime }
+        let hour = h % 12 == 0 ? 12 : h % 12
+        let ampm = h < 12 ? "AM" : "PM"
+        return "\(hour):\(String(format: "%02d", m)) \(ampm)"
+    }
+}
+
+struct RunOnceSetPoint: Decodable, Sendable {
+    let time: String
+    let temperature: Double
+}
+
 // MARK: - Prime Notification (#188)
 
 struct PrimeCompletedNotification: Decodable, Sendable {

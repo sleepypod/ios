@@ -8,6 +8,9 @@ struct StatusScreen: View {
     @Environment(PodDiscovery.self) private var podDiscovery
     @Environment(SensorStreamService.self) private var sensor
 
+    @State private var activeRunOnceLeft: RunOnceSession?
+    @State private var activeRunOnceRight: RunOnceSession?
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -29,6 +32,40 @@ struct StatusScreen: View {
                             processingCard
                             calibrationCard
                             networkDiscoveryCard
+
+                            // Active run-once curves
+                            if let session = activeRunOnceLeft {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Left")
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundColor(Theme.accent)
+                                        .padding(.leading, 4)
+                                    RunOnceActiveBanner(session: session, onCancel: {
+                                        Task {
+                                            let api = APIBackend.current.createClient()
+                                            try? await api.cancelRunOnce(side: .left)
+                                            try? await api.updateDeviceStatus(DeviceStatusUpdate(left: SideStatusUpdate(isOn: false)))
+                                            withAnimation { activeRunOnceLeft = nil }
+                                        }
+                                    })
+                                }
+                            }
+                            if let session = activeRunOnceRight {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Right")
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundColor(Color(hex: "40e0d0"))
+                                        .padding(.leading, 4)
+                                    RunOnceActiveBanner(session: session, onCancel: {
+                                        Task {
+                                            let api = APIBackend.current.createClient()
+                                            try? await api.cancelRunOnce(side: .right)
+                                            try? await api.updateDeviceStatus(DeviceStatusUpdate(right: SideStatusUpdate(isOn: false)))
+                                            withAnimation { activeRunOnceRight = nil }
+                                        }
+                                    })
+                                }
+                            }
                         }
                     }
                 }
@@ -62,10 +99,11 @@ struct StatusScreen: View {
         .task {
             statusManager.startPolling()
             await scheduleManager.fetchSchedules()
-            // Fetch calibration on load
             let api = APIBackend.current.createClient()
             leftCalibration = try? await api.getCalibrationStatus(side: .left)
             rightCalibration = try? await api.getCalibrationStatus(side: .right)
+            activeRunOnceLeft = try? await api.getActiveRunOnce(side: .left)
+            activeRunOnceRight = try? await api.getActiveRunOnce(side: .right)
         }
     }
 

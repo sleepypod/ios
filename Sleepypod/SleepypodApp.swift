@@ -104,6 +104,12 @@ struct ContentView: View {
             .onChange(of: selectedTab) {
                 Haptics.tap()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .switchToTempTab)) { notification in
+                if let side = notification.object as? SideSelection {
+                    deviceManager.selectedSide = side
+                }
+                selectedTab = "temp"
+            }
 
             // Demo mode banner — floating at top
             if isDemo && isConnected {

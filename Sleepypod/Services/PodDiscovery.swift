@@ -152,9 +152,67 @@ final class PodDiscovery {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
-        Log.discovery.warning("No devices found after 2 scan attempts")
+        // Fallback: try resolving eight-pod.local directly (works when
+        // multicast is blocked but unicast mDNS resolution succeeds)
+        Log.discovery.info("Bonjour browse failed — trying eight-pod.local fallback")
+        if let ip = await resolveHostname("eight-pod.local") {
+            Log.discovery.info("Fallback resolved eight-pod.local → \(ip)")
+            Haptics.medium()
+            status = .connected(ip)
+            connectedPodName = "sleepypod"
+            settingsManager.podIP = ip
+            deviceManager.retryConnection()
+            return ip
+        }
+
+        Log.discovery.warning("No devices found after 2 scan attempts + hostname fallback")
         if status == .scanning { status = .failed }
         return nil
+    }
+
+    /// Resolve a .local hostname to an IP via NWConnection.
+    private func resolveHostname(_ hostname: String) async -> String? {
+        await withCheckedContinuation { continuation in
+            let host = NWEndpoint.Host(hostname)
+            let connection = NWConnection(host: host, port: 3000, using: .tcp)
+            let once = OnceFlag()
+
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    if let endpoint = connection.currentPath?.remoteEndpoint,
+                       case .hostPort(let host, _) = endpoint {
+                        let ip = "\(host)"
+                        // Strip IPv6 brackets/prefix if present
+                        let cleaned = ip.replacingOccurrences(of: "[", with: "")
+                            .replacingOccurrences(of: "]", with: "")
+                        if once.fire() {
+                            connection.cancel()
+                            continuation.resume(returning: cleaned)
+                        }
+                    } else if once.fire() {
+                        connection.cancel()
+                        continuation.resume(returning: nil)
+                    }
+                case .failed, .cancelled:
+                    if once.fire() {
+                        continuation.resume(returning: nil)
+                    }
+                default:
+                    break
+                }
+            }
+            connection.start(queue: .main)
+
+            // Timeout
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                if once.fire() {
+                    connection.cancel()
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
     }
 
     // MARK: - Resolve

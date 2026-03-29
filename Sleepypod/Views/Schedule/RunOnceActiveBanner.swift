@@ -6,6 +6,7 @@ struct RunOnceActiveBanner: View {
     let session: RunOnceSession
     let onCancel: () -> Void
     var compact: Bool = false
+    var isSchedule: Bool = false
 
     @State private var isCancelling = false
 
@@ -17,7 +18,7 @@ struct RunOnceActiveBanner: View {
                     Image(systemName: "gearshape.2.fill")
                         .font(.system(size: 9))
                         .foregroundColor(Theme.healthy)
-                    Text("ACTIVE CURVE")
+                    Text(isSchedule ? "TONIGHT'S SCHEDULE" : "ACTIVE CURVE")
                         .font(.caption2.weight(.bold))
                         .foregroundColor(Theme.healthy)
                         .tracking(1)
@@ -75,29 +76,31 @@ struct RunOnceActiveBanner: View {
                 .padding(.bottom, 16)
             }
 
-            // Stop button
-            Button {
-                isCancelling = true
-                onCancel()
-            } label: {
-                HStack(spacing: 6) {
-                    if isCancelling {
-                        ProgressView().tint(.white).scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 10))
+            // Stop button (only for run-once, not recurring schedules)
+            if !isSchedule {
+                Button {
+                    isCancelling = true
+                    onCancel()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isCancelling {
+                            ProgressView().tint(.white).scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 10))
+                        }
+                        Text(isCancelling ? "Stopping…" : "Stop Curve")
                     }
-                    Text(isCancelling ? "Stopping…" : "Stop Curve")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, compact ? 8 : 10)
+                    .background(Theme.error.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, compact ? 8 : 10)
-                .background(Theme.error.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .buttonStyle(.plain)
+                .disabled(isCancelling)
             }
-            .buttonStyle(.plain)
-            .disabled(isCancelling)
         }
         .padding(12)
         .background(Theme.healthy.opacity(0.06))

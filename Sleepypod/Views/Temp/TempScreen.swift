@@ -1,34 +1,86 @@
 import SwiftUI
 
+/// Unified active curve — either from a run-once session or today's recurring schedule.
+struct ActiveCurve: Identifiable {
+    enum Source { case runOnce, schedule }
+    let id: String
+    let source: Source
+    let session: RunOnceSession? // non-nil for run-once
+    let setPoints: [RunOnceSetPoint]
+    let wakeTime: String
+}
+
 struct TempScreen: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(SettingsManager.self) private var settingsManager
+    @Environment(ScheduleManager.self) private var scheduleManager
 
     @State private var bgPulse = false
-    @State private var activeRunOnce: RunOnceSession?
+    @State private var activeCurve: ActiveCurve?
 
     private func stopCurve() {
+        guard let curve = activeCurve else { return }
         let side = deviceManager.selectedSide.primarySide
-        Task {
-            let api = APIBackend.current.createClient()
-            try? await api.cancelRunOnce(side: side)
-            // Power off the side
-            let powerOff = SideStatusUpdate(isOn: false)
-            var update = DeviceStatusUpdate()
-            if side == .left { update.left = powerOff } else { update.right = powerOff }
-            try? await api.updateDeviceStatus(update)
-            await deviceManager.fetchStatus()
-            withAnimation { activeRunOnce = nil }
+
+        if curve.source == .runOnce {
+            Task {
+                let api = APIBackend.current.createClient()
+                try? await api.cancelRunOnce(side: side)
+                let powerOff = SideStatusUpdate(isOn: false)
+                var update = DeviceStatusUpdate()
+                if side == .left { update.left = powerOff } else { update.right = powerOff }
+                try? await api.updateDeviceStatus(update)
+                await deviceManager.fetchStatus()
+                withAnimation { activeCurve = nil }
+            }
         }
     }
 
-    private func fetchActiveRunOnce() async {
-        do {
-            let api = APIBackend.current.createClient()
-            activeRunOnce = try await api.getActiveRunOnce(side: deviceManager.selectedSide.primarySide)
-        } catch {
-            activeRunOnce = nil
+    private func fetchActiveCurve() async {
+        let side = deviceManager.selectedSide.primarySide
+
+        // 1. Check for run-once session (overrides recurring)
+        if let session = try? await APIBackend.current.createClient().getActiveRunOnce(side: side) {
+            activeCurve = ActiveCurve(
+                id: "runonce-\(session.id)",
+                source: .runOnce,
+                session: session,
+                setPoints: session.setPoints,
+                wakeTime: session.wakeTime
+            )
+            return
         }
+
+        // 2. Fall back to today's recurring schedule
+        if let schedules = scheduleManager.schedules {
+            let today = currentDayOfWeek()
+            let sideSchedule = schedules.schedule(for: side)
+            let daily = sideSchedule[today]
+
+            if !daily.temperatures.isEmpty {
+                let points = daily.temperatures
+                    .sorted { $0.key < $1.key }
+                    .map { RunOnceSetPoint(time: $0.key, temperature: Double($0.value)) }
+                let wake = daily.power.enabled ? daily.power.off : "07:00"
+                activeCurve = ActiveCurve(
+                    id: "schedule-\(side.rawValue)-\(today.rawValue)",
+                    source: .schedule,
+                    session: nil,
+                    setPoints: points,
+                    wakeTime: wake
+                )
+                return
+            }
+        }
+
+        activeCurve = nil
+    }
+
+    private func currentDayOfWeek() -> DayOfWeek {
+        let weekday = Calendar.current.component(.weekday, from: Date())
+        // Calendar weekday: 1=Sunday, 2=Monday, ...
+        let days: [DayOfWeek] = [.sunday, .monday, .tuesday, .wednesday, .thursday, .friday, .saturday]
+        return days[weekday - 1]
     }
 
     private var sideName: String {
@@ -108,11 +160,22 @@ struct TempScreen: View {
                                     }
                                     .padding(.top, 8)
 
-                                if let session = activeRunOnce {
-                                    RunOnceActiveBanner(session: session, onCancel: {
-                                        stopCurve()
-                                    }, compact: true)
-                                    .id(session.id)
+                                if let curve = activeCurve {
+                                    RunOnceActiveBanner(
+                                        session: curve.session ?? RunOnceSession(
+                                            id: 0,
+                                            side: deviceManager.selectedSide.primarySide.rawValue,
+                                            setPoints: curve.setPoints,
+                                            wakeTime: curve.wakeTime,
+                                            startedAt: Int(Date().timeIntervalSince1970),
+                                            expiresAt: Int(Date().timeIntervalSince1970) + 28800,
+                                            status: "active"
+                                        ),
+                                        onCancel: { stopCurve() },
+                                        compact: true,
+                                        isSchedule: curve.source == .schedule
+                                    )
+                                    .id(curve.id)
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                                 } else {
                                     TempControlsView()
@@ -121,7 +184,7 @@ struct TempScreen: View {
 
                                 EnvironmentInfoView()
                             }
-                            .animation(.easeInOut(duration: 0.3), value: activeRunOnce?.id)
+                            .animation(.easeInOut(duration: 0.3), value: activeCurve?.id)
                             .padding(.horizontal, 16)
 
                             Spacer(minLength: 0)
@@ -130,15 +193,15 @@ struct TempScreen: View {
                     }
                     .refreshable {
                         await deviceManager.fetchStatus()
-                        await fetchActiveRunOnce()
+                        await fetchActiveCurve()
                     }
                     .scrollBounceBehavior(.basedOnSize)
                     .onChange(of: deviceManager.selectedSide) {
-                        activeRunOnce = nil
-                        Task { await fetchActiveRunOnce() }
+                        activeCurve = nil
+                        Task { await fetchActiveCurve() }
                     }
                     .onAppear {
-                        Task { await fetchActiveRunOnce() }
+                        Task { await fetchActiveCurve() }
                     }
                     } // VStack
                 } else {

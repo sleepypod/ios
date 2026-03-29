@@ -92,7 +92,8 @@ final class SensorStreamService {
     private var rightHistory: [[Float]] = []
     private let varianceWindow = 20
     private let maxLogLines = 50
-    private let maxTempHistory = 60
+    private let maxTempHistory = 120
+    private var tempHistorySeeded = false
 
     /// Variance-based presence detection. An occupied side shows capSense
     /// signal variance from breathing/movement. Empty bed has near-zero variance.
@@ -139,6 +140,42 @@ final class SensorStreamService {
                 try? await Task.sleep(for: .seconds(15))
                 self.webSocketTask?.sendPing { _ in }
             }
+        }
+
+        // Seed temp trend from tRPC historical data (once per session)
+        if !tempHistorySeeded {
+            Task { await self.seedTempHistory() }
+        }
+    }
+
+    /// Fetch last hour of bed temp from tRPC to pre-populate the trend chart.
+    private func seedTempHistory() async {
+        guard !tempHistorySeeded else { return }
+        do {
+            let end = Date()
+            let start = end.addingTimeInterval(-3600)
+            let readings = try await APIBackend.current.createClient().getBedTempHistory(
+                start: start, end: end, limit: maxTempHistory, unit: "F"
+            )
+            guard !readings.isEmpty, !tempHistorySeeded else { return }
+            tempHistorySeeded = true
+
+            // tRPC returns descending — reverse for chronological
+            let sorted = readings.reversed()
+            for reading in sorted {
+                guard let date = reading.date else { continue }
+                if let leftF = reading.leftF {
+                    leftTempHistory.append((date, leftF))
+                }
+                if let rightF = reading.rightF {
+                    rightTempHistory.append((date, rightF))
+                }
+            }
+            // Trim to max
+            if leftTempHistory.count > maxTempHistory { leftTempHistory = Array(leftTempHistory.suffix(maxTempHistory)) }
+            if rightTempHistory.count > maxTempHistory { rightTempHistory = Array(rightTempHistory.suffix(maxTempHistory)) }
+        } catch {
+            // Non-fatal — live frames will still populate the chart
         }
     }
 
@@ -404,6 +441,7 @@ final class SensorStreamService {
         case .bedTemp2(let temp):
             leftTemps = temp.left
             rightTemps = temp.right
+            tempHistorySeeded = true
             if let avgL = temp.left.avgSurfaceTempF {
                 leftTempHistory.append((.now, Float(avgL)))
                 if leftTempHistory.count > maxTempHistory { leftTempHistory.removeFirst() }

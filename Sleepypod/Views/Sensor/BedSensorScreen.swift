@@ -61,10 +61,8 @@ struct BedSensorScreen: View {
                 // Piezo waveform
                 PiezoWaveformView()
 
-                // Temp trend
-                if !sensor.leftTempHistory.isEmpty || !sensor.rightTempHistory.isEmpty {
-                    tempTrendCard
-                }
+                // Temp trend (tRPC historical + ambient)
+                BedTempTrendView()
 
                 // Environment
                 envCard
@@ -309,66 +307,7 @@ struct BedSensorScreen: View {
 
     // MARK: - Temp Trend Card
 
-    private var tempTrendCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                HStack(spacing: 6) {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 10))
-                        .foregroundColor(Theme.amber)
-                    Text("TEMPERATURE TREND")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(Theme.textSecondary)
-                        .tracking(1)
-                }
-                Spacer()
-                HStack(spacing: 10) {
-                    legendDot(color: Theme.accent, label: "Left")
-                    legendDot(color: Color(hex: "40e0d0"), label: "Right")
-                }
-            }
 
-            Chart {
-                ForEach(Array(sensor.leftTempHistory.enumerated()), id: \.offset) { _, point in
-                    LineMark(x: .value("Time", point.0), y: .value("°F", point.1))
-                        .foregroundStyle(Theme.accent)
-                        .interpolationMethod(.catmullRom)
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
-                }
-                ForEach(Array(sensor.rightTempHistory.enumerated()), id: \.offset) { _, point in
-                    LineMark(x: .value("Time", point.0), y: .value("°F", point.1))
-                        .foregroundStyle(Color(hex: "40e0d0"))
-                        .interpolationMethod(.catmullRom)
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
-                }
-            }
-            .transaction { $0.animation = nil }
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 4)) {
-                    AxisValueLabel(format: .dateTime.hour().minute())
-                        .foregroundStyle(Theme.textMuted)
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) {
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.cardBorder)
-                    AxisValueLabel()
-                        .foregroundStyle(Theme.textMuted)
-                }
-            }
-            .frame(height: 100)
-
-        }
-        .cardStyle()
-    }
-
-    private func legendDot(color: Color, label: String) -> some View {
-        HStack(spacing: 3) {
-            Circle().fill(color).frame(width: 5, height: 5)
-            Text(label).font(.system(size: 8)).foregroundColor(Theme.textMuted)
-        }
-    }
 
     // MARK: - Environment Card
 

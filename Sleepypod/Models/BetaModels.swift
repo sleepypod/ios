@@ -66,6 +66,66 @@ struct AmbientLightReading: Decodable, Sendable {
     let timestamp: String?  // ISO8601
 }
 
+// MARK: - Bed Temperature History (#245)
+
+struct BedTempReading: Decodable, Sendable {
+    let timestamp: String  // ISO8601
+    let ambientTemp: Double?
+    let humidity: Double?
+    let leftCenterTemp: Double?
+    let leftInnerTemp: Double?
+    let rightCenterTemp: Double?
+    let rightInnerTemp: Double?
+
+    var leftF: Float? {
+        if let t = leftCenterTemp ?? leftInnerTemp { return Float(t) }
+        return nil
+    }
+
+    var rightF: Float? {
+        if let t = rightCenterTemp ?? rightInnerTemp { return Float(t) }
+        return nil
+    }
+
+    var date: Date? {
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fmt.date(from: timestamp) ?? ISO8601DateFormatter().date(from: timestamp)
+    }
+}
+
+// MARK: - Run-Once Session (#251)
+
+struct RunOnceStartResponse: Decodable, Sendable {
+    let sessionId: Int
+    let expiresAt: Int  // unix timestamp
+}
+
+struct RunOnceSession: Decodable, Sendable {
+    let id: Int
+    let side: String
+    let setPoints: [RunOnceSetPoint]
+    let wakeTime: String
+    let startedAt: Int
+    let expiresAt: Int
+    let status: String
+
+    var expiresAtDate: Date { Date(timeIntervalSince1970: TimeInterval(expiresAt)) }
+
+    var wakeTimeFormatted: String {
+        let parts = wakeTime.split(separator: ":")
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return wakeTime }
+        let hour = h % 12 == 0 ? 12 : h % 12
+        let ampm = h < 12 ? "AM" : "PM"
+        return "\(hour):\(String(format: "%02d", m)) \(ampm)"
+    }
+}
+
+struct RunOnceSetPoint: Decodable, Sendable {
+    let time: String
+    let temperature: Double
+}
+
 // MARK: - Prime Notification (#188)
 
 struct PrimeCompletedNotification: Decodable, Sendable {

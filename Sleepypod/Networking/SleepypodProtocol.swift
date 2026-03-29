@@ -32,9 +32,15 @@ protocol SleepypodProtocol: Sendable {
     func getWaterLevelLatest() async throws -> WaterLevelReading?
     func getWaterLevelTrend(hours: Int) async throws -> WaterLevelTrend
     func getAmbientLightLatest() async throws -> AmbientLightReading?
+    func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading]
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws
     func deleteSleepRecord(id: Int) async throws
     func dismissPrimeNotification() async throws
+
+    // Run-once curve (#251)
+    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse
+    func getActiveRunOnce(side: Side) async throws -> RunOnceSession?
+    func cancelRunOnce(side: Side) async throws
 }
 
 struct CalibrationTriggerResponse: Decodable, Sendable {

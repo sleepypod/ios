@@ -392,6 +392,17 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         try await query("environment.getLatestAmbientLight")
     }
 
+    func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading] {
+        let fmt = ISO8601DateFormatter()
+        let input: [String: Any] = [
+            "startDate": fmt.string(from: start),
+            "endDate": fmt.string(from: end),
+            "limit": limit,
+            "unit": unit,
+        ]
+        return try await query("environment.getBedTemp", input: input, dateKeys: ["startDate", "endDate"])
+    }
+
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {
         var input: [String: Any] = ["id": id]
         let fmt = ISO8601DateFormatter()
@@ -410,6 +421,23 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func dismissPrimeNotification() async throws {
         let _: TRPCSuccess = try await mutate("device.dismissPrimeNotification", input: [:] as [String: String])
+    }
+
+    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse {
+        let input: [String: Any] = [
+            "side": side.rawValue,
+            "setPoints": setPoints,
+            "wakeTime": wakeTime,
+        ]
+        return try await mutate("runOnce.start", input: input)
+    }
+
+    func getActiveRunOnce(side: Side) async throws -> RunOnceSession? {
+        try await query("runOnce.getActive", input: ["side": side.rawValue])
+    }
+
+    func cancelRunOnce(side: Side) async throws {
+        let _: TRPCSuccess = try await mutate("runOnce.cancel", input: ["side": side.rawValue])
     }
 
     func getDiskUsage() async throws -> DiskUsage {

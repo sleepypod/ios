@@ -21,6 +21,7 @@ struct SmartCurveView: View {
     @State private var intensity: CoolingIntensity = .balanced
     @State private var selectedProfile: SmartProfile = .balanced
     @State private var isSaving = false
+    @State private var isRunOnce = false
     @State private var showSuccess = false
     @State private var healthSynced = false
     @State private var healthError: String?
@@ -194,30 +195,60 @@ struct SmartCurveView: View {
             .frame(maxWidth: .infinity)
 
 
-            // Apply button
-            Button {
-                Haptics.medium()
-                applyToSchedule()
-            } label: {
-                HStack(spacing: 8) {
-                    if isSaving {
-                        ProgressView().tint(.white).scaleEffect(0.8)
-                    } else if showSuccess {
-                        Image(systemName: "checkmark")
-                    } else {
-                        Image(systemName: "calendar.badge.plus")
+            // Split button: Apply to Schedule | Use Now
+            HStack(spacing: 0) {
+                Button {
+                    Haptics.medium()
+                    applyToSchedule()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isSaving && !isRunOnce {
+                            ProgressView().tint(.white).scaleEffect(0.8)
+                        } else if showSuccess && !isRunOnce {
+                            Image(systemName: "checkmark")
+                        } else {
+                            Image(systemName: "calendar.badge.plus")
+                        }
+                        Text(showSuccess && !isRunOnce ? "Applied!" : isSaving && !isRunOnce ? "Saving…" : "Apply to Schedule")
                     }
-                    Text(showSuccess ? "Applied!" : isSaving ? "Saving…" : "Apply to Schedule")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
                 }
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(showSuccess ? Theme.healthy : Theme.accent)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .disabled(isSaving)
+
+                // Use Now — only available on sleepypod-core backend
+                if APIBackend.current == .sleepypodCore {
+                    Divider()
+                        .frame(height: 24)
+                        .background(Color.white.opacity(0.3))
+
+                    Button {
+                        Haptics.medium()
+                        useNow()
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isSaving && isRunOnce {
+                                ProgressView().tint(.white).scaleEffect(0.8)
+                            } else if showSuccess && isRunOnce {
+                                Image(systemName: "checkmark")
+                            } else {
+                                Image(systemName: "play.fill")
+                            }
+                            Text(showSuccess && isRunOnce ? "Started!" : isSaving && isRunOnce ? "Starting…" : "Use Now")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .disabled(isSaving)
+                }
             }
+            .background(showSuccess ? Theme.healthy : Theme.accent)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .buttonStyle(.plain)
-            .disabled(isSaving)
         }
         .onAppear { loadFromSchedule() }
         .onChange(of: scheduleManager.selectedDay) { loadFromSchedule() }
@@ -759,6 +790,88 @@ struct SmartCurveView: View {
             withAnimation { showSuccess = false }
         }
     }
+
+    private func useNow() {
+        isSaving = true
+        isRunOnce = true
+
+        // Use the currently displayed curve (custom or generated) with bedtime = now
+        let now = Date()
+        let roundedNow = Calendar.current.date(
+            bySetting: .minute,
+            value: (Calendar.current.component(.minute, from: now) / 5) * 5,
+            of: now
+        ) ?? now
+
+        // Use the active curve points (same as what's shown in the chart)
+        let displayedCurve: [SleepCurve.Point]
+        if let custom = customCurvePoints {
+            displayedCurve = custom
+        } else {
+            displayedCurve = SleepCurve.generate(
+                bedtime: roundedNow,
+                wakeTime: wakeTime,
+                coolingIntensity: intensity,
+                minTempF: Int(minTemp),
+                maxTempF: Int(maxTemp)
+            )
+        }
+
+        let temps = SleepCurve.toScheduleTemperatures(displayedCurve)
+        let side = scheduleManager.selectedSide.primarySide
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+        let wakeTimeStr = fmt.string(from: wakeTime)
+
+        let setPoints: [[String: Any]] = temps.sorted(by: { $0.key < $1.key }).map { time, temp in
+            ["time": time, "temperature": temp]
+        }
+
+        Task {
+            var succeeded = true
+            do {
+                let api = APIBackend.current.createClient()
+                let _ = try await api.startRunOnce(
+                    side: side,
+                    setPoints: setPoints,
+                    wakeTime: wakeTimeStr
+                )
+
+                if scheduleManager.selectedSide == .both {
+                    let otherSide: Side = side == .left ? .right : .left
+                    let _ = try await api.startRunOnce(
+                        side: otherSide,
+                        setPoints: setPoints,
+                        wakeTime: wakeTimeStr
+                    )
+                }
+            } catch {
+                succeeded = false
+                Log.general.error("Failed to start run-once: \(error)")
+            }
+
+            isSaving = false
+            if succeeded {
+                withAnimation { showSuccess = true }
+                Haptics.heavy()
+            } else {
+                Haptics.heavy()
+            }
+            try? await Task.sleep(for: .seconds(1))
+            withAnimation { showSuccess = false }
+            isRunOnce = false
+
+            // Switch to Temp tab to show the active curve, syncing the side
+            NotificationCenter.default.post(
+                name: .switchToTempTab,
+                object: scheduleManager.selectedSide
+            )
+        }
+    }
+}
+
+extension Notification.Name {
+    static let switchToTempTab = Notification.Name("switchToTempTab")
 }
 
 // MARK: - TempColor helper

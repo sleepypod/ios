@@ -30,6 +30,7 @@ final class DeviceManager {
     private var debounceTask: Task<Void, Never>?
     private var pollingTask: Task<Void, Never>?
     private var pendingUpdate: DeviceStatusUpdate?
+    private var isSendingMutation = false
 
     init(api: SleepypodProtocol) {
         self.api = api
@@ -94,7 +95,7 @@ final class DeviceManager {
         pollingTask?.cancel()
         pollingTask = Task {
             while !Task.isCancelled {
-                if pendingUpdate == nil && !isReceivingWebSocket {
+                if pendingUpdate == nil && !isReceivingWebSocket && !isSendingMutation {
                     await fetchStatus()
                 }
                 // Retry faster when disconnected, normal interval when connected
@@ -122,7 +123,11 @@ final class DeviceManager {
             error = nil
             lastUpdated = Date()
         } catch {
-            isConnected = false
+            // Only mark disconnected if we've never had a successful connection.
+            // Once connected, keep showing last-known status on transient failures.
+            if deviceStatus == nil {
+                isConnected = false
+            }
             isConnecting = false
             retryCount += 1
             self.error = "\(error)"
@@ -192,11 +197,12 @@ final class DeviceManager {
         }
 
         Task {
+            isSendingMutation = true
+            defer { isSendingMutation = false }
             do {
                 try await api.updateDeviceStatus(update)
             } catch {
-                self.error = error.localizedDescription
-                await fetchStatus() // Revert on failure
+                Log.device.error("togglePower failed: \(error)")
             }
         }
     }
@@ -282,12 +288,16 @@ final class DeviceManager {
     private func sendPendingUpdate() async {
         guard let update = pendingUpdate else { return }
         pendingUpdate = nil
+        isSendingMutation = true
         do {
             try await api.updateDeviceStatus(update)
         } catch {
-            self.error = error.localizedDescription
             Log.device.error("sendPendingUpdate failed: \(error)")
-            await fetchStatus() // Revert on failure
+            // Don't call fetchStatus here — it competes with the hardware.
+            // The next polling cycle will naturally correct the state.
         }
+        // Brief cooldown — let the hardware settle before the next poll
+        try? await Task.sleep(for: .seconds(2))
+        isSendingMutation = false
     }
 }

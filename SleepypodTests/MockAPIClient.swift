@@ -35,9 +35,13 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func getWaterLevelLatest() async throws -> WaterLevelReading? { nil }
     func getWaterLevelTrend(hours: Int) async throws -> WaterLevelTrend { WaterLevelTrend(totalReadings: 0, okPercent: 100, lowPercent: 0, trend: "stable", latestLevel: "ok") }
     func getAmbientLightLatest() async throws -> AmbientLightReading? { nil }
+    func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading] { [] }
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {}
     func deleteSleepRecord(id: Int) async throws {}
     func dismissPrimeNotification() async throws {}
+    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 0, expiresAt: 0) }
+    func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
+    func cancelRunOnce(side: Side) async throws {}
 
     func setInternetAccess(blocked: Bool) async throws {
         if responseDelay > 0 { try? await Task.sleep(for: .seconds(responseDelay)) }

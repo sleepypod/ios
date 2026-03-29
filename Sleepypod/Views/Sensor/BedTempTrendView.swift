@@ -5,6 +5,7 @@ import Charts
 /// shows left, right, and ambient temperature lines with a time range selector.
 /// Matches the web core's BED TEMPERATURE TREND card.
 struct BedTempTrendView: View {
+    @Environment(SettingsManager.self) private var settingsManager
     enum TimeRange: String, CaseIterable {
         case h1 = "1H"
         case h6 = "6H"
@@ -202,6 +203,10 @@ struct BedTempTrendView: View {
 
     // MARK: - Data
 
+    private var apiUnit: String {
+        settingsManager.temperatureFormat == .celsius ? "C" : "F"
+    }
+
     private func fetchData(for requestedRange: TimeRange) async {
         isLoading = true
         defer { isLoading = false }
@@ -209,7 +214,7 @@ struct BedTempTrendView: View {
             let end = Date()
             let start = end.addingTimeInterval(-requestedRange.seconds)
             let readings = try await APIBackend.current.createClient().getBedTempHistory(
-                start: start, end: end, limit: requestedRange.limit, unit: "F"
+                start: start, end: end, limit: requestedRange.limit, unit: apiUnit
             )
             guard !Task.isCancelled, requestedRange == range else { return }
             // tRPC returns descending — reverse for chronological
@@ -224,7 +229,10 @@ struct BedTempTrendView: View {
                 )
             }
         } catch {
-            // Non-fatal — chart stays empty
+            // Clear stale data from previous range so chart doesn't show wrong data
+            if requestedRange == range {
+                points = []
+            }
         }
     }
 

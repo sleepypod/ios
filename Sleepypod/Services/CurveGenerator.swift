@@ -166,7 +166,7 @@ final class CurveGenerator {
             return nil
         }
 
-        // Parse optional nowCurve
+        // Parse optional nowCurve — warn if present but malformed
         var nowCurve: [String: Int]?
         if let nowRaw = curveJSON["nowCurve"] as? [String: Any] {
             var nowPoints: [String: Int] = [:]
@@ -180,6 +180,9 @@ final class CurveGenerator {
             }
             if nowPoints.count >= 3 {
                 nowCurve = nowPoints
+            } else if !nowRaw.isEmpty {
+                // Key was present but data is invalid — log but don't block the main curve
+                print("[CurveGenerator] nowCurve provided but has fewer than 3 valid points (\(nowPoints.count)) — falling back to time-shifted curve")
             }
         }
 

@@ -484,10 +484,12 @@ struct AICurvePromptView: View {
                     applyToSchedule()
                 }
 
-                Divider().frame(height: 20).background(Color.white.opacity(0.2))
+                if APIBackend.current == .sleepypodCore {
+                    Divider().frame(height: 20).background(Color.white.opacity(0.2))
 
-                floatingButton(title: isRunOnce ? "Started!" : "Use Now", icon: isRunOnce ? "checkmark" : "play.fill") {
-                    useNow()
+                    floatingButton(title: isRunOnce ? "Started!" : "Use Now", icon: isRunOnce ? "checkmark" : "play.fill") {
+                        useNow()
+                    }
                 }
             }
         }

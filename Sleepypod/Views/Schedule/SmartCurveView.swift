@@ -218,30 +218,33 @@ struct SmartCurveView: View {
                 }
                 .disabled(isSaving)
 
-                Divider()
-                    .frame(height: 24)
-                    .background(Color.white.opacity(0.3))
+                // Use Now — only available on sleepypod-core backend
+                if APIBackend.current == .sleepypodCore {
+                    Divider()
+                        .frame(height: 24)
+                        .background(Color.white.opacity(0.3))
 
-                Button {
-                    Haptics.medium()
-                    useNow()
-                } label: {
-                    HStack(spacing: 6) {
-                        if isSaving && isRunOnce {
-                            ProgressView().tint(.white).scaleEffect(0.8)
-                        } else if showSuccess && isRunOnce {
-                            Image(systemName: "checkmark")
-                        } else {
-                            Image(systemName: "play.fill")
+                    Button {
+                        Haptics.medium()
+                        useNow()
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isSaving && isRunOnce {
+                                ProgressView().tint(.white).scaleEffect(0.8)
+                            } else if showSuccess && isRunOnce {
+                                Image(systemName: "checkmark")
+                            } else {
+                                Image(systemName: "play.fill")
+                            }
+                            Text(showSuccess && isRunOnce ? "Started!" : isSaving && isRunOnce ? "Starting…" : "Use Now")
                         }
-                        Text(showSuccess && isRunOnce ? "Started!" : isSaving && isRunOnce ? "Starting…" : "Use Now")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                    .disabled(isSaving)
                 }
-                .disabled(isSaving)
             }
             .background(showSuccess ? Theme.healthy : Theme.accent)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -792,7 +795,7 @@ struct SmartCurveView: View {
         isSaving = true
         isRunOnce = true
 
-        // Regenerate curve with bedtime = now
+        // Use the currently displayed curve (custom or generated) with bedtime = now
         let now = Date()
         let roundedNow = Calendar.current.date(
             bySetting: .minute,
@@ -800,26 +803,32 @@ struct SmartCurveView: View {
             of: now
         ) ?? now
 
-        let nowCurve = SleepCurve.generate(
-            bedtime: roundedNow,
-            wakeTime: wakeTime,
-            coolingIntensity: intensity,
-            minTempF: Int(minTemp),
-            maxTempF: Int(maxTemp)
-        )
+        // Use the active curve points (same as what's shown in the chart)
+        let displayedCurve: [SleepCurve.Point]
+        if let custom = customCurvePoints {
+            displayedCurve = custom
+        } else {
+            displayedCurve = SleepCurve.generate(
+                bedtime: roundedNow,
+                wakeTime: wakeTime,
+                coolingIntensity: intensity,
+                minTempF: Int(minTemp),
+                maxTempF: Int(maxTemp)
+            )
+        }
 
-        let temps = SleepCurve.toScheduleTemperatures(nowCurve)
+        let temps = SleepCurve.toScheduleTemperatures(displayedCurve)
         let side = scheduleManager.selectedSide.primarySide
         let fmt = DateFormatter()
         fmt.dateFormat = "HH:mm"
         let wakeTimeStr = fmt.string(from: wakeTime)
 
-        // Convert to set points array for the API
         let setPoints: [[String: Any]] = temps.sorted(by: { $0.key < $1.key }).map { time, temp in
             ["time": time, "temperature": temp]
         }
 
         Task {
+            var succeeded = true
             do {
                 let api = APIBackend.current.createClient()
                 let _ = try await api.startRunOnce(
@@ -828,7 +837,6 @@ struct SmartCurveView: View {
                     wakeTime: wakeTimeStr
                 )
 
-                // If both sides, start the other side too
                 if scheduleManager.selectedSide == .both {
                     let otherSide: Side = side == .left ? .right : .left
                     let _ = try await api.startRunOnce(
@@ -838,12 +846,17 @@ struct SmartCurveView: View {
                     )
                 }
             } catch {
+                succeeded = false
                 Log.general.error("Failed to start run-once: \(error)")
             }
 
             isSaving = false
-            withAnimation { showSuccess = true }
-            Haptics.heavy()
+            if succeeded {
+                withAnimation { showSuccess = true }
+                Haptics.heavy()
+            } else {
+                Haptics.heavy()
+            }
             try? await Task.sleep(for: .seconds(1))
             withAnimation { showSuccess = false }
             isRunOnce = false

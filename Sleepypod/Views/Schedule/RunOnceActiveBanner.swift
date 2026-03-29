@@ -46,11 +46,13 @@ struct RunOnceActiveBanner: View {
                         .lineStyle(StrokeStyle(lineWidth: 1.5))
                     }
 
-                    // "Now" vertical line at actual clock position
-                    let nowX = Double(nowMinuteOffset)
-                    RuleMark(x: .value("Now", nowX))
-                        .foregroundStyle(Theme.amber.opacity(0.6))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    // "Now" vertical line — clamped to chart domain
+                    let clampedNow = min(Double(totalSpan), max(0, Double(nowMinuteOffset)))
+                    if clampedNow > 0 && clampedNow < Double(totalSpan) {
+                        RuleMark(x: .value("Now", clampedNow))
+                            .foregroundStyle(Theme.amber.opacity(0.6))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    }
                 }
                 .chartXScale(domain: 0...Double(totalSpan))
                 .chartYScale(domain: yDomain)
@@ -81,6 +83,11 @@ struct RunOnceActiveBanner: View {
                 Button {
                     isCancelling = true
                     onCancel()
+                    // Reset after a timeout in case the banner isn't dismissed
+                    Task {
+                        try? await Task.sleep(for: .seconds(5))
+                        isCancelling = false
+                    }
                 } label: {
                     HStack(spacing: 6) {
                         if isCancelling {

@@ -198,10 +198,7 @@ final class DeviceManager {
             do {
                 try await api.updateDeviceStatus(update)
             } catch {
-                self.error = error.localizedDescription
-                if !isReceivingWebSocket {
-                    await fetchStatus()
-                }
+                Log.device.error("togglePower failed: \(error)")
             }
         }
     }
@@ -288,17 +285,15 @@ final class DeviceManager {
         guard let update = pendingUpdate else { return }
         pendingUpdate = nil
         isSendingMutation = true
-        defer { isSendingMutation = false }
         do {
             try await api.updateDeviceStatus(update)
-            // Success — WS event bus will push the new state to all clients
         } catch {
-            self.error = error.localizedDescription
             Log.device.error("sendPendingUpdate failed: \(error)")
-            // Only poll for revert if WS isn't providing updates
-            if !isReceivingWebSocket {
-                await fetchStatus()
-            }
+            // Don't call fetchStatus here — it competes with the hardware.
+            // The next polling cycle will naturally correct the state.
         }
+        // Brief cooldown — let the hardware settle before the next poll
+        try? await Task.sleep(for: .seconds(2))
+        isSendingMutation = false
     }
 }

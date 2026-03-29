@@ -10,16 +10,6 @@ struct ScheduleScreen: View {
     @State private var aiCurveStartPage = 0
     @State private var showCurvePicker = false
     @State private var savedTemplates: [CurveTemplate] = []
-    @State private var activeRunOnce: RunOnceSession?
-
-    private func fetchActiveRunOnce() async {
-        do {
-            let api = APIBackend.current.createClient()
-            activeRunOnce = try await api.getActiveRunOnce(side: scheduleManager.selectedSide.primarySide)
-        } catch {
-            activeRunOnce = nil
-        }
-    }
 
     /// Derives a display name for the currently-active curve by matching
     /// the schedule's temperature set-points against known profiles and
@@ -56,23 +46,6 @@ struct ScheduleScreen: View {
             VStack(spacing: 16) {
                 // Side selector
                 ScheduleSideSelectorView()
-
-                // Active run-once banner
-                if let session = activeRunOnce {
-                    RunOnceActiveBanner(session: session) {
-                        let side = scheduleManager.selectedSide.primarySide
-                        Task {
-                            let api = APIBackend.current.createClient()
-                            try? await api.cancelRunOnce(side: side)
-                            let powerOff = SideStatusUpdate(isOn: false)
-                            var update = DeviceStatusUpdate()
-                            if side == .left { update.left = powerOff } else { update.right = powerOff }
-                            try? await api.updateDeviceStatus(update)
-                            withAnimation { activeRunOnce = nil }
-                        }
-                    }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
 
                 // Schedule toggle — at the top for quick access
                 scheduleToggle
@@ -155,17 +128,12 @@ struct ScheduleScreen: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 20)
         }
-        .animation(.easeInOut(duration: 0.3), value: activeRunOnce != nil)
         .background(Theme.background)
         .task {
             await scheduleManager.fetchSchedules()
         }
         .onAppear {
             savedTemplates = CurveTemplate.loadAll()
-            Task { await fetchActiveRunOnce() }
-        }
-        .task(id: scheduleManager.selectedSide) {
-            await fetchActiveRunOnce()
         }
         .sheet(isPresented: $showCurvePicker, onDismiss: {
             savedTemplates = CurveTemplate.loadAll()

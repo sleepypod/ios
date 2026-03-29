@@ -112,6 +112,7 @@ struct TempScreen: View {
                                     RunOnceActiveBanner(session: session, onCancel: {
                                         stopCurve()
                                     }, compact: true)
+                                    .id(session.id)
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                                 } else {
                                     TempControlsView()
@@ -120,7 +121,7 @@ struct TempScreen: View {
 
                                 EnvironmentInfoView()
                             }
-                            .animation(.easeInOut(duration: 0.3), value: activeRunOnce != nil)
+                            .animation(.easeInOut(duration: 0.3), value: activeRunOnce?.id)
                             .padding(.horizontal, 16)
 
                             Spacer(minLength: 0)
@@ -132,8 +133,12 @@ struct TempScreen: View {
                         await fetchActiveRunOnce()
                     }
                     .scrollBounceBehavior(.basedOnSize)
-                    .task(id: deviceManager.selectedSide) {
-                        await fetchActiveRunOnce()
+                    .onChange(of: deviceManager.selectedSide) {
+                        activeRunOnce = nil
+                        Task { await fetchActiveRunOnce() }
+                    }
+                    .onAppear {
+                        Task { await fetchActiveRunOnce() }
                     }
                     } // VStack
                 } else {

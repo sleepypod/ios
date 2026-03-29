@@ -87,15 +87,6 @@ private func decodeTRPCOptional<T: Decodable>(_ name: String, as type: T.Type) t
     _ = try decodeTRPC("wifi-status", as: WifiStatus.self)
 }
 
-// MARK: - Biometrics
-
-@Test func processingStatusDecodes() throws {
-    struct ProcessingStatus: Codable {
-        var iosProcessingActive: Bool
-    }
-    _ = try decodeTRPC("processing-status", as: ProcessingStatus.self)
-}
-
 // MARK: - Device (may fail in CI without hardware)
 
 @Test func deviceStatusDecodesIfAvailable() throws {

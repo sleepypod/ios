@@ -117,32 +117,42 @@ final class PodDiscovery {
         autoConnecting = true
         defer { autoConnecting = false }
 
-        startBrowsing()
+        // Try twice — first attempt may be blocked by the Local Network permission
+        // prompt on fresh install. By the second attempt the permission is granted.
+        for attempt in 1...2 {
+            startBrowsing()
 
-        // Wait up to 10 seconds for a device to appear
-        for _ in 0..<20 {
-            try? await Task.sleep(for: .milliseconds(500))
-            if let pod = discoveredPods.first {
-                stopBrowsing()
-                status = .resolving(pod.name)
-                if let ip = await resolve(pod) {
-                    Log.discovery.info("Resolved \(pod.name) → \(ip)")
-                    Haptics.medium()
-                    status = .connected(ip)
-                    connectedPodName = pod.name
-                    settingsManager.podIP = ip
-                    deviceManager.retryConnection()
-                    return ip
-                } else {
-                    Log.discovery.error("Failed to resolve \(pod.name)")
-                    Haptics.heavy()
-                    status = .failed
+            // Wait up to 10 seconds for a device to appear
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .milliseconds(500))
+                if let pod = discoveredPods.first {
+                    stopBrowsing()
+                    status = .resolving(pod.name)
+                    if let ip = await resolve(pod) {
+                        Log.discovery.info("Resolved \(pod.name) → \(ip)")
+                        Haptics.medium()
+                        status = .connected(ip)
+                        connectedPodName = pod.name
+                        settingsManager.podIP = ip
+                        deviceManager.retryConnection()
+                        return ip
+                    } else {
+                        Log.discovery.error("Failed to resolve \(pod.name)")
+                        Haptics.heavy()
+                        status = .failed
+                    }
+                    return nil
                 }
-                return nil
+            }
+            stopBrowsing()
+
+            if attempt == 1 {
+                Log.discovery.info("First scan found nothing — retrying (permission may have just been granted)")
+                status = .scanning
+                try? await Task.sleep(for: .seconds(1))
             }
         }
-        Log.discovery.warning("No devices found after 10s scan")
-        stopBrowsing()
+        Log.discovery.warning("No devices found after 2 scan attempts")
         if status == .scanning { status = .failed }
         return nil
     }

@@ -123,7 +123,11 @@ final class DeviceManager {
             error = nil
             lastUpdated = Date()
         } catch {
-            isConnected = false
+            // Only mark disconnected if we've never had a successful connection.
+            // Once connected, keep showing last-known status on transient failures.
+            if deviceStatus == nil {
+                isConnected = false
+            }
             isConnecting = false
             retryCount += 1
             self.error = "\(error)"

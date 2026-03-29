@@ -30,6 +30,7 @@ final class DeviceManager {
     private var debounceTask: Task<Void, Never>?
     private var pollingTask: Task<Void, Never>?
     private var pendingUpdate: DeviceStatusUpdate?
+    private var isSendingMutation = false
 
     init(api: SleepypodProtocol) {
         self.api = api
@@ -94,7 +95,7 @@ final class DeviceManager {
         pollingTask?.cancel()
         pollingTask = Task {
             while !Task.isCancelled {
-                if pendingUpdate == nil && !isReceivingWebSocket {
+                if pendingUpdate == nil && !isReceivingWebSocket && !isSendingMutation {
                     await fetchStatus()
                 }
                 // Retry faster when disconnected, normal interval when connected
@@ -192,11 +193,15 @@ final class DeviceManager {
         }
 
         Task {
+            isSendingMutation = true
+            defer { isSendingMutation = false }
             do {
                 try await api.updateDeviceStatus(update)
             } catch {
                 self.error = error.localizedDescription
-                await fetchStatus() // Revert on failure
+                if !isReceivingWebSocket {
+                    await fetchStatus()
+                }
             }
         }
     }
@@ -282,12 +287,18 @@ final class DeviceManager {
     private func sendPendingUpdate() async {
         guard let update = pendingUpdate else { return }
         pendingUpdate = nil
+        isSendingMutation = true
+        defer { isSendingMutation = false }
         do {
             try await api.updateDeviceStatus(update)
+            // Success — WS event bus will push the new state to all clients
         } catch {
             self.error = error.localizedDescription
             Log.device.error("sendPendingUpdate failed: \(error)")
-            await fetchStatus() // Revert on failure
+            // Only poll for revert if WS isn't providing updates
+            if !isReceivingWebSocket {
+                await fetchStatus()
+            }
         }
     }
 }

@@ -930,7 +930,10 @@ struct AICurvePromptView: View {
                 withAnimation { isRunOnce = true }
                 Haptics.success()
                 try? await Task.sleep(for: .seconds(1))
-                NotificationCenter.default.post(name: .switchToTempTab, object: nil)
+                NotificationCenter.default.post(
+                    name: .switchToTempTab,
+                    object: scheduleManager.selectedSide
+                )
             } catch {
                 Log.general.error("Failed to start run-once from AI curve: \(error)")
             }

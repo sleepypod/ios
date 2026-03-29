@@ -104,7 +104,10 @@ struct ContentView: View {
             .onChange(of: selectedTab) {
                 Haptics.tap()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .switchToTempTab)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .switchToTempTab)) { notification in
+                if let side = notification.object as? SideSelection {
+                    deviceManager.selectedSide = side
+                }
                 selectedTab = "temp"
             }
 

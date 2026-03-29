@@ -848,8 +848,11 @@ struct SmartCurveView: View {
             withAnimation { showSuccess = false }
             isRunOnce = false
 
-            // Switch to Temp tab to show the active curve
-            NotificationCenter.default.post(name: .switchToTempTab, object: nil)
+            // Switch to Temp tab to show the active curve, syncing the side
+            NotificationCenter.default.post(
+                name: .switchToTempTab,
+                object: scheduleManager.selectedSide
+            )
         }
     }
 }

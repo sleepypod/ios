@@ -1,6 +1,10 @@
 {
   "name": "@sleepypod/ios",
   "private": true,
+  "scripts": {
+    "lint": "swiftlint --strict",
+    "lint:fix": "swiftlint --fix && swiftlint --strict"
+  },
   "devDependencies": {
     "semantic-release": "^25.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",

@@ -180,7 +180,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
             LogSource(unit: "sleepypod.service", name: "Core", active: true),
             LogSource(unit: "sleepypod-piezo-processor.service", name: "Piezo Processor", active: true),
             LogSource(unit: "sleepypod-sleep-detector.service", name: "Sleep Detector", active: true),
-            LogSource(unit: "sleepypod-environment-monitor.service", name: "Environment Monitor", active: true),
+            LogSource(unit: "sleepypod-environment-monitor.service", name: "Environment Monitor", active: true)
         ]
     }
 

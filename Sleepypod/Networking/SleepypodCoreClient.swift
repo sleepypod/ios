@@ -72,13 +72,13 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             if let temp = left.targetTemperatureF {
                 let _: TRPCSuccess = try await mutate("device.setTemperature", input: [
                     "side": "left",
-                    "temperature": temp,
+                    "temperature": temp
                 ])
             }
             if let isOn = left.isOn {
                 let _: TRPCSuccess = try await mutate("device.setPower", input: [
                     "side": "left",
-                    "powered": isOn,
+                    "powered": isOn
                 ])
             }
         }
@@ -86,13 +86,13 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             if let temp = right.targetTemperatureF {
                 let _: TRPCSuccess = try await mutate("device.setTemperature", input: [
                     "side": "right",
-                    "temperature": temp,
+                    "temperature": temp
                 ])
             }
             if let isOn = right.isOn {
                 let _: TRPCSuccess = try await mutate("device.setPower", input: [
                     "side": "right",
-                    "powered": isOn,
+                    "powered": isOn
                 ])
             }
         }
@@ -126,7 +126,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             let _: TRPCSideSettings = try await mutate("settings.updateSide", input: [
                 "side": side,
                 "name": sideSettings.name,
-                "awayMode": sideSettings.awayMode,
+                "awayMode": sideSettings.awayMode
             ])
         }
 
@@ -174,7 +174,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                         "side": side.rawValue,
                         "dayOfWeek": day.rawValue,
                         "time": time,
-                        "temperature": tempF,
+                        "temperature": tempF
                     ])
                 }
 
@@ -189,7 +189,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                             "onTime": daily.power.on,
                             "offTime": daily.power.off,
                             "onTemperature": daily.power.onTemperature,
-                            "enabled": true,
+                            "enabled": true
                         ])
                     }
                 }
@@ -203,7 +203,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                         "vibrationPattern": daily.alarm.vibrationPattern.rawValue,
                         "duration": daily.alarm.duration,
                         "alarmTemperature": daily.alarm.alarmTemperature,
-                        "enabled": true,
+                        "enabled": true
                     ])
                 }
             }
@@ -345,13 +345,13 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             "side": alarm.side.rawValue,
             "vibrationIntensity": alarm.vibrationIntensity,
             "vibrationPattern": alarm.vibrationPattern.rawValue,
-            "duration": alarm.duration,
+            "duration": alarm.duration
         ])
     }
 
     func clearAlarm(side: Side) async throws {
         let _: TRPCSuccess = try await mutate("device.clearAlarm", input: [
-            "side": side.rawValue,
+            "side": side.rawValue
         ])
     }
 
@@ -376,7 +376,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     func snoozeAlarm(side: Side, duration: Int = 300) async throws -> SnoozeResponse {
         try await mutate("device.snoozeAlarm", input: [
             "side": side.rawValue,
-            "duration": duration,
+            "duration": duration
         ])
     }
 
@@ -398,7 +398,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             "startDate": fmt.string(from: start),
             "endDate": fmt.string(from: end),
             "limit": limit,
-            "unit": unit,
+            "unit": unit
         ]
         return try await query("environment.getBedTemp", input: input, dateKeys: ["startDate", "endDate"])
     }
@@ -427,7 +427,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let input: [String: Any] = [
             "side": side.rawValue,
             "setPoints": setPoints,
-            "wakeTime": wakeTime,
+            "wakeTime": wakeTime
         ]
         return try await mutate("runOnce.start", input: input)
     }

@@ -36,7 +36,7 @@ struct AICurvePromptView: View {
         "I run hot, bed at 11pm, wake 6:30. Really cold first few hours.",
         "Light sleeper, cold feet. Warm start, gentle cooling, warm wake at 7am.",
         "Post-workout recovery. Bed 10pm, wake 6am. Extra cold for muscles.",
-        "I'm always cold. Minimal cooling, cozy all night. Bed 11:30, wake 7:30.",
+        "I'm always cold. Minimal cooling, cozy all night. Bed 11:30, wake 7:30."
     ]
 
     private let stepLabels = ["Describe", "Review", "Import", "Apply"]
@@ -651,7 +651,7 @@ struct AICurvePromptView: View {
             ("Cool-down", Theme.cooling),
             ("Deep Sleep", Color(hex: "2563eb")),
             ("Maintain", Theme.textSecondary),
-            ("Pre-Wake", Theme.amber),
+            ("Pre-Wake", Theme.amber)
         ]
         return HStack(spacing: 10) {
             Spacer()
@@ -914,7 +914,7 @@ struct AICurvePromptView: View {
         Task {
             do {
                 let api = APIBackend.current.createClient()
-                let _ = try await api.startRunOnce(
+                _ = try await api.startRunOnce(
                     side: side,
                     setPoints: setPoints,
                     wakeTime: result.wake
@@ -922,7 +922,7 @@ struct AICurvePromptView: View {
 
                 if scheduleManager.selectedSide == .both {
                     let other: Side = side == .left ? .right : .left
-                    let _ = try await api.startRunOnce(
+                    _ = try await api.startRunOnce(
                         side: other,
                         setPoints: setPoints,
                         wakeTime: result.wake

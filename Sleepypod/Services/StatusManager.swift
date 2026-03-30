@@ -54,7 +54,7 @@ final class StatusManager {
                 iconColorHex: "d4a84a",
                 services: [status.temperatureSchedule, status.alarmSchedule, status.powerSchedule,
                            status.primeSchedule, status.rebootSchedule]
-            ),
+            )
             // Biometrics and Calibration are shown as individual cards
             // with real data from their own endpoints — not from ServerStatus
         ].filter { !$0.services.isEmpty }

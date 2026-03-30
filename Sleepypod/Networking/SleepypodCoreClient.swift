@@ -423,10 +423,10 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let _: TRPCSuccess = try await mutate("device.dismissPrimeNotification", input: [:] as [String: String])
     }
 
-    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse {
+    func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse {
         let input: [String: Any] = [
             "side": side.rawValue,
-            "setPoints": setPoints,
+            "setPoints": setPoints.map { ["time": $0.time, "temperature": $0.temperature] as [String: Any] },
             "wakeTime": wakeTime
         ]
         return try await mutate("runOnce.start", input: input)

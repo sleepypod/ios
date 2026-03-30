@@ -130,7 +130,7 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws { throw APIError.invalidResponse(statusCode: 404) }
     func deleteSleepRecord(id: Int) async throws { throw APIError.invalidResponse(statusCode: 404) }
     func dismissPrimeNotification() async throws {}
-    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse { throw APIError.invalidResponse(statusCode: 404) }
+    func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse { throw APIError.invalidResponse(statusCode: 404) }
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
     func cancelRunOnce(side: Side) async throws {}
     func getLogSources() async throws -> [LogSource] { [] }

@@ -447,7 +447,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading] { [] }
-    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 1, expiresAt: Int(Date().timeIntervalSince1970) + 28800) }
+    func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 1, expiresAt: Int(Date().timeIntervalSince1970) + 28800) }
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
     func cancelRunOnce(side: Side) async throws {}
 

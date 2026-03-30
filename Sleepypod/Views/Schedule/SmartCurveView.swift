@@ -821,8 +821,8 @@ struct SmartCurveView: View {
         fmt.dateFormat = "HH:mm"
         let wakeTimeStr = fmt.string(from: wakeTime)
 
-        let setPoints: [[String: Any]] = temps.sorted(by: { $0.key < $1.key }).map { time, temp in
-            ["time": time, "temperature": temp]
+        let setPoints: [RunOnceSetPoint] = temps.sorted(by: { $0.key < $1.key }).map { time, temp in
+            RunOnceSetPoint(time: time, temperature: Double(temp))
         }
 
         Task {

@@ -38,7 +38,7 @@ protocol SleepypodProtocol: Sendable {
     func dismissPrimeNotification() async throws
 
     // Run-once curve (#251)
-    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse
+    func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession?
     func cancelRunOnce(side: Side) async throws
 }

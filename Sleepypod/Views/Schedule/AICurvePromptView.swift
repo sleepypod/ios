@@ -883,12 +883,12 @@ struct AICurvePromptView: View {
         guard let result = parsedResult else { return }
         let side = scheduleManager.selectedSide.primarySide
 
-        nonisolated(unsafe) let setPoints: [[String: Any]]
+        let setPoints: [RunOnceSetPoint]
 
         if let nowCurve = result.nowCurve, !nowCurve.isEmpty {
             // Use the AI-generated "start now" curve (properly shaped for shorter duration)
             setPoints = nowCurve.map { time, temp in
-                ["time": time, "temperature": temp] as [String: Any]
+                RunOnceSetPoint(time: time, temperature: Double(temp))
             }
         } else {
             // Fallback: proportionally shift the original curve times
@@ -907,7 +907,7 @@ struct AICurvePromptView: View {
                 let newOffset = originalSpan > 0 ? origOffset * newSpan / originalSpan : origOffset
                 let newMins = (roundedNow + newOffset) % 1440
                 let newTime = String(format: "%02d:%02d", newMins / 60, newMins % 60)
-                return ["time": newTime, "temperature": p.tempF] as [String: Any]
+                return RunOnceSetPoint(time: newTime, temperature: Double(p.tempF))
             }
         }
 

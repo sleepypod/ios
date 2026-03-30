@@ -1,6 +1,29 @@
 # Sleepypod iOS
 
-Native iOS app for controlling and monitoring your Sleepypod — temperature control, sleep tracking, biometrics, and on-device analysis.
+Native iOS app for controlling and monitoring your [Sleepypod](https://github.com/sleepypod/core) — temperature control, sleep tracking, biometrics, and on-device analysis.
+
+<p align="center">
+  <img src="docs/images/temperature-control.png" width="280" alt="Temperature control" />
+  <img src="docs/images/schedule.png" width="280" alt="Sleep schedule" />
+  <img src="docs/images/sensors.png" width="280" alt="Sensor dashboard" />
+</p>
+
+<p align="center">
+  <img src="docs/images/schedule-curves.gif" width="280" alt="Schedule curves" />
+  <img src="docs/images/biometrics-sleep.gif" width="280" alt="Biometrics and sleep" />
+  <img src="docs/images/discovery.gif" width="280" alt="Pod discovery" />
+</p>
+
+<p align="center">
+  <img src="docs/images/status-services.gif" width="280" alt="Status and services" />
+  <img src="docs/images/services-detail.gif" width="280" alt="Service details" />
+</p>
+
+<p align="center">
+  <a href="https://discord.gg/UMmv5R6MXa">Discord</a> · <a href="https://github.com/sleepypod/ios/issues">Issues</a> · <a href="#setup">Setup</a>
+</p>
+
+---
 
 ## Features
 
@@ -20,6 +43,7 @@ Native iOS app for controlling and monitoring your Sleepypod — temperature con
 
 ### Scheduling
 - Temperature curve editor with per-phase +/- controls
+- AI-generated sleep curves with "use now" shortcut
 - Alarm and bedtime time pickers
 - Power schedule toggle
 - Day-of-week and side selection
@@ -40,30 +64,34 @@ Native iOS app for controlling and monitoring your Sleepypod — temperature con
 - Manual IP override fallback
 - 10-second polling with pull-to-refresh
 
+---
+
 ## Architecture
 
 ```text
-SleepypodProtocol          ← shared interface for all backends
-├── FreeSleepClient        ← legacy free-sleep REST API
-└── SleepypodCoreClient    ← sleepypod-core tRPC API
+SleepypodProtocol          <- shared interface for all backends
+├── FreeSleepClient        <- legacy free-sleep REST API
+└── SleepypodCoreClient    <- sleepypod-core tRPC API
 
-DeviceManager              ← temperature, power, polling
-ScheduleManager            ← schedules, alarms
-StatusManager              ← service health, server status
-SettingsManager            ← device config, timezone, temp format
-MetricsManager             ← sleep records, vitals, movement
-PodDiscovery               ← mDNS/Bonjour network discovery
-SleepAnalyzer              ← on-device sleep stage classification
-UserProfile                ← local user preferences
+DeviceManager              <- temperature, power, polling
+ScheduleManager            <- schedules, alarms
+StatusManager              <- service health, server status
+SettingsManager            <- device config, timezone, temp format
+MetricsManager             <- sleep records, vitals, movement
+PodDiscovery               <- mDNS/Bonjour network discovery
+SleepAnalyzer              <- on-device sleep stage classification
+UserProfile                <- local user preferences
 ```
 
 Any backend conforms to `SleepypodProtocol` and the entire app works — no view changes needed.
 
+---
+
 ## Requirements
 
-- iOS 26.0+ (set in `project.yml` → `deploymentTarget`)
-- Xcode 26+ (set in `project.yml` → `xcodeVersion`)
-- Swift 6.0 (set in `project.yml` → `SWIFT_VERSION`)
+- iOS 26.0+
+- Xcode 26+
+- Swift 6.0
 - A Sleepypod on the local network
 
 ## Setup
@@ -72,6 +100,9 @@ Any backend conforms to `SleepypodProtocol` and the entire app works — no view
 # Clone
 git clone https://github.com/sleepypod/ios.git
 cd ios
+
+# Install dependencies
+npm install
 
 # Generate Xcode project (requires XcodeGen)
 brew install xcodegen
@@ -93,12 +124,26 @@ xcrun devicectl device install app --device DEVICE_ID \
   ~/Library/Developer/Xcode/DerivedData/Sleepypod-*/Build/Products/Debug-iphoneos/Sleepypod.app
 ```
 
+### Lint
+
+```bash
+# Check (same as CI)
+npm run lint
+
+# Auto-fix + check
+npm run lint:fix
+```
+
+Requires SwiftLint: `brew install swiftlint`
+
 ### API Spec Sync
 
 ```bash
 # Fetch the latest OpenAPI spec from a running pod
 ./scripts/sync-api-spec.sh 192.168.1.88
 ```
+
+---
 
 ## Contract Testing
 
@@ -115,6 +160,20 @@ Also runs daily to catch core-side drift.
 # Run locally
 cd contract-tests && swift test
 ```
+
+---
+
+## CI
+
+All checks run on every PR and must pass before merge:
+
+| Job | Runner | What it does |
+|-----|--------|-------------|
+| **build** | `macos-26` | `xcodebuild build` — catches compile errors |
+| **lint** | `macos-15` | SwiftLint — enforces code style |
+| **contract-test** | `macos-15` | Validates models against live core API |
+
+---
 
 ## Project Structure
 
@@ -133,6 +192,8 @@ Sleepypod/
 └── Info.plist        # Bonjour service type
 ```
 
+---
+
 ## Documentation
 
 - [Health Vitals Science](docs/health-vitals-science.md) — measurement principles, normal ranges, filtering, and references
@@ -145,6 +206,16 @@ Sleepypod/
 - [ADR-004](docs/adr/004-on-device-ml.md) — On-device sleep analysis with Core ML
 - [ADR-005](docs/adr/005-dual-format-models.md) — Dual-format Decodable models
 
+---
+
+## Support
+
+Need help? Join the [Discord](https://discord.gg/UMmv5R6MXa) or [open an issue](https://github.com/sleepypod/ios/issues).
+
 ## Related
 
 - [sleepypod/core](https://github.com/sleepypod/core) — server for pod hardware control, scheduling, biometrics processing, and API
+
+## License
+
+[AGPL-3.0](LICENSE)

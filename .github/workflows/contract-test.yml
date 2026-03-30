@@ -26,6 +26,17 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           -quiet
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SwiftLint
+        uses: norio-nomura/action-swiftlint@3.2.1
+        with:
+          args: --strict
+
   contract-test:
     runs-on: macos-15
     steps:
@@ -89,3 +100,17 @@ jobs:
       - name: Stop server
         if: always()
         run: kill "$SERVER_PID" 2>/dev/null || true
+
+  done:
+    if: always()
+    needs: [build, lint, contract-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.build.result }}" != "success" ||
+                "${{ needs.lint.result }}" != "success" ||
+                "${{ needs.contract-test.result }}" != "success" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi

@@ -239,7 +239,7 @@ struct SleepStagesTimelineView: View {
                     }
                 }
                 .chartOverlay { proxy in
-                    GeometryReader { geo in
+                    GeometryReader { _ in
                         Rectangle()
                             .fill(Color.clear)
                             .contentShape(Rectangle())

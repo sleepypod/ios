@@ -24,7 +24,7 @@ struct FirmwareLogConsoleView: View {
         "frzHealth": Color(hex: "60a5fa"),
         "frzTemp": Color(hex: "60a5fa"),
         "deviceStatus": Color(hex: "38bdf8"),
-        "log": Color(hex: "fbbf24"),
+        "log": Color(hex: "fbbf24")
     ]
 
     var body: some View {

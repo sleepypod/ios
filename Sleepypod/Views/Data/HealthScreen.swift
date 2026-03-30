@@ -193,9 +193,9 @@ struct HealthScreen: View {
         vitals
             .filter { r in
                 // Filter physiologically impossible values (sleep-context thresholds)
-                if let hr = r.heartRate, (hr < 45 || hr > 130) { return false }
+                if let hr = r.heartRate, hr < 45 || hr > 130 { return false }
                 if let hrv = r.hrv, hrv > 300 { return false }
-                if let br = r.breathingRate, (br < 8 || br > 25) { return false }
+                if let br = r.breathingRate, br < 8 || br > 25 { return false }
                 return true
             }
             .sorted { $0.date < $1.date }
@@ -313,7 +313,6 @@ struct HealthScreen: View {
         }
     }
 
-
     // MARK: - Calibration Warning
 
     private var calibrationWarning: some View {
@@ -396,7 +395,6 @@ struct HealthScreen: View {
         Log.general.info("Sleep analyzer: \(sleepAnalyzer.stages.count) stages, score=\(sleepAnalyzer.qualityScore ?? -1)")
     }
 }
-
 
 // MARK: - Zone
 
@@ -550,7 +548,7 @@ struct VitalsChartCard: View {
                     }
                 }
                 .chartOverlay { proxy in
-                    GeometryReader { geo in
+                    GeometryReader { _ in
                         Rectangle()
                             .fill(Color.clear)
                             .contentShape(Rectangle())

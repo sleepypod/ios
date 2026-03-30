@@ -183,4 +183,3 @@ struct BedMatrixView: View {
         return Color(hex: "1a4a9c").opacity(0.5 + n * 0.4)
     }
 }
-

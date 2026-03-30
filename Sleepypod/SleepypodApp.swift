@@ -380,7 +380,7 @@ struct DisconnectedTabView: View {
                         Color.black,
                         Theme.accent.opacity(0.12),
                         Theme.accent.opacity(0.04),
-                        Color.clear,
+                        Color.clear
                     ],
                     center: .center,
                     startRadius: 35,

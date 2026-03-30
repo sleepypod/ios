@@ -15,7 +15,7 @@ private let timelineLanes: [TimelineLane] = [
     TimelineLane(type: "frzHealth", label: "FRE", color: Color(hex: "60a5fa")),
     TimelineLane(type: "deviceStatus", label: "DEV", color: Color(hex: "38bdf8")),
     TimelineLane(type: "log", label: "LOG", color: .yellow),
-    TimelineLane(type: "gesture", label: "TAP", color: .pink),
+    TimelineLane(type: "gesture", label: "TAP", color: .pink)
 ]
 
 // MARK: - DAG Node Descriptor
@@ -102,7 +102,7 @@ struct DataPipelineView: View {
 
             // Row 4 — Browser/App
             DAGNode(id: "browser", label: "iOS App", subtitle: "SwiftUI",
-                    color: .white, nx: 0.5, ny: 0.88),
+                    color: .white, nx: 0.5, ny: 0.88)
         ]
     }
 
@@ -120,7 +120,7 @@ struct DataPipelineView: View {
 
             // Write path (↑) — dashed orange
             DAGEdge(id: "browser-trpc", from: "browser", to: "trpc", color: Color(hex: "f97316"), dashed: true),
-            DAGEdge(id: "trpc-dt", from: "trpc", to: "dac-transport", color: Color(hex: "f97316"), dashed: true),
+            DAGEdge(id: "trpc-dt", from: "trpc", to: "dac-transport", color: Color(hex: "f97316"), dashed: true)
         ]
     }
 

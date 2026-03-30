@@ -18,7 +18,7 @@ private let samplePatterns: [VibrationPreset] = [
     VibrationPreset(name: "Nudge", intensity: 20, pattern: .double, duration: 3, description: "Quick gentle tap"),
     VibrationPreset(name: "Pulse Train", intensity: 60, pattern: .double, duration: 20, description: "Repeated double bursts"),
     VibrationPreset(name: "Deep Sleeper", intensity: 100, pattern: .rise, duration: 60, description: "Maximum intensity ramp"),
-    VibrationPreset(name: "Meditation End", intensity: 15, pattern: .rise, duration: 5, description: "Barely noticeable fade-in"),
+    VibrationPreset(name: "Meditation End", intensity: 15, pattern: .rise, duration: 5, description: "Barely noticeable fade-in")
 ]
 
 // MARK: - View

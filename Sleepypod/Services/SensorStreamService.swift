@@ -218,7 +218,6 @@ final class SensorStreamService {
                     self.fpsTimer = .now
                 }
 
-
                 // --- CapSense (every tick = 0.5s) ---
                 let baseValues: [Float] = [15, 16, 14, 15, 12, 13, 3, 3]
                 let variation: Float = Float.random(in: -1...1)

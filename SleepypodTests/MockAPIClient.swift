@@ -39,7 +39,7 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {}
     func deleteSleepRecord(id: Int) async throws {}
     func dismissPrimeNotification() async throws {}
-    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 0, expiresAt: 0) }
+    func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 0, expiresAt: 0) }
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
     func cancelRunOnce(side: Side) async throws {}
 

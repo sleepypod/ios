@@ -121,7 +121,7 @@ struct RunOnceSession: Decodable, Sendable {
     }
 }
 
-struct RunOnceSetPoint: Decodable, Sendable {
+struct RunOnceSetPoint: Codable, Sendable {
     let time: String
     let temperature: Double
 }

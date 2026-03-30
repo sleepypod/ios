@@ -307,8 +307,6 @@ struct BedSensorScreen: View {
 
     // MARK: - Temp Trend Card
 
-
-
     // MARK: - Environment Card
 
     private var envCard: some View {

@@ -180,7 +180,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
             LogSource(unit: "sleepypod.service", name: "Core", active: true),
             LogSource(unit: "sleepypod-piezo-processor.service", name: "Piezo Processor", active: true),
             LogSource(unit: "sleepypod-sleep-detector.service", name: "Sleep Detector", active: true),
-            LogSource(unit: "sleepypod-environment-monitor.service", name: "Environment Monitor", active: true),
+            LogSource(unit: "sleepypod-environment-monitor.service", name: "Environment Monitor", active: true)
         ]
     }
 
@@ -447,7 +447,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func getBedTempHistory(start: Date, end: Date, limit: Int, unit: String) async throws -> [BedTempReading] { [] }
-    func startRunOnce(side: Side, setPoints: [[String: Any]], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 1, expiresAt: Int(Date().timeIntervalSince1970) + 28800) }
+    func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 1, expiresAt: Int(Date().timeIntervalSince1970) + 28800) }
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
     func cancelRunOnce(side: Side) async throws {}
 

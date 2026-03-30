@@ -194,7 +194,6 @@ struct SmartCurveView: View {
             }
             .frame(maxWidth: .infinity)
 
-
             // Split button: Apply to Schedule | Use Now
             HStack(spacing: 0) {
                 Button {
@@ -256,7 +255,6 @@ struct SmartCurveView: View {
         .onChange(of: scheduleManager.currentDailySchedule?.temperatures) { loadFromSchedule() }
         .cardStyle()
     }
-
 
     private func tempStepper(label: String, icon: String, color: Color, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
         VStack(spacing: 4) {
@@ -461,7 +459,7 @@ struct SmartCurveView: View {
             ("Wind Down", Theme.warming),
             ("Fall Asleep", Theme.cooling),
             ("Deep Sleep", Color(hex: "2563eb")),
-            ("Pre-Wake", Theme.amber),
+            ("Pre-Wake", Theme.amber)
         ]
         return HStack(spacing: 12) {
             ForEach(phases, id: \.name) { phase in
@@ -823,15 +821,15 @@ struct SmartCurveView: View {
         fmt.dateFormat = "HH:mm"
         let wakeTimeStr = fmt.string(from: wakeTime)
 
-        let setPoints: [[String: Any]] = temps.sorted(by: { $0.key < $1.key }).map { time, temp in
-            ["time": time, "temperature": temp]
+        let setPoints: [RunOnceSetPoint] = temps.sorted(by: { $0.key < $1.key }).map { time, temp in
+            RunOnceSetPoint(time: time, temperature: Double(temp))
         }
 
         Task {
             var succeeded = true
             do {
                 let api = APIBackend.current.createClient()
-                let _ = try await api.startRunOnce(
+                _ = try await api.startRunOnce(
                     side: side,
                     setPoints: setPoints,
                     wakeTime: wakeTimeStr
@@ -839,7 +837,7 @@ struct SmartCurveView: View {
 
                 if scheduleManager.selectedSide == .both {
                     let otherSide: Side = side == .left ? .right : .left
-                    let _ = try await api.startRunOnce(
+                    _ = try await api.startRunOnce(
                         side: otherSide,
                         setPoints: setPoints,
                         wakeTime: wakeTimeStr

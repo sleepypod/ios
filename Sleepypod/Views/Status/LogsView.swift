@@ -50,7 +50,7 @@ private struct LogsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var logs: [LogEntry] = []
     @State private var selectedService: String = "sleepypod"
-    @State private var selectedPriority: String? = nil
+    @State private var selectedPriority: String?
     @State private var isLoading = false
     @State private var error: String?
 

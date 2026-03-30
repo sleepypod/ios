@@ -1,4 +1,4 @@
-name: Contract Test
+name: CI
 
 on:
   pull_request:
@@ -11,6 +11,35 @@ permissions:
   contents: read
 
 jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Build
+        run: >
+          xcodebuild build
+          -project Sleepypod.xcodeproj
+          -scheme Sleepypod
+          -destination 'generic/platform=iOS'
+          CODE_SIGNING_ALLOWED=NO
+          -quiet
+
+  lint:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Lint
+        run: swiftlint --strict
+
   contract-test:
     runs-on: macos-15
     steps:
@@ -74,3 +103,17 @@ jobs:
       - name: Stop server
         if: always()
         run: kill "$SERVER_PID" 2>/dev/null || true
+
+  done:
+    if: always()
+    needs: [build, lint, contract-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.build.result }}" != "success" ||
+                "${{ needs.lint.result }}" != "success" ||
+                "${{ needs.contract-test.result }}" != "success" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi

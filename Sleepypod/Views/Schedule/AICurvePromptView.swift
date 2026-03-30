@@ -883,7 +883,7 @@ struct AICurvePromptView: View {
         guard let result = parsedResult else { return }
         let side = scheduleManager.selectedSide.primarySide
 
-        let setPoints: [[String: Any]]
+        nonisolated(unsafe) let setPoints: [[String: Any]]
 
         if let nowCurve = result.nowCurve, !nowCurve.isEmpty {
             // Use the AI-generated "start now" curve (properly shaped for shorter duration)

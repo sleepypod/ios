@@ -1,6 +1,6 @@
 name: Sleepypod
 options:
-  bundleIdPrefix: com.sleepypod
+  bundleIdPrefix: com.jonathanng.ios.sleepypod
   deploymentTarget:
     iOS: "26.0"
   xcodeVersion: "26"
@@ -33,7 +33,7 @@ targets:
           - health-records
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.sleepypod.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod
         INFOPLIST_FILE: Sleepypod/Info.plist
         INFOPLIST_KEY_NSHealthShareUsageDescription: "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
@@ -54,4 +54,4 @@ targets:
       - target: Sleepypod
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.sleepypod.ios.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod.tests

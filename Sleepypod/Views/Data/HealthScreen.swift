@@ -5,8 +5,6 @@ struct HealthScreen: View {
     @Environment(MetricsManager.self) private var metricsManager
     @Environment(SettingsManager.self) private var settingsManager
 
-    @State private var vitals: [VitalsRecord] = []
-    @State private var isLoadingVitals = false
     @State private var showRawData = false
     @State private var sleepAnalyzer = SleepAnalyzer()
     @State private var isCalibrated = false
@@ -15,6 +13,9 @@ struct HealthScreen: View {
     private var api: SleepypodProtocol { APIBackend.current.createClient() }
 
     private var selectedSide: Side { metricsManager.selectedSide }
+
+    /// Vitals come from MetricsManager's fetchAll — don't re-fetch locally.
+    private var vitals: [VitalsRecord] { metricsManager.vitalsRecords }
 
     var body: some View {
         ScrollView {
@@ -354,46 +355,28 @@ struct HealthScreen: View {
     // MARK: - Fetch
 
     private func refresh() async {
-        await metricsManager.fetchAll()
-        await fetchVitals()
-        await checkCalibration()
+        // fetchAll + calibration fire in parallel; analysis waits for both.
+        async let metricsTask: () = metricsManager.fetchAll()
+        async let calibrationTask = fetchCalibrationStatus()
+        let (_, status) = await (metricsTask, calibrationTask)
+
+        isCalibrated = status?.piezo?.status == "completed" && (status?.piezo?.qualityScore ?? 0) > 0.5
+        sleepAnalyzer.analyze(
+            vitals: metricsManager.vitalsRecords,
+            movement: metricsManager.movementRecords,
+            calibrationQuality: status?.piezo?.qualityScore ?? 0.0
+        )
+    }
+
+    private func fetchCalibrationStatus() async -> CalibrationStatus? {
+        try? await api.getCalibrationStatus(side: metricsManager.selectedSide)
     }
 
     private func checkCalibration() async {
-        let api = APIBackend.current.createClient()
-        guard let status = try? await api.getCalibrationStatus(side: metricsManager.selectedSide) else { return }
-        // Only warn if selected side's piezo is missing or low quality
-        isCalibrated = status.piezo?.status == "completed" && (status.piezo?.qualityScore ?? 0) > 0.5
+        let status = await fetchCalibrationStatus()
+        isCalibrated = status?.piezo?.status == "completed" && (status?.piezo?.qualityScore ?? 0) > 0.5
     }
 
-    private func fetchVitals() async {
-        isLoadingVitals = vitals.isEmpty
-        let end = metricsManager.selectedWeekEnd
-        let start = metricsManager.selectedWeekStart
-        Log.general.info("Fetching vitals: side=\(metricsManager.selectedSide.rawValue) start=\(start) end=\(end)")
-        do {
-            vitals = try await api.getVitals(side: metricsManager.selectedSide, start: start, end: end)
-            Log.general.info("Fetched \(vitals.count) vitals records")
-        } catch {
-            Log.network.error("Failed to fetch vitals: \(error)")
-        }
-        isLoadingVitals = false
-
-        // Fetch calibration quality for sleep analysis
-        let calibrationQuality: Double
-        if let status = try? await api.getCalibrationStatus(side: metricsManager.selectedSide) {
-            calibrationQuality = status.piezo?.qualityScore ?? 0.0
-        } else {
-            calibrationQuality = 0.0  // Unknown quality — fail closed, don't trust unverified vitals
-        }
-
-        sleepAnalyzer.analyze(
-            vitals: vitals,
-            movement: metricsManager.movementRecords,
-            calibrationQuality: calibrationQuality
-        )
-        Log.general.info("Sleep analyzer: \(sleepAnalyzer.stages.count) stages, score=\(sleepAnalyzer.qualityScore ?? -1)")
-    }
 }
 
 // MARK: - Zone

@@ -34,6 +34,25 @@ final class DeviceManager {
 
     init(api: SleepypodProtocol) {
         self.api = api
+        // Cold-launch hydration: show last-known status immediately so the UI
+        // doesn't sit on a "Disconnected" screen for the ~300ms of the first
+        // fetch. Fresh status overwrites this within a few hundred ms.
+        if let cached = Self.loadCachedStatus() {
+            self.deviceStatus = cached
+            self.isConnected = true
+        }
+    }
+
+    private static let cacheKey = "cachedDeviceStatus"
+
+    private static func loadCachedStatus() -> DeviceStatus? {
+        guard let data = UserDefaults.standard.data(forKey: cacheKey) else { return nil }
+        return try? JSONDecoder().decode(DeviceStatus.self, from: data)
+    }
+
+    private func cacheStatus(_ status: DeviceStatus) {
+        guard let data = try? JSONEncoder().encode(status) else { return }
+        UserDefaults.standard.set(data, forKey: Self.cacheKey)
     }
 
     // MARK: - Current State Helpers
@@ -73,6 +92,7 @@ final class DeviceManager {
         isConnected = false
         retryCount = 0
         error = nil
+        UserDefaults.standard.removeObject(forKey: Self.cacheKey)
         startPolling()
     }
 
@@ -82,6 +102,7 @@ final class DeviceManager {
     func applyWebSocketStatus(_ frame: DeviceStatusFrame) {
         let newStatus = frame.toDeviceStatus(preserving: deviceStatus)
         deviceStatus = newStatus
+        cacheStatus(newStatus)
         isConnected = true
         isConnecting = false
         retryCount = 0
@@ -93,9 +114,14 @@ final class DeviceManager {
 
     func startPolling() {
         pollingTask?.cancel()
+        // If we already have a status snapshot (startConnection just fetched), skip
+        // the first immediate poll to avoid a redundant round trip on cold start.
+        var skipFirst = deviceStatus != nil
         pollingTask = Task {
             while !Task.isCancelled {
-                if pendingUpdate == nil && !isReceivingWebSocket && !isSendingMutation {
+                if skipFirst {
+                    skipFirst = false
+                } else if pendingUpdate == nil && !isReceivingWebSocket && !isSendingMutation {
                     await fetchStatus()
                 }
                 // Retry faster when disconnected, normal interval when connected
@@ -117,6 +143,7 @@ final class DeviceManager {
         do {
             let status = try await api.getDeviceStatus()
             deviceStatus = status
+            cacheStatus(status)
             isConnected = true
             isConnecting = false
             retryCount = 0

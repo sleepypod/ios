@@ -28,9 +28,6 @@ final class StatusManager {
         // Compute next alarm subtitle from schedule data
         let alarmSubtitle = Self.nextAlarmSubtitle(from: schedules)
 
-        // Compute system date subtitle
-        let systemSubtitle = Self.systemDateSubtitle(from: status.systemDate)
-
         return [
             ServiceCategory(
                 name: "Core",
@@ -106,13 +103,6 @@ final class StatusManager {
         }
 
         return "No alarms scheduled"
-    }
-
-    private static func systemDateSubtitle(from info: StatusInfo) -> String? {
-        // If the message contains a date, try to parse and show drift
-        // Otherwise just show the message if it's useful
-        guard !info.message.isEmpty, info.message != "OK" else { return nil }
-        return info.message
     }
 
     var healthyCount: Int {

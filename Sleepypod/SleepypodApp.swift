@@ -125,10 +125,14 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $showWelcome) {
             WelcomeScreen(onConnect: {
                 // Dismiss welcome, show the main app with DisconnectedTabView
-                // which has step indicators, manual IP entry, and retry
+                // which has step indicators, manual IP entry, and retry.
+                // Match the .task startup order: connect first, then poll, so
+                // startPolling()'s skipFirst guard avoids a duplicate fetch.
                 showWelcome = false
-                deviceManager.startPolling()
-                Task { await startConnection() }
+                Task {
+                    await startConnection()
+                    deviceManager.startPolling()
+                }
             }, onDemo: {
                 showWelcome = false
                 enterDemoMode()

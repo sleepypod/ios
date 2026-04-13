@@ -36,12 +36,17 @@ final class DeviceManager {
         self.api = api
         // Cold-launch hydration: show last-known status immediately so the UI
         // doesn't sit on a "Disconnected" screen for the ~300ms of the first
-        // fetch. Fresh status overwrites this within a few hundred ms.
+        // fetch. isConnected stays false until a live fetch confirms the pod
+        // is actually reachable — otherwise stale cache could mask an outage.
         if let cached = Self.loadCachedStatus() {
             self.deviceStatus = cached
             self.isConnected = true
         }
     }
+
+    /// Becomes true after the first successful network fetch since launch.
+    /// Used to prevent stale cache from indefinitely claiming "connected".
+    private var hasLiveFetched = false
 
     private static let cacheKey = "cachedDeviceStatus"
 
@@ -103,6 +108,7 @@ final class DeviceManager {
         let newStatus = frame.toDeviceStatus(preserving: deviceStatus)
         deviceStatus = newStatus
         cacheStatus(newStatus)
+        hasLiveFetched = true
         isConnected = true
         isConnecting = false
         retryCount = 0
@@ -144,15 +150,18 @@ final class DeviceManager {
             let status = try await api.getDeviceStatus()
             deviceStatus = status
             cacheStatus(status)
+            hasLiveFetched = true
             isConnected = true
             isConnecting = false
             retryCount = 0
             error = nil
             lastUpdated = Date()
         } catch {
-            // Only mark disconnected if we've never had a successful connection.
-            // Once connected, keep showing last-known status on transient failures.
-            if deviceStatus == nil {
+            // Until we've had a live fetch this session, treat failure as
+            // disconnected — stale cache shouldn't mask a real outage. After
+            // a confirmed live fetch, keep showing last-known on transient
+            // failures (network blip during polling).
+            if !hasLiveFetched {
                 isConnected = false
             }
             isConnecting = false

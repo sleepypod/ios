@@ -35,8 +35,9 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             BatchCall(procedure: "system.wifiStatus", input: nil)
         ])
         let status = try decoder.decode(TRPCDeviceStatus.self, from: results[0].get())
-        let health = try decoder.decode(TRPCSystemHealth.self, from: results[1].get())
-        let wifi = try? decoder.decode(TRPCWifiStatus.self, from: results[2].get())
+        // health and wifi are non-essential metadata — don't fail polling if they flake
+        let health = tryDecode(TRPCSystemHealth.self, from: results[1])
+        let wifi = tryDecode(TRPCWifiStatus.self, from: results[2])
 
         return DeviceStatus(
             left: SideStatus(
@@ -63,7 +64,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             coverVersion: status.sensorLabel,
             hubVersion: status.podVersion,
             freeSleep: FreeSleepInfo(
-                version: health.status == "ok" ? "core" : "core (degraded)",
+                version: health?.status == "ok" ? "core" : "core (degraded)",
                 branch: "main"
             ),
             wifiStrength: wifi?.signal ?? 0

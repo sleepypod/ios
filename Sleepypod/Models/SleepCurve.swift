@@ -42,7 +42,6 @@ struct SleepCurve {
         }
 
         let sleepDuration = wake.timeIntervalSince(bedtime)
-        let baseOffsets = coolingIntensity.offsets
 
         // Map intensity ratios to the user's actual temp range
         // Deep sleep hits min, pre-wake hits max

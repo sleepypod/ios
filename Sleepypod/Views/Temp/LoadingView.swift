@@ -39,7 +39,7 @@ struct LoadingView: View {
 
             Spacer()
         }
-        .frame(maxWidth: .infinity, minHeight: UIScreen.main.bounds.height * 0.6)
+        .frame(maxWidth: .infinity, minHeight: 480)
         .onAppear {
             withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
                 ringScale = 1.0

@@ -58,8 +58,16 @@ struct TempScreen: View {
             let daily = sideSchedule[today]
 
             if !daily.temperatures.isEmpty {
+                // Sort by offset-from-bedtime so an overnight curve renders left-to-right
+                // as evening → morning. String-sorting ("03:00" < "22:00") would put the
+                // wake-side points first and push bedtime points ~20h into the chart.
+                let bedtime = daily.power.enabled ? daily.power.on : "22:00"
+                let bedMin = clockMinutesOfDay(bedtime)
                 let points = daily.temperatures
-                    .sorted { $0.key < $1.key }
+                    .sorted { lhs, rhs in
+                        offsetFromBedtime(lhs.key, bedtime: bedMin)
+                            < offsetFromBedtime(rhs.key, bedtime: bedMin)
+                    }
                     .map { RunOnceSetPoint(time: $0.key, temperature: Double($0.value)) }
                 let wake = daily.power.enabled ? daily.power.off : "07:00"
                 activeCurve = ActiveCurve(
@@ -81,6 +89,27 @@ struct TempScreen: View {
         // Calendar weekday: 1=Sunday, 2=Monday, ...
         let days: [DayOfWeek] = [.sunday, .monday, .tuesday, .wednesday, .thursday, .friday, .saturday]
         return days[weekday - 1]
+    }
+
+    private func clockMinutesOfDay(_ time: String) -> Int {
+        let parts = time.split(separator: ":")
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return 0 }
+        return h * 60 + m
+    }
+
+    private func offsetFromBedtime(_ time: String, bedtime: Int) -> Int {
+        (clockMinutesOfDay(time) - bedtime + 1440) % 1440
+    }
+
+    /// Short "Just now" / "12s ago" / "2m ago" label for the last-updated indicator.
+    static func relativeTime(from date: Date) -> String {
+        let seconds = Int(Date().timeIntervalSince(date))
+        if seconds < 5 { return "just now" }
+        if seconds < 60 { return "\(seconds)s ago" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m ago" }
+        let hours = minutes / 60
+        return "\(hours)h ago"
     }
 
     private var sideName: String {
@@ -118,13 +147,20 @@ struct TempScreen: View {
 
                 if deviceManager.isConnected {
                     VStack(spacing: 0) {
-                        // Top bar — name + priming + settings gear
-                        HStack {
+                        // Top bar — name + priming + last-updated + settings gear
+                        HStack(spacing: 8) {
                             Text(sideName)
                                 .font(.subheadline.weight(.medium))
                                 .foregroundColor(Theme.textSecondary)
                             if deviceManager.deviceStatus?.isPriming == true {
                                 PrimingIndicator()
+                            }
+                            if let lastUpdated = deviceManager.lastUpdated {
+                                TimelineView(.periodic(from: .now, by: 15.0)) { _ in
+                                    Text("• \(Self.relativeTime(from: lastUpdated))")
+                                        .font(.caption2)
+                                        .foregroundColor(Theme.textMuted)
+                                }
                             }
                             Spacer()
                             UserSelectorView()
@@ -200,9 +236,9 @@ struct TempScreen: View {
                         activeCurve = nil
                         Task { await fetchActiveCurve() }
                     }
-                    .onAppear {
-                        Task { await fetchActiveCurve() }
-                    }
+                    // .task fires once per view identity (survives tab switches);
+                    // .onAppear would re-fire every time the Temp tab is re-shown.
+                    .task { await fetchActiveCurve() }
                     } // VStack
                 } else {
                     DisconnectedTabView(tab: "Temp")

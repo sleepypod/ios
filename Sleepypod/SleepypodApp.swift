@@ -125,10 +125,14 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $showWelcome) {
             WelcomeScreen(onConnect: {
                 // Dismiss welcome, show the main app with DisconnectedTabView
-                // which has step indicators, manual IP entry, and retry
+                // which has step indicators, manual IP entry, and retry.
+                // Match the .task startup order: connect first, then poll, so
+                // startPolling()'s skipFirst guard avoids a duplicate fetch.
                 showWelcome = false
-                deviceManager.startPolling()
-                Task { await startConnection() }
+                Task {
+                    await startConnection()
+                    deviceManager.startPolling()
+                }
             }, onDemo: {
                 showWelcome = false
                 enterDemoMode()
@@ -141,17 +145,19 @@ struct ContentView: View {
                 return
             }
 
-            deviceManager.startPolling()
-
             // Demo mode — just fetch mock status, skip mDNS
             // Sensor demo stream starts automatically when Sensors tab is visited
             // via BedSensorScreen.onAppear -> connect() -> startDemoStream()
             if isDemo {
                 await deviceManager.fetchStatus()
+                deviceManager.startPolling()
                 return
             }
 
+            // Fetch once via startConnection, then hand off to polling. startPolling
+            // detects the populated deviceStatus and skips its redundant first tick.
             await startConnection()
+            deviceManager.startPolling()
         }
         .onChange(of: deviceManager.isConnected) {
             if deviceManager.isConnected {

@@ -29,10 +29,15 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     // MARK: - Device Status
 
     func getDeviceStatus() async throws -> DeviceStatus {
-        let status: TRPCDeviceStatus = try await query("device.getStatus")
-        let settings: TRPCSettings = try await query("settings.getAll")
-        let health: TRPCSystemHealth = try await query("health.system")
-        let wifi = try? await query("system.wifiStatus") as TRPCWifiStatus
+        let results = try await batchQuery([
+            BatchCall(procedure: "device.getStatus", input: nil),
+            BatchCall(procedure: "health.system", input: nil),
+            BatchCall(procedure: "system.wifiStatus", input: nil)
+        ])
+        let status = try decoder.decode(TRPCDeviceStatus.self, from: results[0].get())
+        // health and wifi are non-essential metadata — don't fail polling if they flake
+        let health = tryDecode(TRPCSystemHealth.self, from: results[1])
+        let wifi = tryDecode(TRPCWifiStatus.self, from: results[2])
 
         return DeviceStatus(
             left: SideStatus(
@@ -59,7 +64,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             coverVersion: status.sensorLabel,
             hubVersion: status.podVersion,
             freeSleep: FreeSleepInfo(
-                version: health.status == "ok" ? "core" : "core (degraded)",
+                version: health?.status == "ok" ? "core" : "core (degraded)",
                 branch: "main"
             ),
             wifiStrength: wifi?.signal ?? 0
@@ -146,35 +151,35 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func updateSchedules(_ schedules: Schedules, days: Set<DayOfWeek>? = nil) async throws -> Schedules {
         let daysToUpdate = days ?? Set(DayOfWeek.allCases)
+        let dayStrings = Set(daysToUpdate.map(\.rawValue))
+
+        var tempDeletes: [Int] = []
+        var powerDeletes: [Int] = []
+        var alarmDeletes: [Int] = []
+
+        var tempCreates: [[String: Any]] = []
+        var powerCreates: [[String: Any]] = []
+        var alarmCreates: [[String: Any]] = []
 
         for side in [Side.left, .right] {
             let existing: TRPCScheduleSet = try await query("schedules.getAll", input: ["side": side.rawValue])
             let sideSchedule = schedules.schedule(for: side)
 
+            // Collect IDs to delete for the days being updated
+            tempDeletes.append(contentsOf: existing.temperature.filter { dayStrings.contains($0.dayOfWeek) }.map(\.id))
+            powerDeletes.append(contentsOf: existing.power.filter { dayStrings.contains($0.dayOfWeek) }.map(\.id))
+            alarmDeletes.append(contentsOf: existing.alarm.filter { dayStrings.contains($0.dayOfWeek) }.map(\.id))
+
             for day in daysToUpdate {
                 let daily = sideSchedule[day]
-                let hasData = !daily.temperatures.isEmpty || daily.power.enabled || daily.alarm.enabled
-
-                // Delete existing entries for this day only
-                for sched in existing.temperature where sched.dayOfWeek == day.rawValue {
-                    let _: TRPCSuccess = try await mutate("schedules.deleteTemperatureSchedule", input: ["id": sched.id])
-                }
-                for sched in existing.power where sched.dayOfWeek == day.rawValue {
-                    let _: TRPCSuccess = try await mutate("schedules.deletePowerSchedule", input: ["id": sched.id])
-                }
-                for sched in existing.alarm where sched.dayOfWeek == day.rawValue {
-                    let _: TRPCSuccess = try await mutate("schedules.deleteAlarmSchedule", input: ["id": sched.id])
-                }
-
-                // Only recreate if this day has data
-                guard hasData else { continue }
 
                 for (time, tempF) in daily.temperatures {
-                    let _: TRPCTemperatureSchedule = try await mutate("schedules.createTemperatureSchedule", input: [
+                    tempCreates.append([
                         "side": side.rawValue,
                         "dayOfWeek": day.rawValue,
                         "time": time,
-                        "temperature": tempF
+                        "temperature": tempF,
+                        "enabled": true
                     ])
                 }
 
@@ -183,7 +188,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                     let onMinutes = minutesFromTime(daily.power.on)
                     let offMinutes = minutesFromTime(daily.power.off)
                     if let on = onMinutes, let off = offMinutes, on < off {
-                        let _: TRPCPowerSchedule = try await mutate("schedules.createPowerSchedule", input: [
+                        powerCreates.append([
                             "side": side.rawValue,
                             "dayOfWeek": day.rawValue,
                             "onTime": daily.power.on,
@@ -195,7 +200,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                 }
 
                 if daily.alarm.enabled {
-                    let _: TRPCAlarmSchedule = try await mutate("schedules.createAlarmSchedule", input: [
+                    alarmCreates.append([
                         "side": side.rawValue,
                         "dayOfWeek": day.rawValue,
                         "time": daily.alarm.time,
@@ -209,21 +214,69 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             }
         }
 
+        // Server caps each delete/create array at max(100) per call. Chunk so no
+        // single array exceeds that limit; worst case for an "apply to all 7 days"
+        // with an AI curve is ~3 chunks, still far fewer round trips than the
+        // old N+1 per-schedule pattern.
+        let chunks = max(
+            1,
+            (tempDeletes.count + 99) / 100,
+            (powerDeletes.count + 99) / 100,
+            (alarmDeletes.count + 99) / 100,
+            (tempCreates.count + 99) / 100,
+            (powerCreates.count + 99) / 100,
+            (alarmCreates.count + 99) / 100
+        )
+
+        func slice<T>(_ arr: [T], chunk: Int) -> [T] {
+            let start = chunk * 100
+            guard start < arr.count else { return [] }
+            return Array(arr[start..<min(start + 100, arr.count)])
+        }
+
+        for i in 0..<chunks {
+            let batchInput: [String: Any] = [
+                "deletes": [
+                    "temperature": slice(tempDeletes, chunk: i),
+                    "power": slice(powerDeletes, chunk: i),
+                    "alarm": slice(alarmDeletes, chunk: i)
+                ],
+                "creates": [
+                    "temperature": slice(tempCreates, chunk: i),
+                    "power": slice(powerCreates, chunk: i),
+                    "alarm": slice(alarmCreates, chunk: i)
+                ],
+                "updates": [
+                    "temperature": [] as [Any],
+                    "power": [] as [Any],
+                    "alarm": [] as [Any]
+                ]
+            ]
+            let _: TRPCSuccess = try await mutate("schedules.batchUpdate", input: batchInput)
+        }
+
         return try await getSchedules()
     }
 
     // MARK: - Server Status
 
     func getServerStatus() async throws -> ServerStatus {
-        let health: TRPCSystemHealth = try await query("health.system")
-        let scheduler: TRPCSchedulerHealth = try await query("health.scheduler")
+        let results = try await batchQuery([
+            BatchCall(procedure: "health.system", input: nil),
+            BatchCall(procedure: "health.scheduler", input: nil),
+            BatchCall(procedure: "health.hardware", input: nil),
+            BatchCall(procedure: "health.dacMonitor", input: nil),
+            BatchCall(procedure: "biometrics.getProcessingStatus", input: nil),
+            BatchCall(procedure: "system.wifiStatus", input: nil)
+        ])
+        let health = try decoder.decode(TRPCSystemHealth.self, from: results[0].get())
+        let scheduler = try decoder.decode(TRPCSchedulerHealth.self, from: results[1].get())
 
-        // Fetch additional health endpoints (non-critical — don't fail if unavailable)
-        let hardware = try? await query("health.hardware") as TRPCHardwareHealth
-        let dacMonitor = try? await query("health.dacMonitor") as TRPCDacMonitor
-        let bioProcessing = try? await query("biometrics.getProcessingStatus") as TRPCBiometricsProcessing
-        let internet = try? await query("system.internetStatus") as TRPCInternetStatus
-        let wifi = try? await query("system.wifiStatus") as TRPCWifiStatus
+        // Additional health endpoints are non-critical — tolerate per-call failures
+        let hardware = tryDecode(TRPCHardwareHealth.self, from: results[2])
+        let dacMonitor = tryDecode(TRPCDacMonitor.self, from: results[3])
+        let bioProcessing = tryDecode(TRPCBiometricsProcessing.self, from: results[4])
+        let wifi = tryDecode(TRPCWifiStatus.self, from: results[5])
 
         func info(_ name: String, status: ServiceStatus, desc: String, msg: String = "OK") -> StatusInfo {
             StatusInfo(name: name, status: status, description: desc, message: msg)
@@ -493,7 +546,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.timeoutInterval = 30 // Hardware can be slow
+        request.timeoutInterval = 8
 
         let (data, response) = try await performRequest(request)
         try validateResponse(response)
@@ -508,14 +561,82 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
+        request.timeoutInterval = 15
 
         let wrapped: [String: Any] = ["json": input]
         request.httpBody = try JSONSerialization.data(withJSONObject: wrapped)
 
         let (data, response) = try await performRequest(request)
-        try validateResponse(response)
+        try validateResponse(response, data: data, procedure: procedure)
         return try decodeTRPCResult(data)
+    }
+
+    /// tRPC batch query — coalesces multiple queries into one HTTP request.
+    /// Mirrors @trpc/client's httpBatchLink format:
+    ///   GET /api/trpc/a,b,c?batch=1&input={"0":{"json":...},"1":{"json":...}}
+    /// Response is an array; each slot is either result-wrapped or error-wrapped.
+    /// Per-call results come back as re-serialized json payloads so callers decode
+    /// heterogeneous types into their own models. Per-call errors surface as .failure.
+    private func batchQuery(_ calls: [BatchCall]) async throws -> [Result<Data, Error>] {
+        guard let base = baseURL else { throw APIError.noBaseURL }
+        guard !calls.isEmpty else { return [] }
+
+        let procedures = calls.map(\.procedure).joined(separator: ",")
+
+        var inputMap: [String: Any] = [:]
+        for (i, call) in calls.enumerated() {
+            inputMap[String(i)] = ["json": call.input ?? [:]]
+        }
+        let inputData = try JSONSerialization.data(withJSONObject: inputMap)
+        let inputJSON = String(data: inputData, encoding: .utf8) ?? "{}"
+        let encoded = inputJSON.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? inputJSON
+
+        let urlString = "\(base)/api/trpc/\(procedures)?batch=1&input=\(encoded)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 8
+
+        let (data, response) = try await performRequest(request)
+        try validateResponse(response)
+
+        let parsed = try JSONSerialization.jsonObject(with: data)
+        guard let envelope = parsed as? [Any], envelope.count == calls.count else {
+            throw APIError.decodingFailed(NSError(
+                domain: "tRPC.batch", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Expected array of \(calls.count) results"]
+            ))
+        }
+
+        return envelope.map { item in
+            guard let obj = item as? [String: Any] else {
+                return .failure(APIError.decodingFailed(NSError(domain: "tRPC.batch", code: 1)))
+            }
+            if let err = obj["error"] as? [String: Any] {
+                let msg = (err["json"] as? [String: Any])?["message"] as? String
+                    ?? err["message"] as? String
+                    ?? "tRPC error"
+                return .failure(APIError.serverError(message: msg))
+            }
+            guard let result = obj["result"] as? [String: Any],
+                  let dataObj = result["data"] as? [String: Any],
+                  let json = dataObj["json"] else {
+                return .failure(APIError.decodingFailed(NSError(domain: "tRPC.batch", code: 2)))
+            }
+            do {
+                let bytes = try JSONSerialization.data(withJSONObject: json, options: [.fragmentsAllowed])
+                return .success(bytes)
+            } catch {
+                return .failure(error)
+            }
+        }
+    }
+
+    /// Decode a batch slot optionally — used for non-critical calls that may fail.
+    private func tryDecode<T: Decodable>(_ type: T.Type, from result: Result<Data, Error>) -> T? {
+        guard let data = try? result.get() else { return nil }
+        return try? decoder.decode(type, from: data)
     }
 
     /// Decode tRPC response envelope: {"result": {"data": {"json": T}}}
@@ -538,12 +659,15 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         }
     }
 
-    private func validateResponse(_ response: URLResponse) throws {
+    private func validateResponse(_ response: URLResponse, data: Data? = nil, procedure: String? = nil) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse(statusCode: 0)
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            Log.network.error("HTTP \(httpResponse.statusCode): \(httpResponse.url?.absoluteString ?? "?")")
+            let tag = procedure ?? httpResponse.url?.absoluteString ?? "?"
+            // Surface the tRPC error message so validation failures aren't silent
+            let body = data.flatMap { String(data: $0, encoding: .utf8) }?.prefix(500) ?? ""
+            Log.network.error("HTTP \(httpResponse.statusCode) \(tag) — \(String(body))")
             throw APIError.invalidResponse(statusCode: httpResponse.statusCode)
         }
     }
@@ -683,6 +807,11 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 }
 
 // MARK: - tRPC Envelope Types
+
+private struct BatchCall {
+    let procedure: String
+    let input: [String: Any]?
+}
 
 private struct TRPCEnvelope<R: Decodable>: Decodable {
     let result: TRPCResultData<R>

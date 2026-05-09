@@ -99,7 +99,33 @@ jobs:
         run: bash contract-tests/scripts/snapshot-responses.sh
 
       - name: Run Swift contract tests
-        run: cd contract-tests && swift test
+        run: cd contract-tests && swift test --enable-code-coverage
+
+      - name: Export coverage to lcov
+        if: always()
+        run: |
+          cd contract-tests
+          BIN_PATH=$(swift build --show-bin-path)
+          PROFDATA="$BIN_PATH/codecov/default.profdata"
+          XCTEST_BIN=$(find "$BIN_PATH" -name '*.xctest' -print -quit)
+          BINARY="$XCTEST_BIN/Contents/MacOS/$(basename "$XCTEST_BIN" .xctest)"
+          if [ -f "$PROFDATA" ] && [ -f "$BINARY" ]; then
+            xcrun llvm-cov export -format=lcov \
+              -instr-profile "$PROFDATA" \
+              "$BINARY" > lcov.info
+          else
+            echo "::warning::profdata or xctest binary missing — skipping lcov export"
+            : > lcov.info
+          fi
+
+      - name: Upload coverage reports to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: sleepypod/ios
+          files: contract-tests/lcov.info
+          flags: contract-tests
 
       - name: Stop server
         if: always()

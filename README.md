@@ -1,5 +1,7 @@
 # Sleepypod iOS
 
+[![codecov](https://codecov.io/gh/sleepypod/ios/branch/dev/graph/badge.svg)](https://codecov.io/gh/sleepypod/ios)
+
 Native iOS app for controlling and monitoring your [Sleepypod](https://github.com/sleepypod/core) — temperature control, sleep tracking, biometrics, and on-device analysis.
 
 <p align="center">

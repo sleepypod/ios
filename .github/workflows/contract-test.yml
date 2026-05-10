@@ -127,6 +127,12 @@ jobs:
           files: contract-tests/lcov.info
           flags: contract-tests
 
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Stop server
         if: always()
         run: kill "$SERVER_PID" 2>/dev/null || true

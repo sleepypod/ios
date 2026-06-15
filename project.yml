@@ -29,8 +29,6 @@ targets:
       path: Sleepypod/Sleepypod.entitlements
       properties:
         com.apple.developer.healthkit: true
-        com.apple.developer.healthkit.access:
-          - health-records
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod

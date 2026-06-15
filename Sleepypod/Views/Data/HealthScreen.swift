@@ -4,6 +4,7 @@ import Charts
 struct HealthScreen: View {
     @Environment(MetricsManager.self) private var metricsManager
     @Environment(SettingsManager.self) private var settingsManager
+    @Environment(HealthKitManager.self) private var healthKit
 
     @State private var showRawData = false
     @State private var sleepAnalyzer = SleepAnalyzer()
@@ -365,6 +366,12 @@ struct HealthScreen: View {
             vitals: metricsManager.vitalsRecords,
             movement: metricsManager.movementRecords,
             calibrationQuality: status?.piezo?.qualityScore ?? 0.0
+        )
+
+        await healthKit.sync(
+            side: metricsManager.selectedSide,
+            sleep: metricsManager.sleepRecords,
+            vitals: metricsManager.vitalsRecords
         )
     }
 

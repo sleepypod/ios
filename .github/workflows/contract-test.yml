@@ -4,6 +4,9 @@ on:
   push:
     branches: [dev]
   pull_request:
+  # Merge queue: the required checks must also report on the temporary
+  # merge-group branch or every queue entry fails.
+  merge_group:
   workflow_dispatch:
   schedule:
     # Run daily to catch core-side drift

@@ -4,6 +4,7 @@ struct HealthAccessView: View {
     @Environment(HealthSyncService.self) private var health
     @Environment(UserProfile.self) private var profile
     @Environment(ScheduleManager.self) private var schedule
+    @Environment(SettingsManager.self) private var settings
     var onComplete: (() -> Void)?
     @State private var requesting = false
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 30
@@ -48,6 +49,7 @@ struct HealthAccessView: View {
                             }
                         }
                         allowButton.padding(.top, 8)
+                        syncStatus
                     }
                     if let error = health.authorizationError {
                         Text(error).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
@@ -74,6 +76,41 @@ struct HealthAccessView: View {
         }
         .background(Theme.background).tint(Theme.green)
         .navigationTitle(onComplete == nil ? "Apple Health" : "").navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// What actually reached Health, so a sync can be checked on a real device.
+    private var syncStatus: some View {
+        GroupedSection("SYNC") {
+            GroupedCard {
+                SettingsRow("Side", icon: "bed.double") { RowValue(settings.sideName(for: profile.defaultSide)) }
+                SettingsRow("Nights saved", icon: "heart", iconColor: Theme.red) { RowValue("\(health.receipts.count)", mono: true) }
+                SettingsRow("Last saved", icon: "clock") {
+                    RowValue(health.receipts.values.map(\.date).max()?.formatted(date: .abbreviated, time: .shortened) ?? "Never", mono: true)
+                }
+                ForEach(Array(Set(health.failures.values)).sorted(), id: \.self) { message in
+                    let count = health.failures.values.filter { $0 == message }.count
+                    SettingsRow(message, icon: "exclamationmark.triangle", iconColor: Theme.amber, titleFont: .footnote) {
+                        RowValue(count == 1 ? "1 night" : "\(count) nights", mono: true)
+                    }
+                }
+                Button {
+                    Task {
+                        await health.syncRecent(api: APIBackend.current.createClient(), podID: settings.podID,
+                                                side: profile.defaultSide, demo: APIBackend.current.isDemo)
+                    }
+                } label: {
+                    SettingsRow(health.isSyncing ? "Syncing…" : "Sync last 7 nights now", icon: "arrow.triangle.2.circlepath") {
+                        if health.isSyncing { ProgressView() }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(health.isSyncing || !health.enabled || APIBackend.current.isDemo)
+            }
+            if APIBackend.current.isDemo {
+                Text("Demo mode never writes to Apple Health. Connect a pod to sync.")
+                    .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16)
+            }
+        }
     }
 
     private var allowButton: some View {

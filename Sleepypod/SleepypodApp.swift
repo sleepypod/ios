@@ -71,7 +71,7 @@ struct ContentView: View {
     private static var initialTab: String {
         switch DebugRoute.current {
         case "schedule": "schedule"
-        case "sleep", "week", "month": "sleep"
+        case "sleep", "week", "month", "watch": "sleep"
         default: "temp"
         }
     }

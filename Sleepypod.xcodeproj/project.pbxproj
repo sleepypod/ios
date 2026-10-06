@@ -90,6 +90,7 @@
 		B19E23F89C20C6BCB36E6787 /* UpdateCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */; };
 		B315E300474396FF502E7D0B /* HeartRateChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */; };
 		B550262B3FAB41694790DA90 /* NightPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6ECF94ACBCB10401F9F8FF7 /* NightPhases.swift */; };
+		B69F31ED0A8F9F53BCA75DBB /* WatchComparisonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97C4FF2FF166CD9D12DEEBD0 /* WatchComparisonTests.swift */; };
 		B709C74417DEA75FDA8BFA97 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */; };
 		B7D89D774DA76C38C6AF98F3 /* SensorFrames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 489B1791FCB967E58E8D40F6 /* SensorFrames.swift */; };
 		B990D1A5EA2F7863E0206A1F /* SleepSummaryCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 021A79157277D6B7C8DF4639 /* SleepSummaryCardView.swift */; };
@@ -106,6 +107,7 @@
 		D9706DA4AC4F0D618FF78A16 /* NightPhasesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB15777D66DAF4DC889F469C /* NightPhasesStore.swift */; };
 		DA978EC7B69BEC856EF30085 /* TapGestureConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */; };
 		DACBAF12C6747C2C8CBDE0B7 /* CalibrationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB34C326BB9C97E9A3E686C6 /* CalibrationSheet.swift */; };
+		DD93EC2F6B715DA64823B351 /* WatchComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9E0EBFB5977E7EA3DAED49 /* WatchComparisonView.swift */; };
 		DDD32E8E9BEF551EDE16D8C6 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3395E1B8972851D74677489D /* DesignSystem.swift */; };
 		DF9DA11C55532D5F8CFEA48B /* SensorStreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81EF4CCF024C14C6F5034605 /* SensorStreamService.swift */; };
 		E14081657D38C6E39C493746 /* MockAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BA5BFA567D7FBA54153B602 /* MockAPIClient.swift */; };
@@ -119,6 +121,7 @@
 		F97E652CCFCCBEAC0D93E2B2 /* ServerStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9EC58AFC994E2BF0036D0D8 /* ServerStatus.swift */; };
 		FB231BB8655798DA0CEDF37B /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D039BE0CE64C5F6438E6442 /* LoadingView.swift */; };
 		FB7B5FBEC7134EE4FA0B6B68 /* AICurvePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B377B20C619D8127CE16AEF7 /* AICurvePromptView.swift */; };
+		FC646DE2F3CD273C015FA1E4 /* WatchComparison.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23E9157B3CA17789A8FEBE5 /* WatchComparison.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -200,6 +203,7 @@
 		948F9BAA88B81D25AA9E0B6F /* FirmwareLogConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareLogConsoleView.swift; sourceTree = "<group>"; };
 		9604F6662B2AB6363AECF42A /* MovementRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementRecord.swift; sourceTree = "<group>"; };
 		970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeSleepClient.swift; sourceTree = "<group>"; };
+		97C4FF2FF166CD9D12DEEBD0 /* WatchComparisonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComparisonTests.swift; sourceTree = "<group>"; };
 		987F4C796A69FBEA5B834DEF /* SetPointEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPointEditor.swift; sourceTree = "<group>"; };
 		9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		9C23ED1E696702811954A0DA /* DataPipelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPipelineView.swift; sourceTree = "<group>"; };
@@ -237,6 +241,7 @@
 		CCB9B2C20054DF2DEFE406E5 /* TempBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempBackdrop.swift; sourceTree = "<group>"; };
 		CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapGestureConfigView.swift; sourceTree = "<group>"; };
 		CFB77E8BC025FA94E17FEF34 /* SettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSheet.swift; sourceTree = "<group>"; };
+		D23E9157B3CA17789A8FEBE5 /* WatchComparison.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComparison.swift; sourceTree = "<group>"; };
 		D2495028E884905FC457615E /* VitalsReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsReport.swift; sourceTree = "<group>"; };
 		D3AB3B17FD36D878C2457E20 /* HealthCircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCircleView.swift; sourceTree = "<group>"; };
 		D3B44F02B272682A83840CA4 /* NotificationRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRelay.swift; sourceTree = "<group>"; };
@@ -245,6 +250,7 @@
 		D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePickerView.swift; sourceTree = "<group>"; };
 		D7A651EEB721EF0EFD1B2D16 /* MetricsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsManager.swift; sourceTree = "<group>"; };
 		D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCardView.swift; sourceTree = "<group>"; };
+		DC9E0EBFB5977E7EA3DAED49 /* WatchComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComparisonView.swift; sourceTree = "<group>"; };
 		DE0553DF9686966CDE7AF58B /* CalibrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationTests.swift; sourceTree = "<group>"; };
 		DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAnalyzerTests.swift; sourceTree = "<group>"; };
 		E0F14C7A4B6C837B173C5EFA /* TemperatureCurve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureCurve.swift; sourceTree = "<group>"; };
@@ -271,6 +277,7 @@
 				4D36319CCA9F03AAB322E21E /* SleepScreen.swift */,
 				B15950D49CE8BFE7FF628BDB /* SleepStagesTimelineView.swift */,
 				021A79157277D6B7C8DF4639 /* SleepSummaryCardView.swift */,
+				DC9E0EBFB5977E7EA3DAED49 /* WatchComparisonView.swift */,
 				C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */,
 				76EDADBFA471AB6D43021528 /* WeekNavigatorView.swift */,
 			);
@@ -415,6 +422,7 @@
 				B5CB2ABDFB609592AB94357C /* ModernizationTests.swift */,
 				2E3176EB2A6FF2F190D09EC5 /* SanitizeIPTests.swift */,
 				DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */,
+				97C4FF2FF166CD9D12DEEBD0 /* WatchComparisonTests.swift */,
 			);
 			path = SleepypodTests;
 			sourceTree = "<group>";
@@ -463,6 +471,7 @@
 				7609963B2396D197BA589466 /* SleepAnalyzer.swift */,
 				4F4EAF0885B4206D02501DC8 /* StatusManager.swift */,
 				9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */,
+				D23E9157B3CA17789A8FEBE5 /* WatchComparison.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -643,6 +652,7 @@
 				71C68D220DF59FEB219D0245 /* ModernizationTests.swift in Sources */,
 				6363D9DF1E8F01CF5B5D7B88 /* SanitizeIPTests.swift in Sources */,
 				CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */,
+				B69F31ED0A8F9F53BCA75DBB /* WatchComparisonTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -752,6 +762,8 @@
 				AD8A9F355ECC481C1CF97EC3 /* UserSelectorView.swift in Sources */,
 				1F1DB7FE924C1EC257BE8FE1 /* VitalsRecord.swift in Sources */,
 				E6661819B24B1F3364F913AF /* VitalsReport.swift in Sources */,
+				FC646DE2F3CD273C015FA1E4 /* WatchComparison.swift in Sources */,
+				DD93EC2F6B715DA64823B351 /* WatchComparisonView.swift in Sources */,
 				183555484763CDB6368F4063 /* WaterLevelSheet.swift in Sources */,
 				2D211849929D856169991F7B /* WeekNavigatorView.swift in Sources */,
 				BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */,
@@ -783,7 +795,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes and compare stage estimates with Apple Watch.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -870,7 +882,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes and compare stage estimates with Apple Watch.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;

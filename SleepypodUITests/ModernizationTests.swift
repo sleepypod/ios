@@ -75,6 +75,26 @@ final class ModernizationTests: XCTestCase {
         capture("Temp-dark")
     }
 
+    func testWatchComparison() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-apiBackend", "demo", "-onboardingComplete", "YES", "-appearance", "Light", "-healthSyncEnabled", "NO"]
+        app.launch()
+        app.tabBars.buttons["Sleep"].tap()
+        XCTAssertTrue(app.buttons["Week"].waitForExistence(timeout: 10))
+        app.buttons["Week"].tap()
+        XCTAssertTrue(app.staticTexts["WATCH AGREEMENT"].waitForExistence(timeout: 10))
+        capture("Week-agreement-light")
+        app.buttons["Night"].tap()
+        let compare = app.buttons["compareWatch"]
+        XCTAssertTrue(compare.waitForExistence(timeout: 10))
+        compare.tap()
+        XCTAssertTrue(app.staticTexts["STAGE AGREEMENT"].waitForExistence(timeout: 10))
+        capture("Watch-stages-light")
+        app.swipeUp(); app.swipeUp()
+        XCTAssertTrue(app.staticTexts["HEART RATE"].waitForExistence(timeout: 5))
+        capture("Watch-vitals-light")
+    }
+
     func testTemperatureControlVariants() throws {
         let app = XCUIApplication()
         let base = ["-apiBackend", "demo", "-onboardingComplete", "YES", "-appearance", "Dark", "-healthSyncEnabled", "NO"]

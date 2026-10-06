@@ -87,6 +87,7 @@ private final class FakeHealthStore: HealthSyncStore {
         batches.append(samples)
     }
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] { [] }
+    func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample] { [] }
 }
 
 @Suite("Health sync lifecycle")
@@ -100,9 +101,13 @@ struct HealthSyncLifecycleTests {
         service.preferences.hrv = false
         service.preferences.respiration = false
         service.preferences.readSleep = false
+        service.preferences.readVitals = false
         #expect(await service.requestAuthorization())
         #expect(store.requestedWrites == [HKQuantityType(.heartRate)])
         #expect(store.requestedReads.isEmpty)
+        service.preferences.readVitals = true
+        #expect(await service.requestAuthorization())
+        #expect(store.requestedReads == [HKQuantityType(.heartRate), HKQuantityType(.heartRateVariabilitySDNN), HKQuantityType(.respiratoryRate)])
         await service.syncRecent(api: MockClient(), podID: "test-pod", side: .left, demo: true)
         #expect(store.batches.isEmpty)
     }

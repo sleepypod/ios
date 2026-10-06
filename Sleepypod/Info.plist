@@ -7,7 +7,7 @@
 		<string>_sleepypod._tcp.</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>sleepypod reads sleep samples to infer bedtimes and compare stage estimates with Apple Watch.</string>
+	<string>sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>sleepypod saves your sleep stages and overnight vitals to Apple Health for this iPhone's side of the bed.</string>
 	<key>NSLocalNetworkUsageDescription</key>

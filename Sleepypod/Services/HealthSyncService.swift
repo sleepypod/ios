@@ -9,6 +9,7 @@ protocol HealthSyncStore {
     func authorize(write: Set<HKSampleType>, read: Set<HKObjectType>) async throws
     func save(_ samples: [HKSample]) async throws
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample]
+    func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample]
 }
 
 @MainActor
@@ -23,6 +24,9 @@ final class SystemHealthSyncStore: HealthSyncStore {
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] {
         await HealthSyncService.querySleepSamples(store: store, start: start, end: end)
     }
+    func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample] {
+        await HealthSyncService.querySamples(store: store, type: HKQuantityType(type), start: start, end: end)
+    }
 }
 
 @MainActor
@@ -34,7 +38,20 @@ final class HealthSyncService {
         var hrv = true
         var respiration = true
         var readSleep = true
+        var readVitals = true
         var signature: String { "\(sleep)-\(heartRate)-\(hrv)-\(respiration)" }
+
+        init() {}
+        // Keys added after a build shipped decode as their defaults rather than resetting every preference.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            sleep = try c.decodeIfPresent(Bool.self, forKey: .sleep) ?? true
+            heartRate = try c.decodeIfPresent(Bool.self, forKey: .heartRate) ?? true
+            hrv = try c.decodeIfPresent(Bool.self, forKey: .hrv) ?? true
+            respiration = try c.decodeIfPresent(Bool.self, forKey: .respiration) ?? true
+            readSleep = try c.decodeIfPresent(Bool.self, forKey: .readSleep) ?? true
+            readVitals = try c.decodeIfPresent(Bool.self, forKey: .readVitals) ?? true
+        }
     }
     struct Receipt: Codable {
         let date: Date
@@ -72,6 +89,15 @@ final class HealthSyncService {
         return types
     }
 
+    static let vitalsReadTypes: [HKQuantityTypeIdentifier] = [.heartRate, .heartRateVariabilitySDNN, .respiratoryRate]
+
+    var readTypes: Set<HKObjectType> {
+        var types: Set<HKObjectType> = []
+        if preferences.readSleep { types.insert(HKCategoryType(.sleepAnalysis)) }
+        if preferences.readVitals { types.formUnion(Self.vitalsReadTypes.map { HKQuantityType($0) }) }
+        return types
+    }
+
     var hasWriteAuthorization: Bool {
         enabled && writeTypes.contains { store.authorizationStatus(for: $0) == .sharingAuthorized }
     }
@@ -82,8 +108,7 @@ final class HealthSyncService {
             return false
         }
         do {
-            try await store.authorize(write: writeTypes,
-                                                 read: preferences.readSleep ? [HKCategoryType(.sleepAnalysis)] : [])
+            try await store.authorize(write: writeTypes, read: readTypes)
             // Completing the sheet does not prove access was granted. Each write is checked separately.
             enabled = true
             authorizationError = nil
@@ -200,21 +225,55 @@ final class HealthSyncService {
         }
     }
 
-    func watchAgreement(epochs: [SleepAnalyzer.SleepEpoch]) async -> Double? {
-        guard enabled, preferences.readSleep, let start = epochs.first?.start, let last = epochs.last else { return nil }
-        let samples = await sleepSamples(start: start, end: last.start.addingTimeInterval(last.duration))
-        let watch = samples.filter { $0.sourceRevision.productType?.hasPrefix("Watch") == true }
-        var matched = 0, compared = 0
-        for epoch in epochs {
-            let midpoint = epoch.start.addingTimeInterval(epoch.duration / 2)
-            let values = Set(watch.filter { $0.startDate <= midpoint && $0.endDate > midpoint }.map(\.value))
-                .intersection([HKCategoryValueSleepAnalysis.awake.rawValue, HKCategoryValueSleepAnalysis.asleepCore.rawValue,
-                               HKCategoryValueSleepAnalysis.asleepDeep.rawValue, HKCategoryValueSleepAnalysis.asleepREM.rawValue])
-            guard values.count == 1 else { continue }
-            compared += 1
-            if values.contains(Self.stageValue(epoch.stage)) { matched += 1 }
+    static func stage(for value: Int) -> SleepAnalyzer.SleepStage? {
+        switch HKCategoryValueSleepAnalysis(rawValue: value) {
+        case .awake: .wake
+        case .asleepREM: .rem
+        case .asleepCore: .light
+        case .asleepDeep: .deep
+        default: nil
         }
-        return compared > 0 ? Double(matched) / Double(compared) * 100 : nil
+    }
+
+    // Only what the Watch itself recorded counts; sleepypod's own writes are never compared against themselves.
+    static func isWatch(_ sample: HKSample) -> Bool {
+        sample.sourceRevision.productType?.hasPrefix("Watch") == true
+            && sample.sourceRevision.source.bundleIdentifier != Bundle.main.bundleIdentifier
+    }
+
+    static func watchStages(_ samples: [HKCategorySample]) -> [WatchComparison.StageSample] {
+        samples.filter(isWatch).compactMap { sample in
+            stage(for: sample.value).map { WatchComparison.StageSample(start: sample.startDate, end: sample.endDate, stage: $0) }
+        }
+    }
+
+    static func watchReadings(_ samples: [HKQuantitySample], unit: HKUnit) -> [WatchComparison.Reading] {
+        samples.filter(isWatch).map { WatchComparison.Reading(date: $0.startDate, value: $0.quantity.doubleValue(for: unit)) }
+    }
+
+    /// Agreement for the whole week plus one value per night, from a single Health read.
+    func weekAgreement(nights: [[SleepAnalyzer.SleepEpoch]]) async -> (overall: Double?, nightly: [Double?]) {
+        let all = nights.flatMap { $0 }
+        guard enabled, preferences.readSleep, let start = all.map(\.start).min(),
+              let end = all.map({ $0.start.addingTimeInterval($0.duration) }).max() else { return (nil, nights.map { _ in nil }) }
+        let watch = Self.watchStages(await store.sleepSamples(start: start, end: end))
+        return (WatchComparison.stageAgreement(epochs: all, watch: watch).percent,
+                nights.map { WatchComparison.stageAgreement(epochs: $0, watch: watch).percent })
+    }
+
+    func watchComparison(record: SleepRecord, epochs: [SleepAnalyzer.SleepEpoch], vitals: [VitalsRecord]) async -> WatchComparison? {
+        guard enabled, preferences.readSleep || preferences.readVitals, store.available,
+              record.leftBedDate > record.enteredBedDate else { return nil }
+        let start = record.enteredBedDate, end = record.leftBedDate
+        let stages = preferences.readSleep ? Self.watchStages(await store.sleepSamples(start: start, end: end)) : []
+        var heartRate: [WatchComparison.Reading] = [], hrv: [WatchComparison.Reading] = [], breathing: [WatchComparison.Reading] = []
+        if preferences.readVitals {
+            heartRate = Self.watchReadings(await store.quantitySamples(.heartRate, start: start, end: end), unit: .count().unitDivided(by: .minute()))
+            hrv = Self.watchReadings(await store.quantitySamples(.heartRateVariabilitySDNN, start: start, end: end), unit: .secondUnit(with: .milli))
+            breathing = Self.watchReadings(await store.quantitySamples(.respiratoryRate, start: start, end: end), unit: .count().unitDivided(by: .minute()))
+        }
+        return WatchComparison.build(epochs: epochs, vitals: vitals, watchStages: stages,
+                                     watchHeartRate: heartRate, watchHRV: hrv, watchBreathing: breathing)
     }
 
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] {
@@ -252,10 +311,14 @@ final class HealthSyncService {
     }
 
     static func querySleepSamples(store: HKHealthStore, start: Date, end: Date) async -> [HKCategorySample] {
+        await querySamples(store: store, type: HKCategoryType(.sleepAnalysis), start: start, end: end)
+    }
+
+    static func querySamples<S: HKSample>(store: HKHealthStore, type: HKSampleType, start: Date, end: Date) async -> [S] {
         await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: HKCategoryType(.sleepAnalysis), predicate: HKQuery.predicateForSamples(withStart: start, end: end),
+            let query = HKSampleQuery(sampleType: type, predicate: HKQuery.predicateForSamples(withStart: start, end: end),
                 limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]) { _, samples, _ in
-                    continuation.resume(returning: samples as? [HKCategorySample] ?? [])
+                    continuation.resume(returning: samples as? [S] ?? [])
                 }
             store.execute(query)
         }

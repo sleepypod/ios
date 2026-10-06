@@ -38,6 +38,9 @@ struct HealthAccessView: View {
                             SettingsRow("Sleep schedule", subtitle: "Sets bedtime and wake in Schedule", height: 56) {
                                 Toggle("Sleep schedule", isOn: $health.preferences.readSleep).labelsHidden()
                             }
+                            SettingsRow("Heart rate, HRV, breathing", subtitle: "Compares the pod with your Apple Watch", height: 56) {
+                                Toggle("Heart rate, HRV, breathing", isOn: $health.preferences.readVitals).labelsHidden()
+                            }
                         }
                     }
                     if onComplete == nil {

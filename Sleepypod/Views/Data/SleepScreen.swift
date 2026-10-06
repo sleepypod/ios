@@ -12,6 +12,8 @@ struct SleepScreen: View {
     @State private var period: Period = DebugRoute.current == "week" ? .week : DebugRoute.current == "month" ? .month : .night
     @State private var analyzer = SleepAnalyzer()
     @State private var agreement: Double?
+    @State private var nightlyAgreement: [Date: Double] = [:]
+    @State private var showWatch = false
     @State private var monthRecords: [SleepRecord] = []
 
     private var calendar: Calendar { .current }
@@ -29,6 +31,12 @@ struct SleepScreen: View {
         return (0..<count).compactMap { calendar.date(byAdding: .day, value: $0, to: monthStart) }
     }
     private var sideName: String { settings.sideName(for: metrics.selectedSide) }
+    private var isDemo: Bool { APIBackend.current.isDemo }
+    /// The Watch is only comparable on the side this iPhone's wearer sleeps on.
+    private var canCompareWatch: Bool {
+        isDemo || (health.enabled && (health.preferences.readSleep || health.preferences.readVitals)
+                   && metrics.selectedSide == profile.defaultSide)
+    }
     private var canMoveForward: Bool {
         let today = calendar.startOfDay(for: Date())
         switch period {
@@ -79,6 +87,9 @@ struct SleepScreen: View {
             }
             .onChange(of: metrics.selectedSide) { Task { await refresh() } }
             .refreshable { await refresh(); if period == .month { await fetchMonth() } }
+            .navigationDestination(isPresented: $showWatch) {
+                if let record { WatchComparisonView(record: record, epochs: analyzer.stages, vitals: filteredVitals) }
+            }
         }
     }
 
@@ -125,9 +136,10 @@ struct SleepScreen: View {
                 vital("HRV", unit: "ms", key: \.hrv, decimals: 0, icon: "waveform.path.ecg", color: Theme.cool)
                 vital("BREATH", unit: "br/min", key: \.breathingRate, decimals: 1, icon: "lungs", color: Theme.green)
             }
-            if health.hasWriteAuthorization && metrics.selectedSide == profile.defaultSide && !APIBackend.current.isDemo {
+            if health.hasWriteAuthorization && metrics.selectedSide == profile.defaultSide && !isDemo {
                 healthReceipt(record)
             }
+            if canCompareWatch { watchRow }
         } else if metrics.isLoading {
             ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
         } else {
@@ -202,6 +214,23 @@ struct SleepScreen: View {
         .cardSurface(radius: 18)
     }
 
+    private var watchRow: some View {
+        Button {
+            Haptics.tap()
+            showWatch = true
+        } label: {
+            SettingsRow("Compare with Apple Watch", icon: "applewatch", chevron: true, height: 52, titleFont: .subheadline) {
+                if let value = nightlyAgreement[calendar.startOfDay(for: selectedDate)] {
+                    RowValue("\(Int(value.rounded()))%", mono: true)
+                }
+            }
+            .cardSurface(radius: 18)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("compareWatch")
+        .accessibilityHint("Shows stages and vitals beside the Watch's")
+    }
+
     // MARK: Week
 
     private var weekContent: some View {
@@ -217,7 +246,55 @@ struct SleepScreen: View {
                     .opacity(index < 7 ? 1 : 0)
             }
             analysisCard
+            if !nightlyAgreement.isEmpty { agreementTrendCard }
         }
+    }
+
+    /// Agreement per night, so a change to the stage logic shows up as a shift across the week.
+    private var agreementTrendCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                HStack(spacing: 6) {
+                    Image(systemName: "applewatch").font(.caption).foregroundStyle(Theme.text2)
+                    Eyebrow("WATCH AGREEMENT")
+                }
+                Spacer()
+                Text(agreement.map { "\(Int($0.rounded()))%" } ?? "—").font(.mono(24, weight: .light, relativeTo: .title2))
+            }
+            VStack(spacing: 8) {
+                HStack(alignment: .bottom, spacing: 10) {
+                    ForEach(weekDays, id: \.self) { day in
+                        let value = nightlyAgreement[calendar.startOfDay(for: day)]
+                        let selected = calendar.isDate(day, inSameDayAs: selectedDate)
+                        Button {
+                            Haptics.tap()
+                            selectedDate = calendar.startOfDay(for: day)
+                        } label: {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(value != nil ? Theme.violet.opacity(selected ? 1 : 0.75) : Theme.track)
+                                .frame(height: value.map { max(12, 100 * $0 / 100) } ?? 4)
+                                .frame(maxWidth: .infinity, maxHeight: 100, alignment: .bottom)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(day.formatted(.dateTime.weekday(.wide).month().day()))
+                        .accessibilityValue(value.map { "\(Int($0.rounded())) percent agreement" } ?? "No Watch data")
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                    }
+                }
+                .frame(height: 100)
+                HStack(spacing: 10) {
+                    ForEach(weekDays, id: \.self) { day in
+                        Text(nightlyAgreement[calendar.startOfDay(for: day)].map { "\(Int($0.rounded()))" } ?? "·")
+                            .frame(maxWidth: .infinity)
+                            .foregroundStyle(calendar.isDate(day, inSameDayAs: selectedDate) ? Theme.text1 : Theme.text3)
+                    }
+                }
+                .font(.mono(10, relativeTo: .caption2))
+                .accessibilityHidden(true)
+            }
+        }
+        .cardStyle()
     }
 
     private var analysisCard: some View {
@@ -249,7 +326,7 @@ struct SleepScreen: View {
     }
 
     private var syncedNights: Int {
-        guard metrics.selectedSide == profile.defaultSide, !APIBackend.current.isDemo else { return 0 }
+        guard metrics.selectedSide == profile.defaultSide, !isDemo else { return 0 }
         return Set(metrics.sleepRecords.filter { health.receipt(podID: settings.podID, record: $0) != nil }
             .map { calendar.startOfDay(for: $0.enteredBedDate) }).count
     }
@@ -342,12 +419,23 @@ struct SleepScreen: View {
         let calibration = try? await APIBackend.current.createClient().getCalibrationStatus(side: metrics.selectedSide)
         analyzer.analyze(vitals: vitals, movement: metrics.movementRecords, calibrationQuality: calibration?.piezo?.qualityScore ?? 0)
         let weekAnalyzer = SleepAnalyzer()
-        var weekEpochs: [SleepAnalyzer.SleepEpoch] = []
+        var nights: [(record: SleepRecord, epochs: [SleepAnalyzer.SleepEpoch], vitals: [VitalsRecord])] = []
         for night in metrics.sleepRecords where night.leftBedDate > night.enteredBedDate {
             let records = metrics.vitalsRecords.filter { $0.date >= night.enteredBedDate && $0.date < night.leftBedDate }
             weekAnalyzer.analyze(vitals: records, movement: metrics.movementRecords, calibrationQuality: calibration?.piezo?.qualityScore ?? 0)
-            weekEpochs.append(contentsOf: weekAnalyzer.stages)
+            nights.append((night, weekAnalyzer.stages, weekAnalyzer.filterOutliers(vitals: records)))
         }
-        agreement = await health.watchAgreement(epochs: weekEpochs.sorted { $0.start < $1.start })
+        var nightly: [Double?]
+        if isDemo {
+            nightly = nights.map { WatchComparison.demo(record: $0.record, epochs: $0.epochs, vitals: $0.vitals).stages.percent }
+            agreement = WatchComparison.mean(nightly.compactMap { $0 })
+        } else if canCompareWatch {
+            (agreement, nightly) = await health.weekAgreement(nights: nights.map(\.epochs))
+        } else {
+            (agreement, nightly) = (nil, [])
+        }
+        nightlyAgreement = Dictionary(zip(nights.map { calendar.startOfDay(for: $0.record.enteredBedDate) }, nightly)
+            .compactMap { day, value in value.map { (day, $0) } }, uniquingKeysWith: { first, _ in first })
+        if DebugRoute.current == "watch", record != nil, !showWatch { showWatch = true }
     }
 }

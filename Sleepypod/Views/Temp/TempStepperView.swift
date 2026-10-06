@@ -17,6 +17,7 @@ enum StepperTab: Hashable {
 struct TempStepperView: View {
     @Environment(DeviceManager.self) private var device
     @Environment(SettingsManager.self) private var settings
+    @Environment(\.colorScheme) private var scheme
     let store: NightPhasesStore
     @Binding var tab: StepperTab
 
@@ -47,11 +48,13 @@ struct TempStepperView: View {
         return true
     }
 
-    private func color(_ tab: StepperTab, _ value: Int) -> Color {
-        switch tab {
-        case .now: TempColor.forDelta(target: value, current: bed)
-        case .phase: TempColor.forScheduled(value)
+    /// The moment the backdrop's sky shows: now, or the middle of the selected phase.
+    private var backdropMinutes: Int {
+        if case .phase(let key) = selected, let phase = phases?.phase(key) {
+            return DisplayTime.minutes(phase.start) + Int(phase.minutes / 2)
         }
+        let now = Calendar.current.dateComponents([.hour, .minute], from: Date())
+        return (now.hour ?? 0) * 60 + (now.minute ?? 0)
     }
 
     /// Now gets a little more room; Night and Dawn split the rest by their length.
@@ -88,7 +91,8 @@ struct TempStepperView: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 12)
         .frame(height: 250)
-        .cardSurface()
+        .background { TempBackdrop(tempF: value(selected), minutes: backdropMinutes, off: off) }
+        .cardSurface(fill: .clear)
         .animation(.snappy(duration: 0.2), value: value(selected))
     }
 
@@ -107,7 +111,7 @@ struct TempStepperView: View {
                         VStack(spacing: 6) {
                             if let v = value(item), available(item) {
                                 Text(TemperatureConversion.valueText(v, format: format))
-                                    .foregroundStyle(color(item, v))
+                                    .foregroundStyle(TempHue.ink(v, scheme: scheme))
                                     .opacity(phases?.draft == true && item != .now ? 0.6 : 1)
                             } else {
                                 Text("—").foregroundStyle(Theme.text3)
@@ -170,7 +174,7 @@ struct TempStepperView: View {
             Image(systemName: delta < 0 ? "minus" : "plus").font(.system(size: 22))
                 .foregroundStyle(Theme.text1)
                 .frame(width: 56, height: 56)
-                .background(Theme.active, in: Circle())
+                .background(Theme.text1.opacity(0.07), in: Circle())
         }
         .buttonStyle(.plain)
         .disabled(disabled)

@@ -496,6 +496,14 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let _: TRPCSuccess = try await mutate("runOnce.cancel", input: ["side": side.rawValue])
     }
 
+    func getNightPhases(side: Side) async throws -> NightPhases? {
+        try await query("schedules.getNightPhases", input: ["side": side.rawValue])
+    }
+
+    func setNightPhase(side: Side, phase: NightPhaseKey, temperatureF: Int) async throws -> NightPhases? {
+        try await mutate("schedules.setNightPhase", input: ["side": side.rawValue, "phase": phase.rawValue, "temperature": temperatureF])
+    }
+
     func getDiskUsage() async throws -> DiskUsage {
         try await query("system.getDiskUsage")
     }

@@ -188,3 +188,35 @@ struct DesignFormattingTests {
         #expect(ScheduleManager.phaseLabel(index: 4, count: 5).0 == "Pre-wake")
     }
 }
+
+@Suite("Night and Dawn")
+@MainActor
+struct NightPhasesTests {
+    @Test func decodesCoreResponse() throws {
+        let json = """
+        {"draft":false,"day":"monday","days":["monday","tuesday","wednesday","thursday","friday"],
+         "night":{"temperatureF":73.25,"start":"22:00","end":"06:00","minutes":480,"times":["22:00","23:00","03:00"]},
+         "dawn":{"temperatureF":84,"start":"06:00","end":"06:00","minutes":30,"times":["06:00"]}}
+        """
+        let phases = try JSONDecoder().decode(NightPhases.self, from: Data(json.utf8))
+        #expect(phases.phase(.night)?.times.count == 3)
+        #expect(phases.daysSummary == "Weekdays")
+    }
+
+    @Test func summarizesDaysLikeTheWeb() throws {
+        func summary(_ days: [DayOfWeek]) throws -> String {
+            let night = NightPhase(temperatureF: 72, start: "22:00", end: "06:00", minutes: 480, times: ["22:00"])
+            return NightPhases(draft: false, day: days[0], days: days, night: night, dawn: nil).daysSummary
+        }
+        #expect(try summary(DayOfWeek.allCases) == "Daily")
+        #expect(try summary([.saturday, .sunday]) == "Weekends")
+        #expect(try summary([.monday, .tuesday, .wednesday, .saturday]) == "Mon–Wed, Sat")
+        #expect(try summary([.saturday, .sunday, .monday]) == "Sat–Mon")
+    }
+
+    @Test func stepsInDisplayDegrees() {
+        #expect(NightPhasesStore.step(72, delta: 1, format: .fahrenheit) == 73)
+        #expect(NightPhasesStore.step(72, delta: 1, format: .celsius) == 73)
+        #expect(NightPhasesStore.step(110, delta: 1, format: .fahrenheit) == 110)
+    }
+}

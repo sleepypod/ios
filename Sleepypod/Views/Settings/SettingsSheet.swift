@@ -8,6 +8,7 @@ struct SettingsSheet: View {
     @Environment(SettingsManager.self) private var settings
     @Environment(StatusManager.self) private var status
     @Environment(HealthSyncService.self) private var health
+    @Environment(UserProfile.self) private var profile
     @State private var showAllSettings = DebugRoute.current == "allsettings"
     @State private var confirmPrime = false
     @State private var primeError: String?
@@ -15,6 +16,7 @@ struct SettingsSheet: View {
     private var podName: String { device.deviceStatus?.podModelName ?? "Pod" }
 
     var body: some View {
+        @Bindable var profile = profile
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
@@ -53,6 +55,7 @@ struct SettingsSheet: View {
                                 RowValue(health.enabled ? "On" : "Off")
                             }
                         }
+                        TempControlMenu(selection: $profile.tempControl, iconColor: Theme.text1, tile: false)
                         Button { showAllSettings = true } label: {
                             SettingsRow("All settings", icon: "gearshape", iconColor: Theme.text1, chevron: true)
                         }
@@ -202,6 +205,7 @@ struct AllSettingsScreen: View {
 
                 GroupedSection("APP") {
                     GroupedCard {
+                        TempControlMenu(selection: $profile.tempControl, iconColor: Theme.icon, tile: true)
                         Menu {
                             Picker("Appearance", selection: $profile.appearance) {
                                 ForEach(UserProfile.Appearance.allCases) { Text($0.rawValue).tag($0) }
@@ -329,6 +333,29 @@ struct AnalysisInventoryView: View {
         }
         .background(Theme.background)
         .navigationTitle("On-device analysis")
+    }
+}
+
+/// Dial / Slider / Night & Dawn / Both sides for the Temp tab.
+struct TempControlMenu: View {
+    @Binding var selection: UserProfile.TempControl
+    var iconColor = Theme.icon
+    var tile = true
+    var body: some View {
+        Menu {
+            Picker("Temperature control", selection: $selection) {
+                ForEach(UserProfile.TempControl.allCases) { Text($0.title).tag($0) }
+            }
+        } label: {
+            SettingsRow("Temperature control", icon: "dial.medium", iconColor: iconColor, tile: tile) {
+                HStack(spacing: 4) {
+                    RowValue(selection.title)
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.text3)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: selection)
     }
 }
 

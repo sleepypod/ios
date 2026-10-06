@@ -2,12 +2,14 @@ import SwiftUI
 
 struct TempControlsView: View {
     @Environment(DeviceManager.self) private var device
+    /// The stepper has its own − / +, so it only needs power here.
+    var powerOnly = false
     private var target: Int { device.currentSideStatus?.targetTemperatureF ?? 80 }
 
     var body: some View {
         GlassEffectContainer(spacing: 28) {
             HStack(spacing: 28) {
-                step("minus", delta: -1)
+                if !powerOnly { step("minus", delta: -1) }
                 Button {
                     Haptics.medium()
                     device.togglePower()
@@ -25,7 +27,7 @@ struct TempControlsView: View {
                     }
                 }
                 .accessibilityLabel(device.isOn ? "Turn off" : "Turn on")
-                step("plus", delta: 1)
+                if !powerOnly { step("plus", delta: 1) }
             }.buttonStyle(.plain)
         }
     }

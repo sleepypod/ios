@@ -17,8 +17,11 @@ struct TempScreen: View {
     @Environment(ScheduleManager.self) private var scheduleManager
 
     @Environment(SensorStreamService.self) private var sensor
+    @Environment(UserProfile.self) private var profile
     @State private var curveError: String?
     @State private var activeCurve: ActiveCurve?
+    @State private var nightPhases = NightPhasesStore()
+    @State private var stepperTab: StepperTab = .now
 
     private func stopCurve() {
         guard let curve = activeCurve else { return }
@@ -129,45 +132,42 @@ struct TempScreen: View {
         NavigationStack {
             Group {
                 if deviceManager.isConnected {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            SideSelectorView()
-                            TemperatureDialView().padding(.top, 28)
-                            TempControlsView().padding(.top, 14)
-                            environmentLine.padding(.top, 26)
-                            VStack(spacing: 12) {
-                                if let curveError {
-                                    Text(curveError).font(.footnote).foregroundStyle(Theme.amber)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                if deviceManager.isAlarmActive, let side = deviceManager.alarmSide { alarmCard(side) }
-                                if let curve = activeCurve {
-                                    if let session = curve.session {
-                                        RunOnceActiveBanner(session: session, onCancel: stopCurve, compact: true)
-                                    } else {
-                                        tonightCard(curve)
-                                    }
-                                }
-                            }
-                            .padding(.top, 24)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-                        .padding(.bottom, 24)
+                    switch profile.tempControl {
+                    case .dial, .stepper: centeredControl
+                    case .slider:
+                        TempSliderView(curve: activeCurve, profileName: activeCurve.map { profileName($0.setPoints) } ?? "")
+                    case .sides:
+                        ScrollView { BothSidesView(curve: activeCurve) }
+                            .refreshable { await deviceManager.fetchStatus(); await fetchActiveCurve() }
                     }
-                    .refreshable { await deviceManager.fetchStatus(); await fetchActiveCurve() }
                 } else {
                     DisconnectedTabView(tab: "Temp")
                 }
             }
             .background(Theme.background)
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(profile.tempControl == .sides ? "Bed" : "")
+            .navigationBarTitleDisplayMode(profile.tempControl == .sides ? .large : .inline)
             .settingsToolbar()
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { header }
-                    .sharedBackgroundVisibility(.hidden)
+                switch profile.tempControl {
+                case .dial, .stepper:
+                    ToolbarItem(placement: .topBarLeading) { header }
+                        .sharedBackgroundVisibility(.hidden)
+                case .slider:
+                    ToolbarItem(placement: .topBarLeading) { sideMenu }
+                case .sides:
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(deviceManager.isLinked ? "Unlink sides" : "Link sides", systemImage: "link") {
+                            Haptics.tap()
+                            deviceManager.toggleLink()
+                        }
+                        .tint(deviceManager.isLinked ? Theme.text1 : Theme.text2)
+                    }
+                }
             }
+        }
+        .task(id: profile.tempControl) {
+            if profile.tempControl == .stepper { await nightPhases.load([.left, .right]) }
         }
         .task {
             await settingsManager.fetchSettings()
@@ -177,6 +177,70 @@ struct TempScreen: View {
         }
         .task(id: deviceManager.selectedSide) { await fetchActiveCurve() }
         .onReceive(NotificationCenter.default.publisher(for: .switchToTempTab)) { _ in Task { await fetchActiveCurve() } }
+    }
+
+    /// Dial or Night & Dawn stepper, with the side switcher above and today's context below.
+    private var centeredControl: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                SideSelectorView()
+                if profile.tempControl == .stepper {
+                    TempStepperView(store: nightPhases, tab: $stepperTab).padding(.top, 20)
+                    TempControlsView(powerOnly: true).padding(.top, 20)
+                } else {
+                    TemperatureDialView().padding(.top, 28)
+                    TempControlsView().padding(.top, 14)
+                }
+                environmentLine.padding(.top, 26)
+                VStack(spacing: 12) {
+                    if let curveError {
+                        Text(curveError).font(.footnote).foregroundStyle(Theme.amber)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide { alarmCard(side) }
+                    if let curve = activeCurve {
+                        if let session = curve.session {
+                            RunOnceActiveBanner(session: session, onCancel: stopCurve, compact: true)
+                        } else {
+                            tonightCard(curve)
+                        }
+                    }
+                }
+                .padding(.top, 24)
+            }
+            .padding(.horizontal, profile.tempControl == .stepper ? 16 : 20)
+            .padding(.top, 16)
+            .padding(.bottom, 24)
+        }
+        .refreshable {
+            await deviceManager.fetchStatus()
+            await fetchActiveCurve()
+            if profile.tempControl == .stepper { await nightPhases.load([.left, .right]) }
+        }
+    }
+
+    /// 1c puts the side picker in a glass menu instead of the segmented switcher.
+    private var sideMenu: some View {
+        Menu {
+            Picker("Side", selection: Binding(
+                get: { deviceManager.isLinked ? SideSelection.both : deviceManager.selectedSide },
+                set: { selection in
+                    if (selection == .both) != deviceManager.isLinked { deviceManager.toggleLink() }
+                    deviceManager.selectSide(selection)
+                }
+            )) {
+                Text(settingsManager.leftName).tag(SideSelection.left)
+                Label("Both", systemImage: "link").tag(SideSelection.both)
+                Text(settingsManager.rightName).tag(SideSelection.right)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(sideName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text1)
+                Image(systemName: "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.text2)
+            }
+            .padding(.horizontal, 6)
+        }
+        .accessibilityLabel("Side, \(sideName)")
     }
 
     private var header: some View {

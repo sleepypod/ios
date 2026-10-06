@@ -74,4 +74,35 @@ final class ModernizationTests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Temp"].waitForExistence(timeout: 5))
         capture("Temp-dark")
     }
+
+    func testTemperatureControlVariants() throws {
+        let app = XCUIApplication()
+        let base = ["-apiBackend", "demo", "-onboardingComplete", "YES", "-appearance", "Dark", "-healthSyncEnabled", "NO"]
+
+        app.launchArguments = base + ["-tempControl", "stepper"]
+        app.launch()
+        let night = app.buttons["Night"]
+        XCTAssertTrue(night.waitForExistence(timeout: 10))
+        let before = night.value as? String
+        night.tap()
+        app.buttons["Cooler night"].tap()
+        let changed = NSPredicate { _, _ in (night.value as? String) != before }
+        expectation(for: changed, evaluatedWith: nil)
+        waitForExpectations(timeout: 5)
+        capture("Stepper-dark")
+
+        app.terminate()
+        app.launchArguments = base + ["-tempControl", "slider"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Turn off"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.otherElements["Target temperature"].exists || app.descendants(matching: .any)["Target temperature"].exists)
+        capture("Slider-dark")
+
+        app.terminate()
+        app.launchArguments = base + ["-tempControl", "sides"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Warmer, Right"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Bedtime curve starts"].exists || app.staticTexts["Wake and warm-up"].exists)
+        capture("Both-sides-dark")
+    }
 }

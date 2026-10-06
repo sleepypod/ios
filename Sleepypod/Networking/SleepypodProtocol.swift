@@ -42,6 +42,10 @@ protocol SleepypodProtocol: Sendable {
     func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession?
     func cancelRunOnce(side: Side) async throws
+
+    // Night / Dawn phases of tonight's schedule (sleepypod-core schedules.getNightPhases)
+    func getNightPhases(side: Side) async throws -> NightPhases?
+    func setNightPhase(side: Side, phase: NightPhaseKey, temperatureF: Int) async throws -> NightPhases?
 }
 
 struct CalibrationTriggerResponse: Decodable, Sendable {
@@ -59,4 +63,8 @@ struct LogSource: Codable, Sendable, Identifiable {
 // Backends without a priming endpoint must fail explicitly rather than rebooting.
 extension SleepypodProtocol {
     func startPriming() async throws { throw URLError(.unsupportedURL) }
+    func getNightPhases(side: Side) async throws -> NightPhases? { throw URLError(.unsupportedURL) }
+    func setNightPhase(side: Side, phase: NightPhaseKey, temperatureF: Int) async throws -> NightPhases? {
+        throw URLError(.unsupportedURL)
+    }
 }

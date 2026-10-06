@@ -36,6 +36,20 @@ enum TemperatureConversion {
         }
     }
 
+    /// Big-number text: "76°" (°F), "24°" (°C) or the signed offset from 80°F in relative mode.
+    static func valueText(_ tempF: Int, format: TemperatureFormat) -> String {
+        switch format {
+        case .fahrenheit: "\(tempF)°"
+        case .celsius: "\(Int(tempFToC(tempF).rounded()))°"
+        case .relative: offsetDisplay(tempF - baseTempF)
+        }
+    }
+
+    /// Status word for a target against the bed temperature.
+    static func stateWord(target: Int, bed: Int, isOn: Bool) -> String {
+        !isOn ? "OFF" : target < bed ? "COOLING" : target > bed ? "WARMING" : "HOLDING"
+    }
+
     static func offsetDisplay(_ offset: Int) -> String {
         if offset > 0 { return "+\(offset)" }
         if offset < 0 { return "−\(abs(offset))" }

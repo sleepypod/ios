@@ -9,6 +9,22 @@ final class UserProfile {
         var id: String { rawValue }
         var colorScheme: ColorScheme? { self == .system ? nil : self == .dark ? .dark : .light }
     }
+    /// Temperature control on the Temp tab; matches sleepypod-core's `control` pref plus the native Both-sides layout.
+    enum TempControl: String, CaseIterable, Identifiable {
+        case dial, slider, stepper, sides
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .dial: "Dial"
+            case .slider: "Slider"
+            case .stepper: "Night & Dawn"
+            case .sides: "Both sides"
+            }
+        }
+    }
+    var tempControl: TempControl {
+        didSet { UserDefaults.standard.set(tempControl.rawValue, forKey: "tempControl") }
+    }
     var appearance: Appearance {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "appearance") }
     }
@@ -26,6 +42,7 @@ final class UserProfile {
     }
 
     init() {
+        tempControl = TempControl(rawValue: UserDefaults.standard.string(forKey: "tempControl") ?? "dial") ?? .dial
         appearance = Appearance(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "System") ?? .system
         developer = UserDefaults.standard.bool(forKey: "developerMode")
         onboardingComplete = UserDefaults.standard.bool(forKey: "onboardingComplete")

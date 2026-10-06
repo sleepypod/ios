@@ -47,7 +47,7 @@ struct SleepypodApp: App {
                 .foregroundStyle(Theme.text1)
                 .tint(Theme.text1)
                 .task {
-                    await notificationRelay.requestPermission()
+                    if !DebugRoute.marketingCapture { await notificationRelay.requestPermission() }
                     sensorStream.notificationRelay = notificationRelay
                 }
         }
@@ -71,7 +71,7 @@ struct ContentView: View {
     private static var initialTab: String {
         switch DebugRoute.current {
         case "schedule": "schedule"
-        case "sleep", "week", "month", "watch": "sleep"
+        case "sleep", "week", "weektrend", "month", "watch": "sleep"
         default: "temp"
         }
     }

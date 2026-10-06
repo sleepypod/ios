@@ -254,7 +254,7 @@ struct TempScreen: View {
             HStack(spacing: 6) {
                 if occupied { StatusDot() }
                 Eyebrow("\(place) · \(occupied ? "IN BED" : "AWAY")")
-                if APIBackend.current.isDemo { Eyebrow("· DEMO", color: Theme.amber) }
+                if APIBackend.current.isDemo && !DebugRoute.marketingCapture { Eyebrow("· DEMO", color: Theme.amber) }
             }
         }
         .fixedSize(horizontal: true, vertical: false)

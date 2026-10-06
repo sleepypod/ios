@@ -9,7 +9,7 @@ struct SleepScreen: View {
     @Environment(UserProfile.self) private var profile
     @Environment(HealthSyncService.self) private var health
     @State private var selectedDate = Calendar.current.startOfDay(for: Date()).addingTimeInterval(-86400)
-    @State private var period: Period = DebugRoute.current == "week" ? .week : DebugRoute.current == "month" ? .month : .night
+    @State private var period: Period = ["week", "weektrend"].contains(DebugRoute.current) ? .week : DebugRoute.current == "month" ? .month : .night
     @State private var analyzer = SleepAnalyzer()
     @State private var agreement: Double?
     @State private var nightlyAgreement: [Date: Double] = [:]
@@ -70,6 +70,7 @@ struct SleepScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
+            .defaultScrollAnchor(DebugRoute.current == "weektrend" ? .bottom : nil)
             .background(Theme.background)
             .navigationTitle("Sleep")
             .settingsToolbar()

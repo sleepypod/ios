@@ -12,6 +12,7 @@ struct SleepypodApp: App {
     @State private var userProfile = UserProfile()
     @State private var sensorStream = SensorStreamService()
     @State private var notificationRelay = NotificationRelay()
+    @State private var healthSync = HealthSyncService()
 
     init() {
         let client = APIBackend.current.createClient()
@@ -41,7 +42,10 @@ struct SleepypodApp: App {
                 .environment(userProfile)
                 .environment(sensorStream)
                 .environment(notificationRelay)
-                .preferredColorScheme(.dark)
+                .environment(healthSync)
+                .preferredColorScheme(userProfile.appearance.colorScheme)
+                .foregroundStyle(Theme.text1)
+                .tint(Theme.text1)
                 .task {
                     await notificationRelay.requestPermission()
                     sensorStream.notificationRelay = notificationRelay
@@ -55,8 +59,27 @@ struct ContentView: View {
     @Environment(SettingsManager.self) private var settingsManager
     @Environment(PodDiscovery.self) private var podDiscovery
     @Environment(SensorStreamService.self) private var sensorStream
-    @State private var selectedTab = "temp"
+    @Environment(ScheduleManager.self) private var scheduleManager
+    @Environment(MetricsManager.self) private var metricsManager
+    @Environment(StatusManager.self) private var statusManager
+    @Environment(HealthSyncService.self) private var healthSync
+    @Environment(UserProfile.self) private var profile
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab = Self.initialTab
     @State private var showWelcome = false
+
+    private static var initialTab: String {
+        switch DebugRoute.current {
+        case "schedule": "schedule"
+        case "sleep", "week", "month": "sleep"
+        default: "temp"
+        }
+    }
+
+    /// Outline glyphs in both states, as drawn in the source tab bar.
+    private func tabLabel(_ title: String, _ symbol: String) -> some View {
+        Label { Text(title) } icon: { Image(systemName: symbol).environment(\.symbolVariants, .none) }
+    }
 
     private var isConnected: Bool {
         deviceManager.isConnected
@@ -69,38 +92,22 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             TabView(selection: $selectedTab) {
-                Tab("Temp", systemImage: "thermometer.medium", value: "temp") {
+                Tab(value: "temp") {
                     TempScreen()
-                }
-                Tab("Schedule", systemImage: "calendar", value: "schedule") {
+                } label: { tabLabel("Temp", "thermometer.medium") }
+                Tab(value: "schedule") {
                     if isConnected {
                         ScheduleScreen()
                     } else {
-                        DisconnectedTabView(tab: "Schedule", selectedTab: $selectedTab)
+                        NavigationStack { DisconnectedTabView(tab: "Schedule", selectedTab: $selectedTab).settingsToolbar() }
                     }
-                }
-                Tab("Biometrics", systemImage: "heart.text.clipboard", value: "health") {
-                    if isConnected {
-                        HealthScreen()
-                    } else {
-                        DisconnectedTabView(tab: "Health", selectedTab: $selectedTab)
-                    }
-                }
-                Tab("Sensors", systemImage: "waveform", value: "sensors") {
-                    if isConnected {
-                        BedSensorScreen()
-                    } else {
-                        DisconnectedTabView(tab: "Sensors", selectedTab: $selectedTab)
-                    }
-                }
-                Tab("Status", systemImage: "antenna.radiowaves.left.and.right", value: "status") {
-                    if isConnected {
-                        StatusScreen()
-                    } else {
-                        DisconnectedTabView(tab: "Status", selectedTab: $selectedTab)
-                    }
-                }
+                } label: { tabLabel("Schedule", "calendar") }
+                Tab(value: "sleep") {
+                    if isConnected { SleepScreen() }
+                    else { NavigationStack { DisconnectedTabView(tab: "Sleep", selectedTab: $selectedTab).settingsToolbar() } }
+                } label: { tabLabel("Sleep", "moon") }
             }
+            .tabBarMinimizeBehavior(.onScrollDown)
             .onChange(of: selectedTab) {
                 Haptics.tap()
             }
@@ -111,36 +118,22 @@ struct ContentView: View {
                 selectedTab = "temp"
             }
 
-            // Demo mode banner — floating at top
-            if isDemo && isConnected {
-                VStack {
-                    DemoModeBanner()
-                        .padding(.horizontal, 16)
-                        .padding(.top, 2)
-                    Spacer()
-                }
-                .allowsHitTesting(false)
-            }
         }
         .fullScreenCover(isPresented: $showWelcome) {
             WelcomeScreen(onConnect: {
-                // Dismiss welcome, show the main app with DisconnectedTabView
-                // which has step indicators, manual IP entry, and retry.
-                // Match the .task startup order: connect first, then poll, so
-                // startPolling()'s skipFirst guard avoids a duplicate fetch.
+                profile.onboardingComplete = true
                 showWelcome = false
-                Task {
-                    await startConnection()
-                    deviceManager.startPolling()
-                }
+                deviceManager.startPolling()
             }, onDemo: {
-                showWelcome = false
                 enterDemoMode()
             })
         }
         .task {
-            // Show welcome if no pod IP and not in demo mode
-            if settingsManager.podIP.isEmpty && !isDemo {
+            deviceManager.selectSide(profile.defaultSide == .left ? .left : .right)
+            scheduleManager.selectedSide = profile.defaultSide == .left ? .left : .right
+            metricsManager.selectedSide = profile.defaultSide
+            // Run setup until all three onboarding steps are complete.
+            if !profile.onboardingComplete && !isDemo {
                 showWelcome = true
                 return
             }
@@ -159,15 +152,25 @@ struct ContentView: View {
             await startConnection()
             deviceManager.startPolling()
         }
+        .task(id: "\(scenePhase)-\(profile.defaultSide.rawValue)-\(healthSync.enabled)-\(healthSync.preferences.signature)-\(isConnected)-\(settingsManager.podIP)") {
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                if deviceManager.isConnected {
+                    await healthSync.syncRecent(api: APIBackend.current.createClient(), podID: settingsManager.podID,
+                                                side: profile.defaultSide, demo: isDemo)
+                }
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            }
+        }
         .onChange(of: deviceManager.isConnected) {
             if deviceManager.isConnected {
                 podDiscovery.status = .idle
                 // Auto-dismiss welcome screen when connection succeeds
-                if showWelcome { showWelcome = false }
+                sensorStream.connect()
             }
         }
         .onChange(of: sensorStream.latestDeviceStatus?.ts) { _, _ in
-            if let status = sensorStream.latestDeviceStatus {
+            if !isDemo, let status = sensorStream.latestDeviceStatus {
                 deviceManager.applyWebSocketStatus(status)
                 deviceManager.isReceivingWebSocket = true
             }
@@ -212,304 +215,11 @@ struct ContentView: View {
         APIBackend.current = .demo
         let client = APIBackend.demo.createClient()
         deviceManager.switchBackend(client)
-    }
-}
-
-// MARK: - Welcome Screen
-
-struct WelcomeScreen: View {
-    let onConnect: () -> Void
-    let onDemo: () -> Void
-
-    @State private var pulse = false
-
-    var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-
-            // Subtle radial glow
-            RadialGradient(
-                colors: [Theme.accent.opacity(pulse ? 0.08 : 0.04), Color.clear],
-                center: .center,
-                startRadius: 20,
-                endRadius: 300
-            )
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: pulse)
-            .onAppear { pulse = true }
-
-            VStack(spacing: 0) {
-                Spacer()
-
-                // App logo
-                Image("WelcomeLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 96, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 22))
-                    .padding(.bottom, 16)
-
-                Text("sleepypod")
-                    .font(.largeTitle.weight(.bold))
-                    .foregroundColor(.white)
-                    .padding(.bottom, 8)
-
-                Text("Connect to your pod via Bonjour\nor enter its IP address.")
-                    .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.bottom, 40)
-
-                // Buttons
-                VStack(spacing: 12) {
-                    Button {
-                        Haptics.medium()
-                        onConnect()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "antenna.radiowaves.left.and.right")
-                            Text("Connect")
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Theme.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        Haptics.light()
-                        onDemo()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "play.circle")
-                            Text("Explore Demo")
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(Theme.accent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Theme.accent.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 40)
-
-                Spacer()
-                Spacer()
-            }
-        }
-    }
-}
-
-// MARK: - Demo Mode Banner
-
-struct DemoModeBanner: View {
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "play.circle.fill")
-                .font(.caption2)
-            Text("Demo Mode")
-                .font(.caption2.weight(.medium))
-        }
-        .foregroundColor(Theme.amber)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(Theme.amber.opacity(0.15))
-        .clipShape(Capsule())
-    }
-}
-
-struct DisconnectedTabView: View {
-    let tab: String
-    var selectedTab: Binding<String>?
-    @Environment(DeviceManager.self) private var deviceManager
-    @Environment(SettingsManager.self) private var settingsManager
-    @Environment(PodDiscovery.self) private var podDiscovery
-
-    @State private var ringScale: CGFloat = 0.8
-    @State private var phase: CGFloat = 0
-
-    private var isActive: Bool {
-        podDiscovery.isSearching || deviceManager.isConnecting ||
-        podDiscovery.status == .scanning ||
-        { if case .resolving = podDiscovery.status { return true }; return false }() ||
-        { if case .connected = podDiscovery.status { return true }; return false }()
-    }
-
-    private var statusText: String {
-        switch podDiscovery.status {
-        case .idle:
-            return "Connecting..."
-        case .scanning:
-            return "Scanning network..."
-        case .found:
-            return "sleepypod"
-        case .resolving(let name):
-            if let ip = resolvedIP {
-                return "Found sleepypod @ \(ip)"
-            }
-            return "Found sleepypod @ \(name)"
-        case .connected(let ip):
-            return "Connecting to \(ip)..."
-        case .failed:
-            return "Could not find pod"
-        }
-    }
-
-    private var statusColor: Color {
-        switch podDiscovery.status {
-        case .idle: return Theme.textMuted
-        case .scanning, .found, .resolving, .connected: return Theme.textSecondary
-        case .failed: return Theme.error
-        }
-    }
-
-    private var resolvedIP: String? {
-        if case .connected(let ip) = podDiscovery.status { return ip }
-        if deviceManager.isConnecting { return settingsManager.podIP.isEmpty ? nil : settingsManager.podIP }
-        return nil
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            // Pulsing logo with radial gradient
-            ZStack {
-                // Pulsing radial gradient — starts black to match icon bg, fades to accent
-                RadialGradient(
-                    colors: [
-                        Color.black,
-                        Theme.accent.opacity(0.12),
-                        Theme.accent.opacity(0.04),
-                        Color.clear
-                    ],
-                    center: .center,
-                    startRadius: 35,
-                    endRadius: 130
-                )
-                .frame(width: 260, height: 260)
-                .scaleEffect(ringScale)
-                .blur(radius: 6)
-
-                // Outer glow rings
-                ForEach(0..<3, id: \.self) { i in
-                    Circle()
-                        .stroke(Theme.accent.opacity(0.08 - Double(i) * 0.02), lineWidth: 2)
-                        .frame(width: 80 + CGFloat(i) * 30, height: 80 + CGFloat(i) * 30)
-                        .scaleEffect(ringScale + CGFloat(i) * 0.05)
-                }
-
-                // Center logo
-                Image("WelcomeLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 80, height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
-                    .scaleEffect(ringScale)
-
-                // Arc spinner — always visible (auto-connecting)
-                Circle()
-                    .trim(from: 0, to: 0.3)
-                    .stroke(Theme.accent.opacity(0.6), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 100, height: 100)
-                    .rotationEffect(.degrees(phase))
-            }
-
-            // Status text
-            Text(statusText)
-                .font(.subheadline)
-                .foregroundColor(statusColor)
-                .padding(.top, 20)
-                .animation(.easeInOut(duration: 0.3), value: statusText)
-
-            Spacer()
-
-            // Actions
-            VStack(spacing: 12) {
-                // Retry — only after failure
-                if podDiscovery.status == .failed {
-                    Button {
-                        Haptics.light()
-                        Task {
-                            await podDiscovery.autoConnect(
-                                settingsManager: settingsManager,
-                                deviceManager: deviceManager
-                            )
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Retry")
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(.ultraThinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Manual IP — accordion (muted until expanded)
-                DisclosureGroup {
-                    HStack(spacing: 8) {
-                        TextField("192.168.1.88", text: Binding(
-                            get: { settingsManager.podIP },
-                            set: { settingsManager.podIP = $0 }
-                        ))
-                        .font(.system(size: 14, design: .monospaced))
-                        .keyboardType(.decimalPad)
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(Theme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Theme.cardBorder, lineWidth: 1)
-                        )
-
-                        Button {
-                            Haptics.medium()
-                            deviceManager.retryConnection()
-                        } label: {
-                            Image(systemName: "arrow.right.circle.fill")
-                                .font(.title3)
-                                .foregroundColor(Theme.accent)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(settingsManager.podIP.isEmpty)
-                    }
-                    .padding(.top, 8)
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("Enter IP manually")
-                            .font(.caption)
-                    }
-                    .foregroundColor(Theme.textMuted)
-                }
-                .tint(Theme.textMuted)
-                .accentColor(Theme.textMuted)
-            }
-            .padding(.horizontal, 32)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.background)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-                ringScale = 1.0
-            }
-            withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                phase = 360
-            }
-        }
+        settingsManager.switchBackend(client)
+        scheduleManager.switchBackend(client)
+        metricsManager.switchBackend(client)
+        statusManager.switchBackend(client)
+        sensorStream.disconnect()
+        sensorStream.connect()
     }
 }

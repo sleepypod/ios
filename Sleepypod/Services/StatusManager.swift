@@ -13,12 +13,14 @@ final class StatusManager {
     var isInternetBlocked = false
     private var internetCooldownUntil: Date?
 
-    private let api: SleepypodProtocol
+    private var api: SleepypodProtocol
     private var pollingTask: Task<Void, Never>?
 
     init(api: SleepypodProtocol) {
         self.api = api
     }
+
+    func switchBackend(_ client: SleepypodProtocol) { api = client }
 
     // MARK: - Computed
 

@@ -46,9 +46,6 @@ struct BedSensorScreen: View {
                     }
                 }
 
-                // Data pipeline DAG
-                DataPipelineView()
-
                 // Sensor matrix (cap + temp)
                 sensorMatrixCard
 
@@ -296,8 +293,8 @@ struct BedSensorScreen: View {
                 .font(.system(size: 9))
                 .foregroundColor(value == "--" ? color.opacity(0.3) : color)
             Text(value)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(value == "--" ? Theme.textMuted : .white)
+                .font(.mono(14, weight: .bold))
+                .foregroundColor(value == "--" ? Theme.textMuted : Theme.text1)
                 .frame(width: 28, alignment: .trailing)
             Text(unit)
                 .font(.system(size: 8))
@@ -352,7 +349,7 @@ struct BedSensorScreen: View {
                 .foregroundColor(value == "--" ? color.opacity(0.3) : color)
             Text(value)
                 .font(.system(size: 10, weight: .medium).monospaced())
-                .foregroundColor(value == "--" ? Theme.textMuted : .white)
+                .foregroundColor(value == "--" ? Theme.textMuted : Theme.text1)
                 .frame(width: 36)
             Text(label)
                 .font(.system(size: 7))
@@ -404,7 +401,7 @@ struct BedSensorScreen: View {
                                 }
                             Text("\(top.rpm)")
                                 .font(.system(size: 10, weight: .medium).monospaced())
-                                .foregroundColor(.white)
+                                .foregroundColor(Theme.text1)
                                 .frame(width: 36)
                             Text("Fan")
                                 .font(.system(size: 7))
@@ -448,7 +445,7 @@ struct BedSensorScreen: View {
                 .symbolEffect(.pulse, isActive: animate)
             Text(value)
                 .font(.system(size: 10, weight: .medium).monospaced())
-                .foregroundColor(value == "--" ? Theme.textMuted : .white)
+                .foregroundColor(value == "--" ? Theme.textMuted : Theme.text1)
                 .frame(width: 36)
             Text(label)
                 .font(.system(size: 7))

@@ -4,6 +4,7 @@ struct WaterLevelSheet: View {
     let currentLevel: String
 
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmPrime = false
     @State private var isPriming = false
     @State private var primeResult: String?
 
@@ -24,7 +25,7 @@ struct WaterLevelSheet: View {
                                 .foregroundColor(isLow ? Theme.amber : Theme.healthy)
                             Text(isLow ? "Water level is low — refill and prime" : "Water level is good")
                                 .font(.subheadline)
-                                .foregroundColor(.white)
+                                .foregroundColor(Theme.text1)
                             Spacer()
                         }
                         .padding(.horizontal, 16)
@@ -34,7 +35,7 @@ struct WaterLevelSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Priming")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(Theme.text1)
 
                             Text("Priming circulates water through the pod's tubing to remove trapped air bubbles. Air pockets reduce heating and cooling efficiency — the water can't reach the thermal elements, so your bed won't hit the target temperature.")
                                 .font(.caption)
@@ -66,7 +67,7 @@ struct WaterLevelSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Water Care")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(Theme.text1)
 
                             VStack(alignment: .leading, spacing: 8) {
                                 careRow(
@@ -123,30 +124,18 @@ struct WaterLevelSheet: View {
 
                 // Floating prime button
                 Button {
-                    Haptics.medium()
-                    isPriming = true
-                    Task {
-                        do {
-                            let api = APIBackend.current.createClient()
-                            try await api.reboot()
-                            primeResult = "Priming started — water is circulating"
-                            Haptics.heavy()
-                        } catch {
-                            primeResult = "Failed to start priming"
-                        }
-                        isPriming = false
-                    }
+                    confirmPrime = true
                 } label: {
                     HStack(spacing: 8) {
                         if isPriming {
-                            ProgressView().tint(.white).scaleEffect(0.8)
+                            ProgressView().tint(Theme.text1).scaleEffect(0.8)
                         } else {
                             Image(systemName: "arrow.triangle.2.circlepath")
                         }
                         Text(isPriming ? "Priming…" : "Start Prime")
                     }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(Theme.accent)
@@ -155,6 +144,24 @@ struct WaterLevelSheet: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isPriming)
+                .confirmationDialog("Start priming?", isPresented: $confirmPrime, titleVisibility: .visible) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Start priming") {
+                    Haptics.medium()
+                    isPriming = true
+                    Task {
+                        do {
+                            let api = APIBackend.current.createClient()
+                            try await api.startPriming()
+                            primeResult = "Priming started — water is circulating"
+                            Haptics.heavy()
+                        } catch {
+                            primeResult = "Failed to start priming"
+                        }
+                        isPriming = false
+                    }
+                    }
+                }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
             }
@@ -180,7 +187,7 @@ struct WaterLevelSheet: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                 Text(detail)
                     .font(.caption2)
                     .foregroundColor(Theme.textMuted)

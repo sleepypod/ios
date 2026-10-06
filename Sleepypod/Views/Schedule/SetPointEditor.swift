@@ -18,7 +18,7 @@ struct SetPoint: Identifiable, Equatable {
 
 // MARK: - SetPointEditor
 
-struct SetPointEditor: View {
+struct CurveSetPointList: View {
     @Binding var points: [SetPoint]
     var temperatureFormat: TemperatureFormat
     var onChanged: (() -> Void)?
@@ -32,7 +32,7 @@ struct SetPointEditor: View {
             HStack {
                 Text("Set Points")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                 Spacer()
                 Button {
                     Haptics.light()
@@ -102,8 +102,8 @@ struct SetPointEditor: View {
                 }
             } label: {
                 Text(point.time)
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white)
+                    .font(.mono(13, weight: .medium))
+                    .foregroundColor(Theme.text1)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(
@@ -133,7 +133,7 @@ struct SetPointEditor: View {
                 .buttonStyle(.plain)
 
                 Text(TemperatureConversion.displayTemp(point.tempF, format: temperatureFormat))
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .font(.mono(13, weight: .semibold))
                     .foregroundColor(TempColor.forOffset(point.tempF - 80))
                     .frame(minWidth: 48)
 
@@ -270,5 +270,73 @@ struct SetPointEditor: View {
         if lower.contains("pre") && lower.contains("wake") { return Theme.amber }
         if lower.contains("wake") { return Theme.textMuted }
         return Theme.textSecondary
+    }
+}
+
+struct SetPointEditor: View {
+    let phase: SchedulePhase
+    @Environment(ScheduleManager.self) private var schedule
+    @Environment(SettingsManager.self) private var settings
+    @Environment(\.dismiss) private var dismiss
+    @State private var time = Date()
+    @State private var temperature = 80
+    @State private var saving = false
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 8) {
+                DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                    .datePickerStyle(.wheel).labelsHidden().frame(maxHeight: 180)
+                GlassEffectContainer(spacing: 24) {
+                    HStack(spacing: 24) {
+                        stepButton("minus", delta: -1)
+                        Text(TemperatureConversion.displayTemp(temperature, format: settings.temperatureFormat))
+                            .font(.mono(34, weight: .light, relativeTo: .largeTitle))
+                            .foregroundStyle(TempColor.forScheduled(temperature))
+                            .contentTransition(.numericText(value: Double(temperature)))
+                            .frame(minWidth: 110)
+                            .accessibilityLabel("Temperature")
+                            .accessibilityValue(TemperatureConversion.displayTemp(temperature, format: settings.temperatureFormat))
+                            .accessibilityAdjustableAction { direction in
+                                temperature = min(110, max(55, temperature + (direction == .increment ? 1 : -1)))
+                            }
+                        stepButton("plus", delta: 1)
+                    }
+                }
+                if let error = schedule.error { Text(error).font(.footnote).foregroundStyle(Theme.amber) }
+            }
+            .padding(.horizontal, 24)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .navigationTitle(phase.name).navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", systemImage: "checkmark") {
+                        saving = true
+                        Task {
+                            let f = DateFormatter(); f.dateFormat = "HH:mm"
+                            if await schedule.editPhase(oldTime: phase.time, newTime: f.string(from: time), temperature: temperature) { dismiss() }
+                            saving = false
+                        }
+                    }
+                    .disabled(saving)
+                }
+            }
+            .onAppear {
+                temperature = phase.temperatureF
+                time = Calendar.current.date(bySettingHour: DisplayTime.minutes(phase.time) / 60, minute: DisplayTime.minutes(phase.time) % 60, second: 0, of: Date()) ?? Date()
+            }
+        }
+    }
+
+    private func stepButton(_ symbol: String, delta: Int) -> some View {
+        Button {
+            Haptics.light()
+            withAnimation(.snappy(duration: 0.2)) { temperature = min(110, max(55, temperature + delta)) }
+        } label: {
+            Image(systemName: symbol).font(.system(size: 20)).foregroundStyle(Theme.text1)
+                .frame(width: 52, height: 52).chromeSurface(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(delta < 0 ? "Cooler" : "Warmer")
     }
 }

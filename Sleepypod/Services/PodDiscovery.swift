@@ -133,6 +133,7 @@ final class PodDiscovery {
                         Haptics.medium()
                         status = .connected(ip)
                         connectedPodName = pod.name
+                        SettingsManager.registerPodIdentity(address: ip, bonjourID: pod.id)
                         settingsManager.podIP = ip
                         deviceManager.retryConnection()
                         return ip

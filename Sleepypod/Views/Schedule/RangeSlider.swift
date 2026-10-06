@@ -28,11 +28,7 @@ struct RangeSlider: View {
 
                 Capsule()
                     .fill(
-                        LinearGradient(
-                            colors: [Theme.cooling, Theme.textSecondary, Theme.warming],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
+                        Theme.cool.opacity(0.12)
                     )
                     .frame(width: highX - lowX, height: trackHeight)
                     .offset(x: lowX + thumbSize / 2)
@@ -74,7 +70,7 @@ struct RangeSlider: View {
             .shadow(color: color.opacity(0.4), radius: 4)
             .overlay(
                 Circle()
-                    .stroke(.white.opacity(0.3), lineWidth: 1)
+                    .stroke(Theme.text1.opacity(0.3), lineWidth: 1)
             )
     }
 }

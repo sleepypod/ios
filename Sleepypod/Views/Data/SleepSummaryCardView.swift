@@ -1,58 +1,32 @@
 import SwiftUI
 
 struct SleepSummaryCardView: View {
-    @Environment(MetricsManager.self) private var metricsManager
-
-    private var record: SleepRecord? {
-        metricsManager.selectedDayRecord
-    }
-
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let record: SleepRecord
+    let score: Int?
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header: "Sleep Summary" with date and trend
-            HStack {
-                Text("Sleep Summary")
-                    .font(.headline.weight(.semibold))
-                    .foregroundColor(.white)
-                Spacer()
-                if let record {
-                    Text(record.enteredBedDate, format: .dateTime.weekday(.wide).month(.abbreviated).day())
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                }
-                Text("\u{2197} 5%")
-                    .font(.caption.weight(.medium))
-                    .foregroundColor(Theme.healthy)
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 18))
+            : AnyLayout(HStackLayout(spacing: 18))
+        layout {
+            ZStack {
+                Circle().stroke(Theme.track, lineWidth: 6)
+                Circle().trim(from: 0, to: Double(max(0, min(100, score ?? 0))) / 100)
+                    .stroke(Theme.green, style: StrokeStyle(lineWidth: 6, lineCap: .round)).rotationEffect(.degrees(-90))
+                Text(score.map(String.init) ?? "—").font(.mono(24, relativeTo: .title2)).lineLimit(1).minimumScaleFactor(0.5)
             }
-
-            if let record {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                    summaryItem(value: record.bedtimeFormatted, label: "BEDTIME")
-                    summaryItem(value: record.wakeTimeFormatted, label: "WAKE TIME")
-                    summaryItem(value: record.durationFormatted, label: "DURATION")
-                    summaryItem(value: "\(record.timesExitedBed) time\(record.timesExitedBed == 1 ? "" : "s")", label: "EXITS")
-                }
-            } else {
-                Text("No data for selected period")
-                    .font(.subheadline)
-                    .foregroundColor(Theme.textMuted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+            .padding(6)
+            .frame(width: 78, height: 78)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Sleep quality \(score.map(String.init) ?? "unavailable")")
+            VStack(alignment: .leading, spacing: 5) {
+                Text(DisplayTime.duration(record.sleepPeriodSeconds)).font(.mono(28, weight: .light, relativeTo: .title))
+                    .minimumScaleFactor(0.7).lineLimit(1)
+                Text("\(record.bedtimeFormatted) → \(record.wakeTimeFormatted)")
+                    .font(.mono(12, relativeTo: .caption)).foregroundStyle(Theme.text2)
             }
+            Spacer(minLength: 0)
         }
-        .cardStyle()
-    }
-
-    private func summaryItem(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.title3.weight(.bold))
-                .foregroundColor(.white)
-            Text(label)
-                .font(.caption2.weight(.medium))
-                .foregroundColor(Theme.textSecondary)
-                .tracking(0.5)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle(vertical: 18, horizontal: 18)
     }
 }

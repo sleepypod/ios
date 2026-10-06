@@ -16,6 +16,7 @@ protocol SleepypodProtocol: Sendable {
     func getMovement(side: Side?, start: Date?, end: Date?) async throws -> [MovementRecord]
     func triggerAlarm(_ alarm: AlarmJob) async throws
     func clearAlarm(side: Side) async throws
+    func startPriming() async throws
     func reboot() async throws
     func setInternetAccess(blocked: Bool) async throws
     func getCalibrationStatus(side: Side) async throws -> CalibrationStatus
@@ -53,4 +54,9 @@ struct LogSource: Codable, Sendable, Identifiable {
     let name: String
     let active: Bool
     var id: String { unit }
+}
+
+// Backends without a priming endpoint must fail explicitly rather than rebooting.
+extension SleepypodProtocol {
+    func startPriming() async throws { throw URLError(.unsupportedURL) }
 }

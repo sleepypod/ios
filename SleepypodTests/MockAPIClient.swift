@@ -42,6 +42,7 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 0, expiresAt: 0) }
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
     func cancelRunOnce(side: Side) async throws {}
+    func getLogSources() async throws -> [LogSource] { [] }
 
     func setInternetAccess(blocked: Bool) async throws {
         if responseDelay > 0 { try? await Task.sleep(for: .seconds(responseDelay)) }

@@ -11,7 +11,6 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     GENERATE_INFOPLIST_FILE: true
-    INFOPLIST_KEY_UIUserInterfaceStyle: Dark
     INFOPLIST_KEY_UILaunchScreen_Generation: true
     INFOPLIST_KEY_CFBundleDisplayName: Sleepypod
     MARKETING_VERSION: "0.1.0"
@@ -29,13 +28,11 @@ targets:
       path: Sleepypod/Sleepypod.entitlements
       properties:
         com.apple.developer.healthkit: true
-        com.apple.developer.healthkit.access:
-          - health-records
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod
         INFOPLIST_FILE: Sleepypod/Info.plist
-        INFOPLIST_KEY_NSHealthShareUsageDescription: "Sleepypod uses your sleep schedule to automatically set bedtime and wake temperatures"
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "Sleepypod reads sleep samples to infer bedtimes and compare stage estimates with Apple Watch."
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep."
@@ -55,3 +52,25 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod.tests
+
+  SleepypodUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: SleepypodUITests
+    dependencies:
+      - target: Sleepypod
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod.uitests
+        TEST_TARGET_NAME: Sleepypod
+
+schemes:
+  Sleepypod:
+    build:
+      targets:
+        Sleepypod: all
+    test:
+      targets:
+        - SleepypodTests
+        - SleepypodUITests

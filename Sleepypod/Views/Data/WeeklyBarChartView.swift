@@ -22,7 +22,7 @@ struct WeeklyBarChartView: View {
                         x: .value("Day", record.dayLabel),
                         y: .value("Hours", record.durationHours)
                     )
-                    .foregroundStyle(Theme.cyan)
+                    .foregroundStyle(Theme.cool)
                     .cornerRadius(4)
                 }
                 .chartYAxis {

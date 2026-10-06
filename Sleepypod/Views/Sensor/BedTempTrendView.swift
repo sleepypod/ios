@@ -65,10 +65,10 @@ struct BedTempTrendView: View {
                         } label: {
                             Text(r.rawValue)
                                 .font(.system(size: 10, weight: range == r ? .bold : .medium))
-                                .foregroundColor(range == r ? .white : Theme.textMuted)
+                                .foregroundColor(range == r ? Theme.text1 : Theme.textMuted)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(range == r ? Color.white.opacity(0.12) : .clear)
+                                .background(range == r ? Theme.text1.opacity(0.12) : .clear)
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                     }
@@ -248,8 +248,8 @@ struct BedTempTrendView: View {
     private func statItem(value: String, label: String, suffix: String = "") -> some View {
         VStack(spacing: 2) {
             Text(value + suffix)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundColor(.white)
+                .font(.mono(14, weight: .semibold))
+                .foregroundColor(Theme.text1)
             Text(label)
                 .font(.system(size: 8))
                 .foregroundColor(Theme.textMuted)

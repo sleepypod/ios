@@ -12,16 +12,19 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     private let session: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let discoveryURL: URL?
 
     private var baseURL: URL? {
+        if let discoveryURL { return discoveryURL }
         guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else {
             return nil
         }
         return URL(string: "http://\(ip):3000")
     }
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .shared, discoveryURL: URL? = nil) {
         self.session = session
+        self.discoveryURL = discoveryURL
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
     }
@@ -503,6 +506,10 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func setInternetAccess(blocked: Bool) async throws {
         let _: TRPCInternetStatus = try await mutate("system.setInternetAccess", input: ["blocked": blocked])
+    }
+
+    func startPriming() async throws {
+        let _: TRPCSuccess = try await mutate("device.startPriming", input: [:] as [String: String])
     }
 
     func reboot() async throws {

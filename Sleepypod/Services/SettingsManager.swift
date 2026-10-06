@@ -8,11 +8,13 @@ final class SettingsManager {
     var isLoading = false
     var error: String?
 
-    private let api: SleepypodProtocol
+    private var api: SleepypodProtocol
 
     init(api: SleepypodProtocol) {
         self.api = api
     }
+
+    func switchBackend(_ client: SleepypodProtocol) { api = client }
 
     // MARK: - Side Names (single source of truth)
 
@@ -31,6 +33,22 @@ final class SettingsManager {
     /// Display name for a given side.
     func sideName(for side: Side) -> String {
         side == .left ? leftName : rightName
+    }
+
+    /// Keep Health sample identity stable across Bonjour address changes.
+    var podID: String { Self.registerPodIdentity(address: podIP) }
+
+    @discardableResult
+    static func registerPodIdentity(address: String, bonjourID: String? = nil) -> String {
+        guard !address.isEmpty else { return "" }
+        let defaults = UserDefaults.standard
+        var identities = defaults.dictionary(forKey: "healthPodIdentities") as? [String: String] ?? [:]
+        let serviceKey = bonjourID.map { "bonjour:\($0)" }
+        let id = serviceKey.flatMap { identities[$0] } ?? identities["address:\(address)"] ?? UUID().uuidString
+        identities["address:\(address)"] = id
+        if let serviceKey { identities[serviceKey] = id }
+        defaults.set(identities, forKey: "healthPodIdentities")
+        return id
     }
 
     // MARK: - Computed
@@ -158,6 +176,7 @@ final class SettingsManager {
     private func saveSettings(_ settings: PodSettings) async {
         do {
             self.settings = try await api.updateSettings(settings)
+            self.error = nil
         } catch {
             self.error = error.localizedDescription
             await fetchSettings()

@@ -75,16 +75,6 @@ struct StatusScreen: View {
                     servicesCard
                 }
 
-                // Logs
-                LogsView()
-
-                // Sensor console (firmware logs + raw frames)
-                FirmwareLogConsoleView(
-                    logs: sensor.firmwareLogs,
-                    recentFrames: sensor.recentFrames,
-                    onClear: { sensor.clearLogs() }
-                )
-
                 // Last updated
                 if let lastUpdated = statusManager.lastUpdated {
                     Text("Last updated: \(lastUpdated, format: .relative(presentation: .named))")
@@ -138,14 +128,14 @@ struct StatusScreen: View {
                 HStack(spacing: 12) {
                     Image(systemName: "tuningfork")
                         .font(.system(size: 14))
-                        .foregroundColor(Theme.cyan)
+                        .foregroundColor(Theme.cool)
                         .frame(width: 32, height: 32)
-                        .background(Theme.cyan.opacity(0.2))
+                        .background(Theme.cool.opacity(0.2))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
 
                     Text("Calibration")
                         .font(.subheadline.weight(.medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
 
                     Spacer()
 
@@ -161,7 +151,7 @@ struct StatusScreen: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(hex: "222222"))
+                    .background(Theme.active)
                     .clipShape(Capsule())
 
                     Image(systemName: "chevron.right")
@@ -200,10 +190,10 @@ struct StatusScreen: View {
                             Text("Run Calibration")
                         }
                         .font(.caption.weight(.semibold))
-                        .foregroundColor(Theme.cyan)
+                        .foregroundColor(Theme.cool)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Theme.cyan.opacity(0.1))
+                        .background(Theme.cool.opacity(0.1))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
@@ -243,7 +233,7 @@ struct StatusScreen: View {
                             .foregroundColor(sensorColor(sensor))
                         Text(sensorDisplayName(sensor.sensorType))
                             .font(.caption)
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text1)
                         Spacer()
                         if let score = sensor.qualityScore {
                             let pct = score * 100
@@ -318,8 +308,8 @@ struct StatusScreen: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("On-Device Intelligence")
                             .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
-                        Text("Core ML pipeline")
+                            .foregroundColor(Theme.text1)
+                        Text("rule-based · on this iPhone")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
@@ -336,7 +326,7 @@ struct StatusScreen: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(hex: "222222"))
+                    .background(Theme.active)
                     .clipShape(Capsule())
 
                     Image(systemName: "chevron.right")
@@ -360,7 +350,7 @@ struct StatusScreen: View {
                     )
                     modelRow(
                         name: "Outlier Filter",
-                        type: "Boundary (HR>200, HRV>300)",
+                        type: "Sleep-context limits · rolling median",
                         status: "Active",
                         icon: "line.3.crossed.swirl.circle.fill",
                         color: Theme.accent
@@ -407,7 +397,7 @@ struct StatusScreen: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
                     .font(.caption)
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                 Text(type)
                     .font(.caption2)
                     .foregroundColor(Theme.textMuted)
@@ -439,15 +429,15 @@ struct StatusScreen: View {
                 HStack(spacing: 12) {
                     Image(systemName: "gearshape.2")
                         .font(.system(size: 14))
-                        .foregroundColor(Theme.cyan)
+                        .foregroundColor(Theme.cool)
                         .frame(width: 32, height: 32)
-                        .background(Theme.cyan.opacity(0.2))
+                        .background(Theme.cool.opacity(0.2))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Services")
                             .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text1)
                         Text("Systemd service units")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
@@ -465,7 +455,7 @@ struct StatusScreen: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(hex: "222222"))
+                    .background(Theme.active)
                     .clipShape(Capsule())
 
                     Image(systemName: "chevron.right")
@@ -489,7 +479,7 @@ struct StatusScreen: View {
                                 .foregroundColor(source.active ? Theme.healthy : Theme.error)
                             Text(source.name)
                                 .font(.caption)
-                                .foregroundColor(.white)
+                                .foregroundColor(Theme.text1)
                             Spacer()
                         }
                         .padding(.horizontal, 14)
@@ -534,7 +524,7 @@ struct StatusScreen: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Network Discovery")
                             .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text1)
                         Text("mDNS auto-discovery")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
@@ -553,7 +543,7 @@ struct StatusScreen: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(hex: "222222"))
+                    .background(Theme.active)
                     .clipShape(Capsule())
 
                     Image(systemName: "chevron.right")
@@ -581,7 +571,7 @@ struct StatusScreen: View {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(podDiscovery.connectedPodName ?? podDiscovery.discoveredPods.first?.name ?? settingsManager.podIP)
                                     .font(.subheadline)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.text1)
                                 Text(settingsManager.podIP)
                                     .font(.caption)
                                     .foregroundColor(Theme.textSecondary)
@@ -613,7 +603,7 @@ struct StatusScreen: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 3))
                                 Text(pod.name)
                                     .font(.caption)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.text1)
                                 Spacer()
                                 Text("Port \(pod.port)")
                                     .font(.caption2)

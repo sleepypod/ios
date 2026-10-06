@@ -62,7 +62,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
                 currentTemperatureLevel: 0,
                 currentTemperatureF: leftCurrentF,
                 targetTemperatureF: leftTargetF,
-                secondsRemaining: 0,
+                secondsRemaining: 22320,
                 isOn: leftOn,
                 isAlarmVibrating: false,
                 taps: TapCounts(doubleTap: 12, tripleTap: 3, quadTap: 1)
@@ -71,7 +71,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
                 currentTemperatureLevel: 0,
                 currentTemperatureF: rightCurrentF,
                 targetTemperatureF: rightTargetF,
-                secondsRemaining: 0,
+                secondsRemaining: 22320,
                 isOn: rightOn,
                 isAlarmVibrating: false,
                 taps: TapCounts(doubleTap: 8, tripleTap: 2, quadTap: 0)
@@ -80,7 +80,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
             isPriming: false,
             settings: DeviceHardwareSettings(v: 2, gainLeft: 1.0, gainRight: 1.0, ledBrightness: 60),
             coverVersion: "v3.2.1",
-            hubVersion: "v1.8.0",
+            hubVersion: "3",
             freeSleep: FreeSleepInfo(version: "demo", branch: "demo"),
             wifiStrength: 82
         )
@@ -342,6 +342,8 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
     func clearAlarm(side: Side) async throws {
         // no-op in demo
     }
+
+    func startPriming() async throws {}
 
     func reboot() async throws {
         // no-op in demo

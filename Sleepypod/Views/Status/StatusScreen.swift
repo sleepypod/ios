@@ -612,7 +612,7 @@ struct StatusScreen: View {
                             .padding(.vertical, 2)
                         }
                     } else if !deviceManager.isConnected {
-                        Text("No Sleepypod found on network")
+                        Text("No sleepypod found on network")
                             .font(.caption)
                             .foregroundColor(Theme.textMuted)
                             .padding(.vertical, 4)

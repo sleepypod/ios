@@ -12,7 +12,7 @@ settings:
     SWIFT_VERSION: "6.0"
     GENERATE_INFOPLIST_FILE: true
     INFOPLIST_KEY_UILaunchScreen_Generation: true
-    INFOPLIST_KEY_CFBundleDisplayName: Sleepypod
+    INFOPLIST_KEY_CFBundleDisplayName: sleepypod
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: 1
     SWIFT_STRICT_CONCURRENCY: complete
@@ -32,7 +32,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod
         INFOPLIST_FILE: Sleepypod/Info.plist
-        INFOPLIST_KEY_NSHealthShareUsageDescription: "Sleepypod reads sleep samples to infer bedtimes and compare stage estimates with Apple Watch."
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "sleepypod reads sleep samples to infer bedtimes and compare stage estimates with Apple Watch."
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep."

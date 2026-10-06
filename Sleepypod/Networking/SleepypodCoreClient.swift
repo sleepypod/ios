@@ -302,7 +302,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", status: schedStatus, desc: "Wake-up alarm scheduler", msg: "\(scheduler.jobCounts.alarm) alarms"),
             database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "\(String(format: "%.1fms", health.database.latencyMs ?? 0)) latency"),
-            express: info("Sleepypod Core", status: .healthy, desc: "API and hardware bridge"),
+            express: info("sleepypod core", status: .healthy, desc: "API and hardware bridge"),
             podSocket: info("Hardware Socket", status: hwStatus, desc: "DAC communication", msg: hwLatency),
             podSocketMonitor: info("DAC Monitor", status: dacStatus, desc: "Hardware watchdog", msg: dacMsg),
             jobs: info("Job Scheduler", status: schedStatus, desc: "Background task runner", msg: "Jobs: \(scheduler.jobCounts.total)"),

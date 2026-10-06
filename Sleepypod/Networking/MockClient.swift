@@ -139,7 +139,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", desc: "Wake-up alarm scheduler", msg: "2 alarms"),
             database: info("Database", desc: "SQLite database", msg: "0.3ms latency"),
-            express: info("Sleepypod Core", desc: "API and hardware bridge"),
+            express: info("sleepypod core", desc: "API and hardware bridge"),
             podSocket: info("Hardware Socket", desc: "DAC communication", msg: "1.2ms"),
             podSocketMonitor: info("DAC Monitor", desc: "Hardware watchdog", msg: "running"),
             jobs: info("Job Scheduler", desc: "Background task runner", msg: "Jobs: 14"),

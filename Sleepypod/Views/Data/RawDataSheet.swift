@@ -177,7 +177,7 @@ struct RawDataSheet: View {
 
     private func exportAll() {
         // Combine all data into one CSV with sections
-        var combined = "# Sleepypod Raw Data Export\n"
+        var combined = "# sleepypod raw data export\n"
         combined += "# Side: \(metricsManager.selectedSide.displayName)\n"
         combined += "# Date: \(Date().ISO8601Format())\n\n"
 

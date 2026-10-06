@@ -249,7 +249,7 @@ private struct LogsSheet: View {
         defer { isLoading = false }
 
         guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else {
-            error = "No Sleepypod connected"
+            error = "No sleepypod connected"
             return
         }
 

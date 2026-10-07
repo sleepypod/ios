@@ -158,13 +158,19 @@ def record_tour(udid, test, raw, appearance):
 def encode(raw, output, size, start, duration, pad, limits):
     """Trim [start, start+duration) of a variable-rate capture to constant 30 fps H.264 with silent stereo AAC."""
     width, height = size
+    # XCTest event delivery slows down on busy hosts. Preserve every action while
+    # allowing modest acceleration, and reject tours that would become unreadable.
+    output_duration = min(duration, limits[1] - 0.25)
+    speed = duration / output_duration
+    if speed > 1.5:
+        raise RuntimeError(f'Tour requires {speed:.2f}x playback to fit {limits}; recapture on an idle simulator')
     run('ffmpeg', '-y', '-loglevel', 'error', '-i', raw, '-f', 'lavfi', '-i',
         'anullsrc=channel_layout=stereo:sample_rate=44100', '-filter_complex',
-        f'[0:v]tpad=stop_mode=clone:stop_duration=5,fps=30,'
-        f'trim=start={start:.3f}:duration={duration:.3f},setpts=PTS-STARTPTS,'
+        f'[0:v]tpad=stop_mode=clone:stop_duration=5,'
+        f'trim=start={start:.3f}:duration={duration:.3f},setpts=(PTS-STARTPTS)/{speed:.8f},fps=30,'
         f'scale={width}:{height}:force_original_aspect_ratio=decrease:flags=lanczos,'
         f'pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color={pad},setsar=1[v]',
-        '-map', '[v]', '-map', '1:a', '-t', f'{duration:.3f}',
+        '-map', '[v]', '-map', '1:a', '-t', f'{output_duration:.3f}',
         '-c:v', 'libx264', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-crf', '18', '-r', '30',
         '-c:a', 'aac', '-b:a', '128k', '-ac', '2', '-shortest', '-movflags', '+faststart', output)
     info = json.loads(run('ffprobe', '-v', 'error', '-show_streams', '-show_format', '-of', 'json', output).stdout)

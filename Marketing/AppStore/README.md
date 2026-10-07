@@ -36,7 +36,10 @@ Videos use H.264 High, 30 fps, yuv420p, and a silent AAC stereo track, following
 App Store Connect accepts previews of 15–30 s, so only the `clip-*` files are
 uploadable; the walkthrough is for the web and social. Each video has an
 adjacent JSON file with its ffprobe properties, and `capture.py` asserts size,
-codec, frame rate, audio and duration before writing it. Raw captures and
+codec, frame rate, audio and duration before writing its metadata. If simulator
+latency makes a tour too long, it preserves every action and accelerates playback
+to just below the limit; anything requiring more than 1.5× speed fails and needs
+a recapture on an idle simulator. Raw captures and
 generated deliverables are local and ignored by Git.
 
 ## Upload checks (reviewed October 7, 2026)

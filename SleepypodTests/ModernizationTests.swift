@@ -28,6 +28,9 @@ struct ModernizationTests {
             HKCategoryValueSleepAnalysis.awake.rawValue, HKCategoryValueSleepAnalysis.asleepREM.rawValue,
             HKCategoryValueSleepAnalysis.asleepCore.rawValue, HKCategoryValueSleepAnalysis.asleepDeep.rawValue]))
         for sample in samples {
+            #expect(sample.device?.name == "sleepypod")
+            #expect(sample.device?.localIdentifier == "pod-a-left")
+            #expect(sample.metadata?["sleepypod_side"] as? String == "left")
             #expect(sample.metadata?[HKMetadataKeyWasUserEntered] as? Bool == false)
             #expect((sample.metadata?[HKMetadataKeyExternalUUID] as? String)?.hasPrefix("pod-a-left-42-") == true)
             #expect(sample.metadata?[HKMetadataKeySyncIdentifier] is String)
@@ -40,6 +43,18 @@ struct ModernizationTests {
         #expect(onlyHR.allSatisfy { $0.sampleType == HKQuantityType(.heartRate) })
         let retry = HealthSyncService.samples(record: record, epochs: epochs, podID: "pod-a", preferences: prefs)
         #expect(onlyHR.map { $0.metadata?[HKMetadataKeySyncIdentifier] as? String } == retry.map { $0.metadata?[HKMetadataKeySyncIdentifier] as? String })
+    }
+
+    @Test func healthDeviceAttributionSeparatesPodsAndSides() throws {
+        let left = try record()
+        var right = left
+        right.side = "right"
+        let inputs = [("pod-a", left), ("pod-a", right), ("pod-b", left)]
+        let identifiers = inputs.compactMap { pod, record in
+            HealthSyncService.samples(record: record, epochs: [], podID: pod, preferences: .init()).first?.device?.localIdentifier
+        }
+        #expect(identifiers.count == 3)
+        #expect(Set(identifiers).count == 3)
     }
 
     @Test func openNightsDoNotWriteHealthSamples() throws {

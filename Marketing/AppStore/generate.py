@@ -56,6 +56,7 @@ def parse_args() -> argparse.Namespace:
         default=f"{DEFAULT_SIZE[0]}x{DEFAULT_SIZE[1]}",
         help="Output size as WIDTHxHEIGHT (default: 1320x2868)",
     )
+    parser.add_argument('--only', action='append', help='Render only this output stem (repeatable)')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--check-config",
@@ -441,6 +442,12 @@ def main() -> None:
     size = parse_size(args.size)
     manifest, base = load_manifest(args.manifest)
     names = appearances(manifest, args.appearance)
+    if args.only:
+        available = {Path(item['output']).stem for item in manifest['screenshots']}
+        unknown = set(args.only) - available
+        if unknown:
+            raise ValueError(f'Unknown screenshot names: {sorted(unknown)}')
+        manifest['screenshots'] = [item for item in manifest['screenshots'] if Path(item['output']).stem in args.only]
     if args.check_config:
         print(check_config(manifest, base, size))
         return

@@ -156,7 +156,7 @@ struct CalibrationSheet: View {
             if icon == "WelcomeLogo" {
                 Image("WelcomeLogo")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 20, height: 20)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
@@ -179,7 +179,7 @@ struct CalibrationSheet: View {
             VStack(spacing: 4) {
                 Image("WelcomeLogo")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 20, height: 20)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                 Text("\(side.displayName) Side")

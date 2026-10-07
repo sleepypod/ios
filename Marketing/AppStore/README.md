@@ -8,11 +8,10 @@ python3 Marketing/AppStore/capture.py --video
 ```
 
 Run from the repository root. Requires Xcode with an iPhone 17 Pro Max
-simulator, `uv`, and `ffmpeg`/`ffprobe`. No desktop taps or window positioning
+device type and an installed iOS runtime, `uv`, and `ffmpeg`/`ffprobe`. No desktop taps or window positioning
 are required. The script builds the Debug app and UI tests into
-`build/marketing`, reinstalls sleepypod on the simulator (a clean install
-clears any pending notification prompt; only sleepypod's simulator data is
-reset), captures eight screens in dark and light, records the tours, and
+`build/marketing`, creates or reuses a dedicated `sleepypod Marketing` simulator,
+and reinstalls sleepypod there (only that capture simulator's app data is reset), captures eight screens in dark and light, records the tours, and
 renders the compositions. It pins the status bar to 9:41 with full battery and
 Wi-Fi, clears the override afterwards, and shuts down only simulators it
 booted. A full run with video takes about 10 minutes.
@@ -20,7 +19,7 @@ booted. A full run with video takes about 10 minutes.
 Options: `--skip-build` (reuse the last marketing build), `--device iphone-6.9`,
 `--appearance dark|light` (repeatable; default both), `--video-appearance`
 (default `dark`), `--only NAME` (repeatable; a screenshot or tour name such as
-`04-schedule` or `clip-schedule`), `--keep-booted`. Omit `--video` to produce
+`04-schedule` or `clip-schedule`; only selected screenshots are rendered), `--keep-booted`. Omit `--video` to produce
 screenshots only.
 
 | Output | Dimensions | Content |
@@ -40,6 +39,20 @@ adjacent JSON file with its ffprobe properties, and `capture.py` asserts size,
 codec, frame rate, audio and duration before writing it. Raw captures and
 generated deliverables are local and ignored by Git.
 
+## Upload checks (reviewed October 7, 2026)
+
+The shipping target is iPhone-only (`TARGETED_DEVICE_FAMILY = 1`). Apple currently
+names Dynamic Island medium (1206×2622 or 1179×2556) as the required screenshot
+slot and documents scaled fallbacks from other iPhone sizes. This pipeline
+produces the large-display and 6.5-inch sets above; check inherited assets in
+App Store Connect's Media Manager before submission and add a medium-size export
+if the slot is not covered. Generated files do not establish upload acceptance.
+See [Apple's current screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications).
+
+The preview dimensions match Apple's current specification. Dedicated product-page
+header and search artwork are not generated here; inspect those optional placements
+separately if used. No assets are uploaded or submitted by these scripts.
+
 ## Capture states
 
 Every capture launches the Debug app with `-apiBackend demo` (synthetic pod
@@ -58,7 +71,8 @@ DEMO badge. The `-uiRoute` and `-tempControl` arguments choose the screen:
 | `07-apple-watch` | `-uiRoute watch` (Compare with Apple Watch) |
 | `08-apple-health` | `-uiRoute onboard3 -apiBackend sleepypod-core -onboardingComplete NO` (Health step of setup) |
 
-All of these arguments are compiled out of Release builds. Demo vitals are
+The `uiRoute` and `marketingCapture` hooks are compiled out of Release builds;
+the other arguments override existing app preferences for this capture launch. Demo vitals are
 generated per launch, so scores and averages differ slightly between runs.
 
 Videos come from `SleepypodUITests/MarketingTour.swift`. Each test launches the

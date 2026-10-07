@@ -23,7 +23,7 @@ struct LoadingView: View {
                 // Center icon
                 Image("WelcomeLogo")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 32, height: 32)
                     .clipShape(RoundedRectangle(cornerRadius: 7))
                     .scaleEffect(ringScale)

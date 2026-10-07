@@ -121,7 +121,7 @@ struct RawDataSheet: View {
                     if icon == "WelcomeLogo" {
                         Image("WelcomeLogo")
                             .resizable()
-                            .aspectRatio(contentMode: .fit)
+                            .scaledToFit()
                             .frame(width: 20, height: 20)
                             .clipShape(RoundedRectangle(cornerRadius: 4))
                     } else {

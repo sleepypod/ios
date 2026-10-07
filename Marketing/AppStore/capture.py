@@ -5,12 +5,13 @@ No desktop clicks are needed. Debug-only launch arguments put the app in demo
 mode on a chosen tab and control; `-marketingCapture YES` skips the
 notification prompt and the DEMO badge. Videos come from the paced XCUITests
 in SleepypodUITests/MarketingTour.swift, recorded with simctl and trimmed to
-the marks each test prints. Release builds ignore all of these arguments.
+the marks each test prints. Release builds ignore the marketingCapture and uiRoute hooks.
 """
 from __future__ import annotations
 import argparse
 import json
 import os
+import plistlib
 from pathlib import Path
 import re
 import signal
@@ -20,7 +21,6 @@ import time
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-BUNDLE = 'com.jonathanng.ios.sleepypod'
 DERIVED = REPO / 'build' / 'marketing'
 DEVICES = {'iphone-6.9': 'iPhone 17 Pro Max'}
 APPEARANCES = {'dark': 'Dark', 'light': 'Light'}
@@ -63,18 +63,29 @@ def sim(*args, check=True):
 
 
 def device(name):
+    # Isolate clean installs from developers' normal simulator app data.
+    runtime_list = json.loads(sim('list', 'runtimes', '-j').stdout)['runtimes']
+    runtimes = [r for r in runtime_list if r.get('isAvailable') and '.iOS-' in r['identifier']]
+    if not runtimes:
+        raise RuntimeError('No available iOS simulator runtime')
+    runtime = max(runtimes, key=lambda r: tuple(map(int, r['version'].split('.'))))['identifier']
+    capture_name = f'sleepypod Marketing — {name}'
     listing = json.loads(sim('list', 'devices', 'available', '-j').stdout)
-    candidates = [(runtime, d) for runtime, devices in listing['devices'].items()
-                  for d in devices if d['name'] == name and d.get('isAvailable')]
-    if not candidates:
-        raise RuntimeError(f'No available simulator named {name}')
-    return sorted(candidates, key=lambda row: row[0])[-1][1]
+    for candidate in listing['devices'].get(runtime, []):
+        if candidate['name'] == capture_name and candidate.get('isAvailable'):
+            return candidate
+    types = json.loads(sim('list', 'devicetypes', '-j').stdout)['devicetypes']
+    device_type = next((d['identifier'] for d in types if d['name'] == name), None)
+    if device_type is None:
+        raise RuntimeError(f'No simulator device type named {name}')
+    udid = sim('create', capture_name, device_type, runtime).stdout.strip()
+    return {'udid': udid, 'state': 'Shutdown'}
 
 
-def launch(udid, appearance, overrides):
-    sim('terminate', udid, BUNDLE, check=False)
+def launch(udid, bundle, appearance, overrides):
+    sim('terminate', udid, bundle, check=False)
     args = dict(BASE_ARGS, appearance=APPEARANCES[appearance], **overrides)
-    sim('launch', udid, BUNDLE, *[part for key, value in args.items() for part in (f'-{key}', value)])
+    sim('launch', udid, bundle, *[part for key, value in args.items() for part in (f'-{key}', value)])
 
 
 def png_size(path):
@@ -176,7 +187,7 @@ def main():
     parser.add_argument('--appearance', choices=APPEARANCES, action='append',
                         help='Screenshot appearances (default: dark and light)')
     parser.add_argument('--video-appearance', choices=APPEARANCES, default='dark')
-    parser.add_argument('--only', action='append', help='Only this screenshot or tour name (repeatable)')
+    parser.add_argument('--only', choices=[name for name, _ in SHOTS] + [name for name, _, _ in TOURS], action='append', help='Only this screenshot or tour name (repeatable)')
     parser.add_argument('--keep-booted', action='store_true')
     args = parser.parse_args()
     selected = args.device or list(DEVICES)
@@ -194,6 +205,8 @@ def main():
             raise RuntimeError(f'Build failed; see {DERIVED / "build.log"}')
     if not app.is_dir():
         raise RuntimeError(f'Missing build: {app}')
+    with (app / 'Info.plist').open('rb') as handle:
+        bundle = plistlib.load(handle)['CFBundleIdentifier']
     for family in selected:
         d = device(DEVICES[family]); udid = d['udid']; started = d['state'] != 'Booted'
         raw = HERE / 'raw' / family; output = HERE / 'output'
@@ -202,25 +215,27 @@ def main():
                 sim('boot', udid)
             sim('bootstatus', udid, '-b')
             # A clean install drops any notification prompt left pending by an earlier non-capture launch.
-            sim('uninstall', udid, BUNDLE, check=False)
+            sim('uninstall', udid, bundle, check=False)
             sim('install', udid, app)
             sim('status_bar', udid, 'override', '--time', '9:41', '--dataNetwork', 'wifi',
                 '--wifiMode', 'active', '--wifiBars', '3', '--cellularMode', 'active',
                 '--cellularBars', '4', '--batteryState', 'discharging', '--batteryLevel', '100')
             for appearance in looks:
+                sim('ui', udid, 'appearance', appearance)
                 (raw / appearance).mkdir(parents=True, exist_ok=True)
                 for filename, overrides in SHOTS:
                     if not wanted(filename):
                         continue
                     print(f'Capturing {family} {appearance}: {filename}', flush=True)
-                    launch(udid, appearance, overrides)
+                    launch(udid, bundle, appearance, overrides)
                     time.sleep(9)
                     path = raw / appearance / f'{filename}.png'
                     sim('io', udid, 'screenshot', '--type=png', path)
                     print(f'  {path.relative_to(HERE)} {"x".join(map(str, png_size(path)))}', flush=True)
-                sim('terminate', udid, BUNDLE, check=False)
+                sim('terminate', udid, bundle, check=False)
             if args.video:
                 look = args.video_appearance
+                sim('ui', udid, 'appearance', look)
                 (raw / 'video').mkdir(parents=True, exist_ok=True)
                 for name, test, limits in TOURS:
                     if not wanted(name):
@@ -238,7 +253,7 @@ def main():
                     encode(source, social, SOCIAL, start, duration, PAD[look], limits)
                     print(f'  {social.relative_to(HERE)} {SOCIAL[0]}x{SOCIAL[1]} {seconds:.1f}s', flush=True)
         finally:
-            sim('terminate', udid, BUNDLE, check=False)
+            sim('terminate', udid, bundle, check=False)
             sim('status_bar', udid, 'clear', check=False)
             if started and not args.keep_booted:
                 sim('shutdown', udid, check=False)
@@ -246,8 +261,9 @@ def main():
             for variant, size in [('iphone-6.9', '1320x2868'), ('iphone-6.5', '1284x2778')]:
                 print(f'Rendering {variant} ({", ".join(looks)})…', flush=True)
                 appearance_args = [part for look in looks for part in ('--appearance', look)]
+                selection_args = [part for name, _ in SHOTS if wanted(name) for part in ('--only', name)]
                 result = run('uv', 'run', HERE / 'generate.py', '--manifest', HERE / f'manifest.{variant}.json',
-                             '--size', size, *appearance_args, check=False)
+                             '--size', size, *appearance_args, *selection_args, check=False)
                 if result.returncode:
                     raise RuntimeError(f'Rendering {variant} failed:\n{result.stderr}')
     print(f'Ready for visual review: {HERE / "output"}', flush=True)

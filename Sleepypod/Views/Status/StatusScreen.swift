@@ -573,11 +573,10 @@ struct StatusScreen: View {
                     // Connected pod info
                     if deviceManager.isConnected {
                         HStack(spacing: 10) {
-                            Image("WelcomeLogo")
+                            Image("LogoMark")
                                 .resizable()
-                                .aspectRatio(contentMode: .fit)
+                                .scaledToFit()
                                 .frame(width: 14, height: 14)
-                                .clipShape(RoundedRectangle(cornerRadius: 3))
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(podDiscovery.connectedPodName ?? podDiscovery.discoveredPods.first?.name ?? settingsManager.podIP)
                                     .font(.subheadline)
@@ -606,11 +605,10 @@ struct StatusScreen: View {
                     } else if !podDiscovery.discoveredPods.isEmpty {
                         ForEach(podDiscovery.discoveredPods) { pod in
                             HStack(spacing: 10) {
-                                Image("WelcomeLogo")
+                                Image("LogoMark")
                                     .resizable()
-                                    .aspectRatio(contentMode: .fit)
+                                    .scaledToFit()
                                     .frame(width: 14, height: 14)
-                                    .clipShape(RoundedRectangle(cornerRadius: 3))
                                 Text(pod.name)
                                     .font(.caption)
                                     .foregroundColor(.white)

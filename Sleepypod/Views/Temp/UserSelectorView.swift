@@ -34,6 +34,7 @@ private struct ProfileAndSettingsSheet: View {
     @Environment(UpdateChecker.self) private var updateChecker
     @Environment(PodDiscovery.self) private var podDiscovery
     @Environment(\.dismiss) private var dismiss
+    @State private var addressDraft = ""
 
     private var isDemo: Bool {
         APIBackend.current.isDemo
@@ -48,10 +49,9 @@ private struct ProfileAndSettingsSheet: View {
                         demoModeCard
                     }
 
-                    // Connection
-                    if deviceManager.isConnected && !isDemo {
-                        connectionSection
-                    }
+                    // Connection — always visible so a real pod can be
+                    // targeted from demo mode or while disconnected.
+                    connectionSection
 
                     // Device settings
                     if settingsManager.settings != nil {
@@ -153,61 +153,184 @@ private struct ProfileAndSettingsSheet: View {
         let client = APIBackend.sleepypodCore.createClient()
         deviceManager.switchBackend(client)
         dismiss()
+        // Kick off discovery so the user lands on a scanning screen rather
+        // than an idle "Connect to your pod" prompt.
+        Task {
+            _ = await podDiscovery.autoConnect(settingsManager: settingsManager, deviceManager: deviceManager)
+        }
+    }
+
+    /// Point the app at a specific address and connect (leaving demo mode if needed).
+    private func connect(to ip: String) {
+        Haptics.medium()
+        settingsManager.podIP = ip
+        podDiscovery.stopBrowsing()
+        if isDemo {
+            deviceManager.deviceStatus = nil
+            APIBackend.current = .sleepypodCore
+            deviceManager.switchBackend(APIBackend.sleepypodCore.createClient())
+        }
+        deviceManager.retryConnection()
+        dismiss()
     }
 
     // MARK: - Connection
 
+    private var isLiveConnected: Bool { deviceManager.isConnected && !isDemo }
+
     private var connectionSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Image(systemName: "wifi")
+                Image(systemName: isLiveConnected ? "wifi" : "wifi.slash")
                     .font(.system(size: 12))
-                    .foregroundColor(Theme.healthy)
-                Text("sleepypod")
-                    .font(.caption.weight(.medium))
+                    .foregroundColor(isLiveConnected ? Theme.healthy : Theme.textMuted)
+                Text("Pod")
+                    .font(.subheadline.weight(.medium))
                     .foregroundColor(.white)
                 Spacer()
-                Text(settingsManager.podIP)
+                if isLiveConnected {
+                    Text(podDiscovery.connectedPodName ?? settingsManager.podIP)
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                } else {
+                    Text(isDemo ? "Demo" : "Not connected")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                }
+            }
+
+            // Address — editable so a real pod can be targeted by hand
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Address")
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
+                HStack(spacing: 8) {
+                    TextField("192.168.1.88", text: $addressDraft)
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundColor(.white)
+                        .keyboardType(.decimalPad)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Theme.cardElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .onSubmit { connect(to: addressDraft) }
+
+                    Button {
+                        connect(to: addressDraft)
+                    } label: {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.title3)
+                            .foregroundColor(Theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(addressDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
             }
-            if let name = podDiscovery.connectedPodName {
-                Text(name)
-                    .font(.caption2)
+
+            // Pods found on the network — tap one to connect
+            HStack(spacing: 8) {
+                Text("On this network")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+                Spacer()
+                Button {
+                    Haptics.light()
+                    podDiscovery.startBrowsing()
+                } label: {
+                    HStack(spacing: 4) {
+                        if podDiscovery.isSearching {
+                            ProgressView().tint(Theme.accent).scaleEffect(0.6)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text(podDiscovery.isSearching ? "Scanning" : "Scan")
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(Theme.accent)
+                }
+                .buttonStyle(.plain)
+                .disabled(podDiscovery.isSearching)
+            }
+
+            if podDiscovery.discoveredPods.isEmpty {
+                Text(podDiscovery.isSearching ? "Looking for pods…" : "No pods found yet")
+                    .font(.caption)
                     .foregroundColor(Theme.textMuted)
+            } else {
+                ForEach(podDiscovery.discoveredPods) { pod in
+                    Button {
+                        Task {
+                            if let ip = await podDiscovery.resolve(pod) { connect(to: ip) }
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image("LogoMark")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 16, height: 16)
+                            Text(pod.name)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                            Spacer()
+                            if isLiveConnected && podDiscovery.connectedPodName == pod.name {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Theme.healthy)
+                            } else {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                        }
+                        .padding(10)
+                        .background(Theme.cardElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
-            HStack(spacing: 10) {
-                Button {
-                    Haptics.medium()
-                    deviceManager.retryConnection()
-                } label: {
-                    Text("Reconnect")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
+            if isLiveConnected {
+                HStack(spacing: 10) {
+                    Button {
+                        Haptics.medium()
+                        podDiscovery.stopBrowsing()
+                        deviceManager.retryConnection()
+                    } label: {
+                        Text("Reconnect")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
 
-                Button {
-                    Haptics.heavy()
-                    Task { await settingsManager.reboot() }
-                } label: {
-                    Text("Reboot")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Theme.error.opacity(0.6))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Button {
+                        Haptics.heavy()
+                        Task { await settingsManager.reboot() }
+                    } label: {
+                        Text("Reboot")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Theme.error.opacity(0.6))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .cardStyle()
+        .onAppear {
+            addressDraft = settingsManager.podIP
+            if podDiscovery.discoveredPods.isEmpty && !podDiscovery.isSearching {
+                podDiscovery.startBrowsing()
+            }
+        }
     }
 }
 

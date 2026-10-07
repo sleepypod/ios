@@ -49,7 +49,7 @@ struct RawDataSheet: View {
                         fileRow(
                             name: "sleep-\(side).csv",
                             rows: metricsManager.sleepRecords.count,
-                            icon: "WelcomeLogo"
+                            icon: "LogoMark"
                         ) { exportSleep() }
 
                         Divider().background(Theme.cardBorder)
@@ -118,12 +118,11 @@ struct RawDataSheet: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Group {
-                    if icon == "WelcomeLogo" {
-                        Image("WelcomeLogo")
+                    if icon == "LogoMark" {
+                        Image("LogoMark")
                             .resizable()
-                            .aspectRatio(contentMode: .fit)
+                            .scaledToFit()
                             .frame(width: 20, height: 20)
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
                     } else {
                         Image(systemName: icon)
                             .font(.system(size: 14))

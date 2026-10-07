@@ -112,10 +112,6 @@ struct TempScreen: View {
         return "\(hours)h ago"
     }
 
-    private var sideName: String {
-        settingsManager.sideName(for: deviceManager.selectedSide.primarySide)
-    }
-
     private var ambientColor: Color {
         guard deviceManager.isConnected, deviceManager.isOn else { return .clear }
         let status = deviceManager.currentSideStatus
@@ -147,22 +143,22 @@ struct TempScreen: View {
 
                 if deviceManager.isConnected {
                     VStack(spacing: 0) {
-                        // Top bar — name + priming + last-updated + settings gear
+                        // Toolbar — side picker + priming + last-updated + settings gear
                         HStack(spacing: 8) {
-                            Text(sideName)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundColor(Theme.textSecondary)
+                            SideSelectorView()
                             if deviceManager.deviceStatus?.isPriming == true {
                                 PrimingIndicator()
                             }
-                            if let lastUpdated = deviceManager.lastUpdated {
+                            Spacer()
+                            if APIBackend.current.isDemo {
+                                DemoModeBanner()
+                            } else if let lastUpdated = deviceManager.lastUpdated {
                                 TimelineView(.periodic(from: .now, by: 15.0)) { _ in
-                                    Text("• \(Self.relativeTime(from: lastUpdated))")
+                                    Text(Self.relativeTime(from: lastUpdated))
                                         .font(.caption2)
                                         .foregroundColor(Theme.textMuted)
                                 }
                             }
-                            Spacer()
                             UserSelectorView()
                         }
                         .padding(.horizontal, 16)
@@ -170,11 +166,6 @@ struct TempScreen: View {
 
                     ScrollView {
                         VStack(spacing: 0) {
-                            // Side selector — below toolbar with a gap
-                            SideSelectorView()
-                                .padding(.horizontal, 16)
-                                .padding(.top, 12)
-
                             // Alerts
                             VStack(spacing: 8) {
                                 if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {

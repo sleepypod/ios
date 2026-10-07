@@ -28,7 +28,7 @@ struct CalibrationSheet: View {
                 // Explanation
                 VStack(alignment: .leading, spacing: 12) {
                     explanationRow(
-                        icon: "WelcomeLogo",
+                        icon: "LogoMark",
                         text: "Bed must be **empty** — blankets and sheets are fine, but nobody on the mattress"
                     )
                     explanationRow(
@@ -153,12 +153,11 @@ struct CalibrationSheet: View {
 
     private func explanationRow(icon: String, text: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            if icon == "WelcomeLogo" {
-                Image("WelcomeLogo")
+            if icon == "LogoMark" {
+                Image("LogoMark")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 20, height: 20)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
                 Image(systemName: icon)
                     .font(.system(size: 13))
@@ -177,11 +176,10 @@ struct CalibrationSheet: View {
             triggerSide(side)
         } label: {
             VStack(spacing: 4) {
-                Image("WelcomeLogo")
+                Image("LogoMark")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 20, height: 20)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
                 Text("\(side.displayName) Side")
                     .font(.caption.weight(.semibold))
             }

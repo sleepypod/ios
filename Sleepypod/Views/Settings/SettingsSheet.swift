@@ -56,6 +56,15 @@ struct SettingsSheet: View {
                             }
                         }
                         TempControlMenu(selection: $profile.tempControl, iconColor: Theme.text1, tile: false)
+                        if APIBackend.current.isDemo {
+                            Button {
+                                dismiss()
+                                NotificationCenter.default.post(name: .leaveDemoMode, object: nil)
+                            } label: {
+                                SettingsRow("Connect to a pod", subtitle: "Leave demo mode", icon: "antenna.radiowaves.left.and.right",
+                                            iconColor: Theme.amber, chevron: true)
+                            }
+                        }
                         Button { showAllSettings = true } label: {
                             SettingsRow("All settings", icon: "gearshape", iconColor: Theme.text1, chevron: true)
                         }

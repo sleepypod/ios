@@ -1,8 +1,9 @@
 # App Store metadata
 
-Name, subtitle, description, keywords, review notes and privacy answers live in
-[`metadata/app_store_submission.md`](../../metadata/app_store_submission.md),
-with the plain-text copies beside it in [`metadata/`](../../metadata/).
+Use the selected version's document in [`docs/releases/`](../../docs/releases/)
+for the paste-ready App Store Connect fields. See
+[`docs/RELEASE-OPS.md`](../../docs/RELEASE-OPS.md) for the release workflow;
+the older files in `metadata/` are background references.
 
 The screenshot captions here (`manifest.*.json`) follow the same feature order:
 temperature, both sides, Night & Dawn, schedule, sleep, weekly trends,

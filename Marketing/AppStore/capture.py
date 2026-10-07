@@ -4,8 +4,8 @@
 No desktop clicks are needed. Debug-only launch arguments put the app in demo
 mode on a chosen tab and control; `-marketingCapture YES` skips the
 notification prompt and the DEMO badge. Videos come from the paced XCUITests
-in SleepypodUITests/MarketingTour.swift, recorded with simctl and trimmed to
-the marks each test prints. Release builds ignore the marketingCapture and uiRoute hooks.
+in SleepypodUITests/MarketingTour.swift, recorded with simctl between
+the flushed marks each test prints. Release builds ignore the marketingCapture and uiRoute hooks.
 """
 from __future__ import annotations
 import argparse
@@ -141,18 +141,47 @@ class Recorder:
 
 def record_tour(udid, test, raw, appearance):
     env = dict(os.environ, TEST_RUNNER_MARKETING_TOUR='1', TEST_RUNNER_MARKETING_APPEARANCE=APPEARANCES[appearance])
-    recorder = Recorder(udid, raw)
+    command = ['xcodebuild', 'test-without-building', '-xctestrun', str(xctestrun()),
+               '-destination', f'id={udid}', '-parallel-testing-enabled', 'NO',
+               '-collect-test-diagnostics', 'never',
+               f'-only-testing:SleepypodUITests/MarketingTour/{test}']
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
+    recorder = None
+    marks = set()
     try:
-        result = run('xcodebuild', 'test-without-building', '-xctestrun', xctestrun(),
-                     '-destination', f'id={udid}', '-parallel-testing-enabled', 'NO',
-                     f'-only-testing:SleepypodUITests/MarketingTour/{test}', check=False, env=env)
+        with raw.with_suffix('.log').open('w') as log:
+            for line in process.stdout:
+                log.write(line)
+                log.flush()
+                marker = MARK.search(line)
+                if marker is None:
+                    continue
+                name, timestamp = marker.groups()
+                # Tests hold the settled first/last screen for three seconds around
+                # each flushed marker. Reject delayed delivery rather than exporting
+                # a clip that misses actions or includes the simulator Home screen.
+                if not 0 <= time.time() - float(timestamp) < 2:
+                    raise RuntimeError('Capture marker delivery was delayed; recapture on an idle simulator')
+                marks.add(name)
+                if name == 'begin':
+                    recorder = Recorder(udid, raw)
+                    if time.time() - float(timestamp) >= 3:
+                        raise RuntimeError('Recorder startup exceeded the opening hold; recapture on an idle simulator')
+                elif recorder is not None:
+                    recorder.stop()
+                    recorder = None
+            result = process.wait()
+        if result or marks != {'begin', 'end'}:
+            raise RuntimeError(f'{test} failed (exit {result}, marks {marks}); see {raw.with_suffix(".log")}')
     finally:
-        recorder.stop()
-    (raw.with_suffix('.log')).write_text(result.stdout + result.stderr)
-    marks = {name: float(value) for name, value in MARK.findall(result.stdout + result.stderr)}
-    if result.returncode or set(marks) != {'begin', 'end'}:
-        raise RuntimeError(f'{test} failed (exit {result.returncode}, marks {marks}); see {raw.with_suffix(".log")}')
-    return marks['begin'] - recorder.started, marks['end'] - recorder.started
+        if process.poll() is None:
+            process.terminate()
+            process.wait()
+        if recorder is not None:
+            recorder.stop()
+    seconds = float(run('ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                        '-of', 'default=noprint_wrappers=1:nokey=1', raw).stdout)
+    return 0, seconds
 
 
 def encode(raw, output, size, start, duration, pad, limits):
@@ -249,7 +278,7 @@ def main():
                     print(f'Recording {family} {look}: {name} ({test})…', flush=True)
                     source = raw / 'video' / f'{name}.mp4'
                     begin, end = record_tour(udid, test, source, look)
-                    start, duration = max(0, begin - 0.2), end - begin + 0.4
+                    start, duration = begin, end - begin
                     preview = output / family / f'{name}.mp4'
                     preview.parent.mkdir(parents=True, exist_ok=True)
                     seconds = encode(source, preview, PREVIEW, start, duration, PAD[look], limits)

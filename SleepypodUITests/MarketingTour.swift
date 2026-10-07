@@ -1,7 +1,7 @@
 import XCTest
 
 /// Paced UI tours for App Store previews and marketing video. `Marketing/AppStore/capture.py --video`
-/// records the simulator around each test and trims to the `MARKETING_MARK` lines printed here.
+/// records the simulator between the `MARKETING_MARK` lines printed here.
 /// Skipped unless the runner sees `MARKETING_TOUR=1` (xcodebuild passes `TEST_RUNNER_MARKETING_TOUR=1`).
 @MainActor
 final class MarketingTour: XCTestCase {
@@ -142,11 +142,12 @@ final class MarketingTour: XCTestCase {
         app.launch()
     }
 
-    /// Host wall-clock marks; the simulator shares the Mac's clock, so capture.py can trim the recording.
-    private func begin() { mark("begin") }
-    private func end() { pause(0.5); mark("end") }
+    /// Flushed marks control recorder boundaries; endpoint holds keep launch/teardown out of the video.
+    private func begin() { mark("begin"); pause(3) }
+    private func end() { pause(0.5); mark("end"); pause(3) }
     private func mark(_ name: String) {
         print(String(format: "MARKETING_MARK %@ %.3f", name, Date().timeIntervalSince1970))
+        fflush(nil)
     }
 
     private func pause(_ seconds: TimeInterval) { Thread.sleep(forTimeInterval: seconds) }

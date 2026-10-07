@@ -81,8 +81,11 @@ generated per launch, so scores and averages differ slightly between runs.
 Videos come from `SleepypodUITests/MarketingTour.swift`. Each test launches the
 app with the same arguments, paces taps, dial drags and scrolls, and prints
 `MARKETING_MARK begin|end <epoch>`. `capture.py` runs it with
-`xcodebuild test-without-building` while `simctl io recordVideo` records, then
-trims the recording to those marks. The tests skip unless the runner sees
+`xcodebuild test-without-building` and starts/stops `simctl io recordVideo` as
+those flushed marks arrive. The test holds each endpoint screen for three seconds;
+delayed marker delivery or recorder startup fails instead of exporting a Home-screen
+transition. Video duration comes from the recording itself, avoiding differences
+between recorder frame timing and host wall time. The tests skip unless the runner sees
 `MARKETING_TOUR=1`, so normal test runs do not execute them. To run one by hand:
 
 ```sh

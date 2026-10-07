@@ -34,4 +34,4 @@ Demo mode provides simulated data including:
 - Schedule management
 - Settings configuration
 
-To exit demo mode: Tap user avatar (top-right on Temp screen) -> "Connect to Real Pod"
+To exit demo mode: Settings gear (top-right) -> "Connect to a pod"

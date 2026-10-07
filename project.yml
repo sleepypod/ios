@@ -1,6 +1,6 @@
 name: Sleepypod
 options:
-  bundleIdPrefix: com.jonathanng.ios.sleepypod
+  bundleIdPrefix: com.jonathanng.com.ios.sleepypod
   deploymentTarget:
     iOS: "26.0"
   xcodeVersion: "26"
@@ -30,7 +30,7 @@ targets:
         com.apple.developer.healthkit: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.com.ios.sleepypod
         INFOPLIST_FILE: Sleepypod/Info.plist
         INFOPLIST_KEY_NSHealthShareUsageDescription: "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod."
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
@@ -51,7 +51,7 @@ targets:
       - target: Sleepypod
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.com.ios.sleepypod.tests
 
   SleepypodUITests:
     type: bundle.ui-testing
@@ -62,7 +62,7 @@ targets:
       - target: Sleepypod
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.com.ios.sleepypod.uitests
         TEST_TARGET_NAME: Sleepypod
 
 schemes:

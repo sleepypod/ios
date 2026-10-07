@@ -117,6 +117,7 @@ struct ContentView: View {
                 }
                 selectedTab = "temp"
             }
+            .onReceive(NotificationCenter.default.publisher(for: .leaveDemoMode)) { _ in leaveDemoMode() }
 
         }
         .fullScreenCover(isPresented: $showWelcome) {
@@ -209,6 +210,20 @@ struct ContentView: View {
             Log.discovery.info("autoConnect resolved to \(ip), fetching status...")
             await deviceManager.fetchStatus()
         }
+    }
+
+    /// Back to the real backend and the setup flow, so the pod can be found again.
+    private func leaveDemoMode() {
+        APIBackend.current = .sleepypodCore
+        let client = APIBackend.current.createClient()
+        sensorStream.disconnect()
+        deviceManager.switchBackend(client)
+        settingsManager.switchBackend(client)
+        scheduleManager.switchBackend(client)
+        metricsManager.switchBackend(client)
+        statusManager.switchBackend(client)
+        profile.onboardingComplete = false
+        showWelcome = true
     }
 
     private func enterDemoMode() {

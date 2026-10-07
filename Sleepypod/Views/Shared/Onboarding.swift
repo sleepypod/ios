@@ -8,7 +8,13 @@ struct PodDiscoveryMark: View {
         ZStack {
             Circle().stroke(Theme.border1, lineWidth: 1).frame(width: 220, height: 220)
             Circle().stroke(Theme.border2, lineWidth: 1).frame(width: 156, height: 156)
-            PodMark(size: 92, discovery: true)
+            Image("WelcomeLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 92, height: 92)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.border2, lineWidth: 1))
+                .accessibilityHidden(true)
             if scanning {
                 Circle().trim(from: 0, to: 0.2).stroke(Theme.icon, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                     .frame(width: 156, height: 156).rotationEffect(.degrees(rotating && !reduceMotion ? 360 : 0))

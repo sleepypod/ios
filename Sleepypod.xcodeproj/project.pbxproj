@@ -807,7 +807,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.ios.sleepypod;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod;
 				PRODUCT_NAME = Sleepypod;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -894,7 +894,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.ios.sleepypod;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod;
 				PRODUCT_NAME = Sleepypod;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -910,7 +910,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.ios.sleepypod.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sleepypod.app/Sleepypod";
@@ -996,7 +996,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.ios.sleepypod.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sleepypod.app/Sleepypod";
@@ -1012,7 +1012,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.ios.sleepypod.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.uitests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Sleepypod;
@@ -1028,7 +1028,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.ios.sleepypod.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.uitests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Sleepypod;

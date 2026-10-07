@@ -833,6 +833,7 @@ struct SmartCurveView: View {
 
 extension Notification.Name {
     static let switchToTempTab = Notification.Name("switchToTempTab")
+    static let leaveDemoMode = Notification.Name("leaveDemoMode")
 }
 
 // MARK: - TempColor helper

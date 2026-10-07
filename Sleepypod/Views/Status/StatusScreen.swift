@@ -565,7 +565,7 @@ struct StatusScreen: View {
                         HStack(spacing: 10) {
                             Image("WelcomeLogo")
                                 .resizable()
-                                .aspectRatio(contentMode: .fit)
+                                .scaledToFit()
                                 .frame(width: 14, height: 14)
                                 .clipShape(RoundedRectangle(cornerRadius: 3))
                             VStack(alignment: .leading, spacing: 1) {
@@ -598,7 +598,7 @@ struct StatusScreen: View {
                             HStack(spacing: 10) {
                                 Image("WelcomeLogo")
                                     .resizable()
-                                    .aspectRatio(contentMode: .fit)
+                                    .scaledToFit()
                                     .frame(width: 14, height: 14)
                                     .clipShape(RoundedRectangle(cornerRadius: 3))
                                 Text(pod.name)

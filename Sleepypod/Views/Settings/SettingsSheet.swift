@@ -22,7 +22,7 @@ struct SettingsSheet: View {
                 VStack(spacing: 18) {
                     HStack {
                         Text(podName).font(.title3.bold())
-                        if APIBackend.current.isDemo { Eyebrow("DEMO", color: Theme.amber) }
+                        if APIBackend.current.isDemo && !DebugRoute.marketingCapture { Eyebrow("DEMO", color: Theme.amber) }
                         Spacer()
                         Button { dismiss() } label: {
                             Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text1)

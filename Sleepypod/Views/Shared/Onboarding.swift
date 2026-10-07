@@ -10,7 +10,7 @@ struct PodDiscoveryMark: View {
             Circle().stroke(Theme.border2, lineWidth: 1).frame(width: 156, height: 156)
             Image("WelcomeLogo")
                 .resizable()
-                .aspectRatio(contentMode: .fit)
+                .scaledToFit()
                 .frame(width: 92, height: 92)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.border2, lineWidth: 1))

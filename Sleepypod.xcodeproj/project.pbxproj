@@ -99,6 +99,7 @@
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
 		C4D7F73C779F1ED2B685A770 /* DataPipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C23ED1E696702811954A0DA /* DataPipelineView.swift */; };
 		C92D44C303EF1CBE9D6B8F3A /* SmartCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883B7737894F367125F721FF /* SmartCurveView.swift */; };
+		CA9D9A4FA299AD4C47BD59E4 /* MarketingTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D7A6E0B1458A3D80DFDC3C /* MarketingTour.swift */; };
 		CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */; };
 		D45FD73FE3DE25E49C9FAD2D /* PrimingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E5DFA72720A6968DE3369C /* PrimingIndicator.swift */; };
 		D5D9989913D7AC299A9531E4 /* SleepProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A89CDBBC9BF2AAE10BA0302 /* SleepProfile.swift */; };
@@ -152,6 +153,7 @@
 		060906F2618180E4E45E29F3 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateChartView.swift; sourceTree = "<group>"; };
 		0FCC5EA8D41BF91BCCFDEA6D /* SleepTimeCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimeCardView.swift; sourceTree = "<group>"; };
+		11D7A6E0B1458A3D80DFDC3C /* MarketingTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingTour.swift; sourceTree = "<group>"; };
 		1458956B4751A13CE39D3C2C /* WaterLevelSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterLevelSheet.swift; sourceTree = "<group>"; };
 		1BA5BFA567D7FBA54153B602 /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		1BBB2DEABE79587F398DEB17 /* APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpoint.swift; sourceTree = "<group>"; };
@@ -522,6 +524,7 @@
 		F1E22FC9A1CAD07AD1718C18 /* SleepypodUITests */ = {
 			isa = PBXGroup;
 			children = (
+				11D7A6E0B1458A3D80DFDC3C /* MarketingTour.swift */,
 				F548261B6FA017552631862C /* ModernizationTests.swift */,
 			);
 			path = SleepypodUITests;
@@ -660,6 +663,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CA9D9A4FA299AD4C47BD59E4 /* MarketingTour.swift in Sources */,
 				44664352D73C4A1AD9CC123A /* ModernizationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

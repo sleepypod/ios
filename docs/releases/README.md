@@ -1,12 +1,12 @@
 # Release notes
 
-One file per archive: `<version>-testflight.md` for a TestFlight build, `<version>-app-store.md` for an App Store submission. The file is the record of what went into the build, what testers should try, and the exact text pasted into App Store Connect.
+One file per version: `<version>.md`. It is the record of what went into the build, every App Store Connect field ready to paste (listing, keywords, review notes, TestFlight test notes), and where the archive is.
 
 ## Cutting a release
 
 1. Make sure the commit is on a branch that can see the latest `v*` tag (semantic-release cuts them on `main`). The marketing version comes from that tag; the build number is a minute stamp.
 2. Archive with `set -o pipefail; scripts/archive.sh build/Sleepypod-<version>.xcarchive 2>&1 | tee build/archive-<version>.log`. The script prints the build number and the Organizer path.
-3. Copy `TEMPLATE.md` to `<version>-testflight.md` (or `-app-store.md`) and fill it in. The PR list since the previous tag: `git log --oneline <previous-tag>..HEAD --merges`.
+3. Copy `TEMPLATE.md` to `<version>.md` and fill it in; copy the unchanged listing blocks from the previous version. The PR list since the previous tag: `git log --oneline <previous-tag>..HEAD --merges`.
 4. Upload from Organizer (Distribute App → TestFlight & App Store, or TestFlight Internal Only).
 5. Paste the What to Test block into TestFlight's test notes, and for an App Store build the What's New and App Review notes into the version page.
 

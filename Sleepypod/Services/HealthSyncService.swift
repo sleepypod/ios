@@ -105,6 +105,7 @@ final class HealthSyncService {
     func requestAuthorization() async -> Bool {
         guard store.available else {
             authorizationError = "Apple Health is unavailable on this device."
+            Log.health.info("HealthKit is unavailable on this device")
             return false
         }
         do {
@@ -115,6 +116,7 @@ final class HealthSyncService {
             return true
         } catch {
             authorizationError = error.localizedDescription
+            Log.health.error("Health authorization failed: \(error.localizedDescription, privacy: .private)")
             return false
         }
     }
@@ -162,12 +164,19 @@ final class HealthSyncService {
                     let samples = Self.samples(record: record, epochs: analyzer.stages, podID: podID, preferences: requestedPreferences, vitals: filtered)
                     guard !samples.isEmpty else { continue }
                     try await store.save(samples)
+                    Log.health.info("Saved \(samples.count, privacy: .private) samples to Health")
                     receipts[key] = Receipt(date: Date(), signature: requestedPreferences.signature, closedAt: record.leftBedDate, enteredAt: record.enteredBedDate)
                     failures[key] = nil
                     persistence.set(try JSONEncoder().encode(receipts), forKey: "healthSyncReceipts")
-                } catch { failures[key] = error.localizedDescription }
+                } catch {
+                    failures[key] = error.localizedDescription
+                    Log.health.error("Health sync failed: \(error.localizedDescription, privacy: .private)")
+                }
             }
-        } catch { authorizationError = error.localizedDescription }
+        } catch {
+            authorizationError = error.localizedDescription
+            Log.health.error("Health sync fetch failed: \(error.localizedDescription, privacy: .private)")
+        }
     }
 
     // Sync identifiers, unlike ExternalUUID alone, make retries idempotent in HealthKit.
@@ -175,15 +184,19 @@ final class HealthSyncService {
     static func samples(record: SleepRecord, epochs: [SleepAnalyzer.SleepEpoch], podID: String, preferences: Preferences, vitals: [VitalsRecord]? = nil) -> [HKSample] {
         guard record.enteredBedDate.timeIntervalSince1970 > 0, record.leftBedDate > record.enteredBedDate else { return [] }
         let key = recordKey(podID: podID, record: record)
+        let device = HKDevice(name: "sleepypod", manufacturer: nil, model: "Pod",
+                              hardwareVersion: nil, firmwareVersion: nil, softwareVersion: nil,
+                              localIdentifier: "\(podID)-\(record.side)", udiDeviceIdentifier: nil)
         let version = Int(Date().timeIntervalSince1970 * 1000)
         func metadata(_ epoch: String, type: String) -> [String: Any] {
             [HKMetadataKeyExternalUUID: "\(key)-\(epoch)", HKMetadataKeyWasUserEntered: false,
-             HKMetadataKeySyncIdentifier: "\(key)-\(epoch)-\(type)", HKMetadataKeySyncVersion: version]
+             HKMetadataKeySyncIdentifier: "\(key)-\(epoch)-\(type)", HKMetadataKeySyncVersion: version,
+             "sleepypod_side": record.side]
         }
         var result: [HKSample] = []
         if preferences.sleep {
             result.append(HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: HKCategoryValueSleepAnalysis.inBed.rawValue,
-                start: record.enteredBedDate, end: record.leftBedDate, metadata: metadata("inBed", type: "sleep")))
+                start: record.enteredBedDate, end: record.leftBedDate, device: device, metadata: metadata("inBed", type: "sleep")))
         }
         for epoch in epochs where epoch.start >= record.enteredBedDate && epoch.start < record.leftBedDate {
             let end = min(record.leftBedDate, epoch.start.addingTimeInterval(epoch.duration))
@@ -191,7 +204,7 @@ final class HealthSyncService {
             let id = String(Int(epoch.start.timeIntervalSince1970))
             if preferences.sleep {
                 result.append(HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: stageValue(epoch.stage),
-                    start: epoch.start, end: end, metadata: metadata(id, type: "sleep")))
+                    start: epoch.start, end: end, device: device, metadata: metadata(id, type: "sleep")))
             }
         }
         let values = vitals ?? epochs.map {
@@ -209,7 +222,7 @@ final class HealthSyncService {
             for (enabled, type, value, unit, range) in quantities {
                 if enabled, let value, value.isFinite, range.contains(value) {
                     result.append(HKQuantitySample(type: HKQuantityType(type), quantity: HKQuantity(unit: unit, doubleValue: value),
-                        start: vital.date, end: end, metadata: metadata(id, type: type.rawValue)))
+                        start: vital.date, end: end, device: device, metadata: metadata(id, type: type.rawValue)))
                 }
             }
         }

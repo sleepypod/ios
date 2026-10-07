@@ -80,7 +80,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
             isPriming: false,
             settings: DeviceHardwareSettings(v: 2, gainLeft: 1.0, gainRight: 1.0, ledBrightness: 60),
             coverVersion: "v3.2.1",
-            hubVersion: "v1.8.0",
+            hubVersion: "J00", // Pod 5 — same code the real sleepypod-core podVersion reports
             freeSleep: FreeSleepInfo(version: "demo", branch: "demo"),
             wifiStrength: 82
         )

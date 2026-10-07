@@ -111,8 +111,9 @@ struct ContentView: View {
                 selectedTab = "temp"
             }
 
-            // Demo mode banner — floating at top
-            if isDemo && isConnected {
+            // Demo mode banner — floating at top. The Temp tab shows it in its
+            // own toolbar instead, where a floating pill would cover the side picker.
+            if isDemo && isConnected && selectedTab != "temp" {
                 VStack {
                     DemoModeBanner()
                         .padding(.horizontal, 16)
@@ -405,11 +406,10 @@ struct DisconnectedTabView: View {
                 }
 
                 // Center logo
-                Image("WelcomeLogo")
+                Image("LogoMark")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 80, height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
                     .scaleEffect(ringScale)
 
                 // Arc spinner — always visible (auto-connecting)

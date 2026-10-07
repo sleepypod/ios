@@ -241,11 +241,11 @@ struct HealthCircleView: View {
     }
 
     private func podModelName(_ version: String) -> String {
+        // Matches sleepypod-core src/hardware/pods.ts POD_CAPS.
         switch version.uppercased() {
-        case "H00": "Pod 5"
-        case "H01": "Pod 4"
-        case "H02": "Pod 3"
-        case "H03": "Pod 2"
+        case "H00": "Pod 3"
+        case "I00": "Pod 4"
+        case "J00": "Pod 5"
         default: version
         }
     }

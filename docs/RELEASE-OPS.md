@@ -21,3 +21,8 @@
 ## Screenshots and previews
 
 - `Marketing/AppStore/capture.py --video` regenerates the App Store screenshots, preview clips and the walkthrough (see its README). Re-run for any release that changes a captured screen.
+
+## Licence and pricing
+
+- The app is free for now. The source is AGPL-3.0; the App Store build ships under the App Store exception in the README, which only works while every line in the binary is covered by the copyright holder's grant — hence the contributor grant in CONTRIBUTING.md. Keep both in place before accepting outside PRs.
+- If a tip jar or one-time unlock is ever added: free download with an IAP, not a paid download (the hardware and firmware requirement would drive refunds and complicate review). Sign the Paid Apps agreement and complete banking/tax in ASC before the IAP can be reviewed.

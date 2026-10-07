@@ -23,7 +23,7 @@ struct LoadingView: View {
                 // Center icon
                 Image("LogoMark")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 32, height: 32)
                     .scaleEffect(ringScale)
 

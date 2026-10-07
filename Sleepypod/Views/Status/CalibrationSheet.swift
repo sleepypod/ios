@@ -156,7 +156,7 @@ struct CalibrationSheet: View {
             if icon == "LogoMark" {
                 Image("LogoMark")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 20, height: 20)
             } else {
                 Image(systemName: icon)
@@ -178,7 +178,7 @@ struct CalibrationSheet: View {
             VStack(spacing: 4) {
                 Image("LogoMark")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 20, height: 20)
                 Text("\(side.displayName) Side")
                     .font(.caption.weight(.semibold))

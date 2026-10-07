@@ -164,7 +164,7 @@ private struct ProfileAndSettingsSheet: View {
     private func connect(to ip: String) {
         Haptics.medium()
         settingsManager.podIP = ip
-        podDiscovery.cancelAutoConnect()
+        podDiscovery.stopBrowsing()
         if isDemo {
             deviceManager.deviceStatus = nil
             APIBackend.current = .sleepypodCore
@@ -267,7 +267,7 @@ private struct ProfileAndSettingsSheet: View {
                         HStack(spacing: 10) {
                             Image("LogoMark")
                                 .resizable()
-                                .aspectRatio(contentMode: .fit)
+                                .scaledToFit()
                                 .frame(width: 16, height: 16)
                             Text(pod.name)
                                 .font(.subheadline)
@@ -295,7 +295,7 @@ private struct ProfileAndSettingsSheet: View {
                 HStack(spacing: 10) {
                     Button {
                         Haptics.medium()
-                        podDiscovery.cancelAutoConnect()
+                        podDiscovery.stopBrowsing()
                         deviceManager.retryConnection()
                     } label: {
                         Text("Reconnect")

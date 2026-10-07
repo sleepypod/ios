@@ -245,7 +245,7 @@ struct WelcomeScreen: View {
                 // App logo
                 Image("WelcomeLogo")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 96, height: 96)
                     .clipShape(RoundedRectangle(cornerRadius: 22))
                     .padding(.bottom, 16)
@@ -408,7 +408,7 @@ struct DisconnectedTabView: View {
                 // Center logo
                 Image("LogoMark")
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 80, height: 80)
                     .scaleEffect(ringScale)
 

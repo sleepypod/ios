@@ -121,7 +121,7 @@ struct RawDataSheet: View {
                     if icon == "LogoMark" {
                         Image("LogoMark")
                             .resizable()
-                            .aspectRatio(contentMode: .fit)
+                            .scaledToFit()
                             .frame(width: 20, height: 20)
                     } else {
                         Image(systemName: icon)

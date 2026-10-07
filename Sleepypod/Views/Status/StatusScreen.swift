@@ -575,7 +575,7 @@ struct StatusScreen: View {
                         HStack(spacing: 10) {
                             Image("LogoMark")
                                 .resizable()
-                                .aspectRatio(contentMode: .fit)
+                                .scaledToFit()
                                 .frame(width: 14, height: 14)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(podDiscovery.connectedPodName ?? podDiscovery.discoveredPods.first?.name ?? settingsManager.podIP)
@@ -607,7 +607,7 @@ struct StatusScreen: View {
                             HStack(spacing: 10) {
                                 Image("LogoMark")
                                     .resizable()
-                                    .aspectRatio(contentMode: .fit)
+                                    .scaledToFit()
                                     .frame(width: 14, height: 14)
                                 Text(pod.name)
                                     .font(.caption)

@@ -153,6 +153,19 @@ final class SettingsManager {
         await saveSettings(settings)
     }
 
+    /// Rename both sides in one save; nothing is sent when neither name changed.
+    /// Returns false if the save failed.
+    @discardableResult
+    func updateSideNames(left: String, right: String) async -> Bool {
+        guard var settings else { return false }
+        guard settings.left.name != left || settings.right.name != right else { return true }
+        settings.left.name = left
+        settings.right.name = right
+        self.settings = settings
+        await saveSettings(settings)
+        return error == nil
+    }
+
     func toggleAwayMode(_ side: Side) async {
         guard var settings else { return }
         switch side {

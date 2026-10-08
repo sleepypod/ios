@@ -133,6 +133,7 @@ struct WelcomeScreen: View {
     @State private var resolvedModels: [String: String] = [:]
     @State private var selectedPod: PodDiscovery.DiscoveredPod?
     @State private var connecting = false
+    @State private var savingSides = false
     @State private var failure: String?
     @State private var leftName = ""
     @State private var rightName = ""
@@ -292,17 +293,18 @@ struct WelcomeScreen: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom) {
-            Button("Continue") {
-                Task {
-                    await settings.updateSideName(.left, name: leftName.trimmingCharacters(in: .whitespacesAndNewlines))
-                    await settings.updateSideName(.right, name: rightName.trimmingCharacters(in: .whitespacesAndNewlines))
-                    if let error = settings.error { failure = error; return }
-                    device.selectSide(profile.defaultSide == .left ? .left : .right)
-                    failure = nil
-                    withAnimation { step = 3 }
+            Button { Task { await saveSides() } } label: {
+                if savingSides {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(Theme.background)
+                        Text("Saving…")
+                    }
+                } else {
+                    Text("Continue")
                 }
             }
             .buttonStyle(PrimaryButtonStyle())
+            .disabled(savingSides)
             .padding(.horizontal, 16).padding(.bottom, 10)
             .background(Theme.background)
         }
@@ -325,6 +327,17 @@ struct WelcomeScreen: View {
         await device.fetchStatus()
         guard device.isConnected else { failure = "Couldn't connect. Check the address and Wi-Fi, then retry."; return }
         await prepareSides()
+    }
+
+    private func saveSides() async {
+        savingSides = true
+        defer { savingSides = false }
+        let saved = await settings.updateSideNames(left: leftName.trimmingCharacters(in: .whitespacesAndNewlines),
+                                                   right: rightName.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard saved else { failure = settings.error ?? "Couldn't save the side names."; return }
+        device.selectSide(profile.defaultSide == .left ? .left : .right)
+        failure = nil
+        withAnimation { step = 3 }
     }
 
     private func prepareSides() async {

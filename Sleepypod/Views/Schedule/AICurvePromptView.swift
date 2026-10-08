@@ -851,6 +851,9 @@ struct AICurvePromptView: View {
             for day in scheduleManager.selectedDays {
                 var sideSchedule = schedules.schedule(for: side)
                 var daily = sideSchedule[day]
+                if daily.temperatures.isEmpty && daily.power.endAction == nil && settingsManager.supportsScheduleEndAction {
+                    daily.power.endAction = settingsManager.settings?.defaultScheduleEndAction
+                }
                 daily.temperatures = result.points
                 daily.power.on = result.bedtime
                 daily.power.off = result.wake

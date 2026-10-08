@@ -545,7 +545,7 @@ private struct PowerScheduleCompactView: View {
                             Text("\u{2192}")
                                 .font(.caption2)
                                 .foregroundColor(Theme.textMuted)
-                            Label(power.off, systemImage: "sun.max.fill")
+                            Label(power.endAction == .maintain ? "Maintain temperature" : power.off, systemImage: "sun.max.fill")
                                 .font(.caption2.monospaced())
                                 .foregroundColor(Theme.textSecondary)
                         }
@@ -591,10 +591,13 @@ private struct PowerScheduleCompactView: View {
 // MARK: - Power Schedule Edit Sheet
 
 private struct PowerScheduleEditSheet: View {
+    @Environment(SettingsManager.self) private var settingsManager
     @Environment(ScheduleManager.self) private var scheduleManager
     @Environment(\.dismiss) private var dismiss
 
     @State private var onTime: Date
+    @State private var endAction: ScheduleEndAction
+    private let originalEndAction: ScheduleEndAction?
     @State private var offTime: Date
     @State private var onTemperature: Int
     @State private var isSaving = false
@@ -608,6 +611,8 @@ private struct PowerScheduleEditSheet: View {
     init(power: PowerSchedule) {
         let fmt = Self.timeFormatter
         _onTime = State(initialValue: fmt.date(from: power.on) ?? Date())
+        originalEndAction = power.endAction
+        _endAction = State(initialValue: power.endAction ?? .turnOff)
         _offTime = State(initialValue: fmt.date(from: power.off) ?? Date())
         _onTemperature = State(initialValue: power.onTemperature)
     }
@@ -638,6 +643,19 @@ private struct PowerScheduleEditSheet: View {
                             .labelsHidden()
                             .frame(height: 100)
                             .clipped()
+                    }
+
+                    if settingsManager.supportsScheduleEndAction {
+                        Picker("After schedule ends", selection: $endAction) {
+                            ForEach(ScheduleEndAction.allCases, id: \.self) { action in
+                                Text(action.label).tag(action)
+                            }
+                        }
+                        if endAction == .maintain {
+                            Text("Keeps the final temperature until you turn it off or another schedule or automation takes over. Auto-off limits still apply.")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                        }
                     }
 
                     // On temperature
@@ -684,6 +702,7 @@ private struct PowerScheduleEditSheet: View {
         let updated = PowerSchedule(
             on: fmt.string(from: onTime),
             off: fmt.string(from: offTime),
+            endAction: settingsManager.supportsScheduleEndAction ? endAction : originalEndAction,
             onTemperature: onTemperature,
             enabled: true
         )

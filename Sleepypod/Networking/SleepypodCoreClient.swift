@@ -116,6 +116,9 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let primePodEnabled = settings.primePodDaily.enabled
         let primePodTime = settings.primePodDaily.time.isEmpty ? "14:00" : settings.primePodDaily.time
         var deviceInput: [String: Any] = [:]
+        if let action = settings.defaultScheduleEndAction {
+            deviceInput["defaultScheduleEndAction"] = action.rawValue
+        }
         deviceInput["timezone"] = settings.timeZone
         deviceInput["temperatureUnit"] = settings.temperatureFormat == .fahrenheit ? "F" : "C"
         deviceInput["rebootDaily"] = settings.rebootDaily
@@ -183,20 +186,25 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
                     ])
                 }
 
-                if daily.power.enabled {
-                    // Skip power schedule if it crosses midnight (core#205)
-                    let onMinutes = minutesFromTime(daily.power.on)
-                    let offMinutes = minutesFromTime(daily.power.off)
-                    if let on = onMinutes, let off = offMinutes, on < off {
-                        powerCreates.append([
-                            "side": side.rawValue,
-                            "dayOfWeek": day.rawValue,
-                            "onTime": daily.power.on,
-                            "offTime": daily.power.off,
-                            "onTemperature": daily.power.onTemperature,
-                            "enabled": true
-                        ])
+                // A returned endAction identifies cores supporting the new power
+                // model. Preserve their disabled rows and overnight windows;
+                // older cores retain the legacy same-day-only write path.
+                let on = minutesFromTime(daily.power.on)
+                let off = minutesFromTime(daily.power.off)
+                let legacyWindow = daily.power.enabled && on != nil && off != nil && on! < off!
+                if daily.power.endAction != nil || legacyWindow {
+                    var powerInput: [String: Any] = [
+                        "side": side.rawValue,
+                        "dayOfWeek": day.rawValue,
+                        "onTime": daily.power.on,
+                        "offTime": daily.power.off,
+                        "onTemperature": daily.power.onTemperature,
+                        "enabled": daily.power.enabled
+                    ]
+                    if let action = daily.power.endAction {
+                        powerInput["endAction"] = action.rawValue
                     }
+                    powerCreates.append(powerInput)
                 }
 
                 if daily.alarm.enabled {
@@ -734,6 +742,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         }
 
         return PodSettings(
+            defaultScheduleEndAction: device?.defaultScheduleEndAction,
             id: "1",
             timeZone: device?.timezone ?? TimeZone.current.identifier,
             left: SideSettings(
@@ -776,9 +785,9 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         }
 
         // Fill power schedules (take last one per day)
-        for p in scheds.power where p.enabled {
+        for p in scheds.power {
             byDay[p.dayOfWeek, default: emptyDaily].power = PowerSchedule(
-                on: p.onTime, off: p.offTime, onTemperature: Int(p.onTemperature), enabled: true
+                on: p.onTime, off: p.offTime, endAction: p.endAction, onTemperature: Int(p.onTemperature), enabled: p.enabled
             )
         }
 
@@ -862,6 +871,7 @@ private struct TRPCDeviceStatus: Decodable {
 }
 
 private struct TRPCDeviceSettings: Decodable {
+    let defaultScheduleEndAction: ScheduleEndAction?
     let timezone: String?
     let temperatureUnit: String?
     let rebootDaily: Bool?
@@ -946,6 +956,7 @@ private struct TRPCTemperatureSchedule: Decodable {
 }
 
 private struct TRPCPowerSchedule: Decodable {
+    let endAction: ScheduleEndAction?
     let id: Int
     let side: String
     let dayOfWeek: String

@@ -77,6 +77,17 @@ final class SettingsManager {
         isLoading = false
     }
 
+    var supportsScheduleEndAction: Bool {
+        APIBackend.current == .sleepypodCore && settings?.defaultScheduleEndAction != nil
+    }
+
+    func updateDefaultScheduleEndAction(_ action: ScheduleEndAction) async {
+        guard var settings, supportsScheduleEndAction else { return }
+        settings.defaultScheduleEndAction = action
+        self.settings = settings
+        await saveSettings(settings)
+    }
+
     // MARK: - Updates
 
     func updateTimeZone(_ tz: String) async {

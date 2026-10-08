@@ -18,6 +18,7 @@ struct SmartCurveView: View {
         c.hour = 7; c.minute = 0
         return Calendar.current.date(from: c) ?? Date()
     }()
+    @State private var endAction: ScheduleEndAction = .turnOff
     @State private var intensity: CoolingIntensity = .balanced
     @State private var selectedProfile: SmartProfile = .balanced
     @State private var isSaving = false
@@ -62,6 +63,14 @@ struct SmartCurveView: View {
             HStack(spacing: 12) {
                 timePicker("Bedtime", icon: "moon.fill", color: Theme.purple, date: $bedtime)
                 timePicker("Wake", icon: "sun.max.fill", color: Theme.amber, date: $wakeTime)
+            }
+
+            if settingsManager.supportsScheduleEndAction && !isRunOnce {
+                Picker("After schedule ends", selection: $endAction) {
+                    ForEach(ScheduleEndAction.allCases, id: \.self) { action in
+                        Text(action.label).tag(action)
+                    }
+                }
             }
 
             // Profile picker — centered
@@ -621,12 +630,17 @@ struct SmartCurveView: View {
         wake.hour = 7; wake.minute = 0
         wakeTime = calendar.date(from: wake) ?? wakeTime
 
+        endAction = settingsManager.settings?.defaultScheduleEndAction ?? .turnOff
         minTemp = 68
         maxTemp = 86
 
         guard let daily = scheduleManager.currentDailySchedule else { return }
         let fmt = DateFormatter()
         fmt.dateFormat = "HH:mm"
+
+        if !daily.temperatures.isEmpty || daily.power.endAction != nil {
+            endAction = daily.power.endAction ?? .turnOff
+        }
 
         // Load bedtime from power schedule
         if daily.power.enabled, let date = fmt.date(from: daily.power.on) {
@@ -759,6 +773,7 @@ struct SmartCurveView: View {
                 daily.temperatures = temps
                 daily.power.on = fmt.string(from: bedtime)
                 daily.power.off = fmt.string(from: wakeTime)
+                if settingsManager.supportsScheduleEndAction { daily.power.endAction = endAction }
                 daily.power.enabled = true
                 daily.alarm.time = fmt.string(from: wakeTime)
                 daily.alarm.enabled = true

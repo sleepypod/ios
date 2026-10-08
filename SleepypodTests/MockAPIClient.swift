@@ -12,6 +12,7 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     // Track delays to simulate slow responses
     var responseDelay: TimeInterval = 0
 
+    func getLogSources() async throws -> [LogSource] { [] }
     func getDeviceStatus() async throws -> DeviceStatus { throw APIError.noBaseURL }
     func updateDeviceStatus(_ update: DeviceStatusUpdate) async throws {}
     func getSettings() async throws -> PodSettings { throw APIError.noBaseURL }

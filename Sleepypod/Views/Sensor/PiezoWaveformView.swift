@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PiezoWaveformView: View {
     @Environment(SensorStreamService.self) private var sensor
+    @State private var sweep = SweepState()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -21,11 +22,14 @@ struct PiezoWaveformView: View {
             }
 
             // Snapshot on main thread — Canvas closure captures these value types
-            let left = sensor.piezoLeft
-            let right = sensor.piezoRight
-            scopeCanvas(left: left, right: right)
-                .frame(height: 130)
-                .allowsHitTesting(false)
+            let left = PiezoSweep.Channel(first: sensor.piezoLeftEnd - sensor.piezoLeft.count, samples: sensor.piezoLeft)
+            let right = PiezoSweep.Channel(first: sensor.piezoRightEnd - sensor.piezoRight.count, samples: sensor.piezoRight)
+            let hz = Double(sensor.piezoHz)
+            TimelineView(.animation(minimumInterval: 1.0 / 60, paused: left.samples.isEmpty && right.samples.isEmpty)) { timeline in
+                scopeCanvas(sweep.frame(left: left, right: right, hz: hz, at: timeline.date))
+            }
+            .frame(height: 130)
+            .allowsHitTesting(false)
         }
         .padding(12)
         .background(Color(hex: "020208"))
@@ -36,7 +40,7 @@ struct PiezoWaveformView: View {
         )
     }
 
-    private func scopeCanvas(left: [Int32], right: [Int32]) -> some View {
+    private func scopeCanvas(_ frame: SweepFrame?) -> some View {
         Canvas { context, size in
             let w = size.width
             let h = size.height
@@ -44,24 +48,35 @@ struct PiezoWaveformView: View {
 
             drawGrid(context: context, w: w, h: h)
 
-            guard !left.isEmpty || !right.isEmpty else { return }
+            guard let frame else {
+                context.draw(
+                    Text("Waiting for piezo data").font(.system(size: 10)).foregroundColor(Theme.textMuted),
+                    at: CGPoint(x: w / 2, y: h / 2)
+                )
+                return
+            }
 
-            let (rMin, rMax) = sharedRange(left, right)
-            let range = rMax - rMin
+            let range = frame.range.hi - frame.range.lo
             guard range > 0, range.isFinite else { return }
+            let yOf = { (v: Double) -> Double in
+                let y = Double(h) * (1 - (v - frame.range.lo) / range)
+                return y.isFinite ? min(max(y, 0), Double(h)) : Double(h) / 2
+            }
 
-            if let path = tracePath(left, w: w, h: h, rMin: rMin, range: range) {
-                let c = Color(hex: "4a9eff")
-                context.stroke(path, with: .color(c.opacity(0.08)), lineWidth: 6)
-                context.stroke(path, with: .color(c.opacity(0.3)), lineWidth: 2.5)
-                context.stroke(path, with: .color(c), lineWidth: 0.8)
+            for (channel, c) in [(frame.left, Color(hex: "4a9eff")), (frame.right, Color(hex: "40e0d0"))] {
+                guard channel.samples.count >= PiezoSweep.minSamples else { continue }
+                for run in PiezoSweep.runs(channel, play: frame.play, geometry: frame.geometry, width: Double(w), yOf: yOf) {
+                    guard let path = tracePath(run) else { continue }
+                    context.stroke(path, with: .color(c.opacity(0.08)), lineWidth: 6)
+                    context.stroke(path, with: .color(c.opacity(0.3)), lineWidth: 2.5)
+                    context.stroke(path, with: .color(c), lineWidth: 0.8)
+                }
             }
-            if let path = tracePath(right, w: w, h: h, rMin: rMin, range: range) {
-                let c = Color(hex: "40e0d0")
-                context.stroke(path, with: .color(c.opacity(0.08)), lineWidth: 6)
-                context.stroke(path, with: .color(c.opacity(0.3)), lineWidth: 2.5)
-                context.stroke(path, with: .color(c), lineWidth: 0.8)
-            }
+
+            // Sweep cursor
+            let x = PiezoSweep.cursorX(play: frame.play, geometry: frame.geometry, width: Double(w))
+            var cursor = Path(); cursor.move(to: CGPoint(x: x, y: 0)); cursor.addLine(to: CGPoint(x: x, y: h))
+            context.stroke(cursor, with: .color(Theme.textMuted), lineWidth: 1)
         }
     }
 
@@ -87,38 +102,7 @@ struct PiezoWaveformView: View {
         context.stroke(vc, with: .color(major), lineWidth: 0.8)
     }
 
-    private func sharedRange(_ a: [Int32], _ b: [Int32]) -> (Float, Float) {
-        var lo: Float = .greatestFiniteMagnitude
-        var hi: Float = -.greatestFiniteMagnitude
-        for s in a { let f = Float(s); if f < lo { lo = f }; if f > hi { hi = f } }
-        for s in b { let f = Float(s); if f < lo { lo = f }; if f > hi { hi = f } }
-        guard lo < hi else { return (0, 1) }
-        let pad = (hi - lo) * 0.1
-        return (lo - pad, hi + pad)
-    }
-
-    private func tracePath(_ samples: [Int32], w: CGFloat, h: CGFloat, rMin: Float, range: Float) -> Path? {
-        guard samples.count > 20 else { return nil }
-
-        let target = 200
-        let step = max(1, samples.count / target)
-        let n = samples.count / step
-        guard n >= 2 else { return nil }
-
-        var pts = [CGPoint]()
-        pts.reserveCapacity(n)
-        for i in 0..<n {
-            let lo = i * step
-            let hi = min(lo + step, samples.count)
-            var sum: Int64 = 0
-            for j in lo..<hi { sum += Int64(samples[j]) }
-            let avg = Float(sum) / Float(hi - lo)
-            let norm = (avg - rMin) / range
-            let x = w * CGFloat(i) / CGFloat(n - 1)
-            let y = h * (1 - CGFloat(norm))
-            guard x.isFinite, y.isFinite else { continue }
-            pts.append(CGPoint(x: x, y: min(max(y, 0), h)))
-        }
+    private func tracePath(_ pts: [CGPoint]) -> Path? {
         guard pts.count >= 2 else { return nil }
 
         var path = Path()
@@ -148,5 +132,55 @@ struct PiezoWaveformView: View {
             Circle().fill(color).frame(width: 5, height: 5)
             Text(label).font(.system(size: 8)).foregroundColor(Theme.textMuted)
         }
+    }
+}
+
+/// Everything one Canvas pass needs, as value types.
+private struct SweepFrame {
+    let left: PiezoSweep.Channel
+    let right: PiezoSweep.Channel
+    let play: Double
+    let range: (lo: Double, hi: Double)
+    let geometry: PiezoSweep.Geometry
+}
+
+/// Sweep cursor and displayed vertical range, carried across animation frames.
+/// Mutated while building each frame; nothing observes it, so it never triggers a render.
+@MainActor
+private final class SweepState {
+    private var play: Double?
+    private var shown: (lo: Double, hi: Double)?
+    private var target: (lo: Double, hi: Double)?
+    private var targetKey: [Int] = []
+    private var lastDate: Date?
+
+    func frame(left: PiezoSweep.Channel, right: PiezoSweep.Channel, hz: Double, at date: Date) -> SweepFrame? {
+        let visible = [left, right].filter { $0.samples.count >= PiezoSweep.minSamples }
+        guard !visible.isEmpty, hz > 0 else {
+            play = nil
+            shown = nil
+            lastDate = nil
+            return nil
+        }
+        let dt = lastDate.map { min(max(date.timeIntervalSince($0), 0), 0.1) } ?? 0
+        lastDate = date
+
+        let first = visible.map(\.first).min() ?? 0
+        let end = visible.map(\.end).max() ?? 0
+        let next = PiezoSweep.advance(play: play, first: first, end: end, hz: hz, dt: dt)
+        play = next
+
+        let geometry = PiezoSweep.geometry(hz: hz)
+        // Recompute the target only when new samples land, not on every animation frame
+        let key = [left.first, left.end, right.first, right.end]
+        if key != targetKey || target == nil {
+            target = PiezoSweep.robustRange(visible, fromN: end - geometry.sweep)
+            targetKey = key
+        }
+        guard let target else { return nil }
+        let range = shown.map { PiezoSweep.ease(shown: $0, target: target, dt: dt) } ?? target
+        shown = range
+
+        return SweepFrame(left: left, right: right, play: next, range: range, geometry: geometry)
     }
 }

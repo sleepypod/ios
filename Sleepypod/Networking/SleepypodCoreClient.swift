@@ -344,7 +344,8 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func getVitals(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [VitalsRecord] {
-        var input: [String: Any] = [:]
+        // The core's default of 288 assumes 5-minute rows; vitals are now per-minute, so ask for its max.
+        var input: [String: Any] = ["limit": 20000]
         if let side { input["side"] = side.rawValue }
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
@@ -365,7 +366,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func getMovement(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [MovementRecord] {
-        var input: [String: Any] = [:]
+        var input: [String: Any] = ["limit": 1000]
         if let side { input["side"] = side.rawValue }
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }

@@ -93,6 +93,8 @@ private final class FakeHealthStore: HealthSyncStore {
     var allowed = true
     var failSave = false
     var batches: [[HKSample]] = []
+    var deletes: [(deviceID: String, start: Date, end: Date)] = []
+    var events: [String] = []
     var requestedWrites: Set<HKSampleType> = []
     var requestedReads: Set<HKObjectType> = []
     func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus { allowed ? .sharingAuthorized : .sharingDenied }
@@ -100,6 +102,11 @@ private final class FakeHealthStore: HealthSyncStore {
     func save(_ samples: [HKSample]) async throws {
         if failSave { throw URLError(.cannotWriteToFile) }
         batches.append(samples)
+        events.append("save")
+    }
+    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date) async throws {
+        deletes.append((deviceID, start, end))
+        events.append("delete")
     }
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] { [] }
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample] { [] }
@@ -148,6 +155,67 @@ struct HealthSyncLifecycleTests {
         let restored = HealthSyncService(store: store, defaults: defaults)
         await restored.syncRecent(api: api, podID: "test-pod", side: .right, demo: false)
         #expect(store.batches.count == count)
+    }
+
+    @Test func syncableRecordsExcludeFragmentsAndCappedSessions() throws {
+        func record(_ duration: Int) throws -> SleepRecord {
+            try JSONDecoder().decode(SleepRecord.self, from: Data("""
+            {"id":1,"side":"left","enteredBedAt":1000,"leftBedAt":\(1000 + duration),"sleepDurationSeconds":\(duration)}
+            """.utf8))
+        }
+        #expect(!HealthSyncService.isSyncable(try record(15 * 60)))
+        #expect(HealthSyncService.isSyncable(try record(8 * 3600)))
+        #expect(!HealthSyncService.isSyncable(try record(16 * 3600)))
+    }
+
+    @Test func eachNightIsClearedBeforeItIsWritten() async throws {
+        let store = FakeHealthStore()
+        let service = HealthSyncService(store: store, defaults: UserDefaults(suiteName: "health-tests-\(UUID().uuidString)")!)
+        service.enabled = true
+        await service.syncRecent(api: MockClient(), podID: "test-pod", side: .left, demo: false)
+        #expect(!store.batches.isEmpty)
+        #expect(store.events == Array(repeating: ["delete", "save"], count: store.batches.count).flatMap { $0 })
+        for (delete, batch) in zip(store.deletes, store.batches) {
+            #expect(delete.deviceID == "test-pod-left")
+            #expect(batch.allSatisfy { $0.startDate >= delete.start && $0.startDate < delete.end })
+        }
+    }
+
+    @Test func receiptsFromAnEarlierSyncVersionAreRewritten() async throws {
+        let store = FakeHealthStore()
+        let defaults = UserDefaults(suiteName: "health-tests-\(UUID().uuidString)")!
+        let api = MockClient()
+        let records = try await api.getSleepRecords(side: .left, start: nil, end: nil)
+        let legacy = Dictionary(uniqueKeysWithValues: records.map {
+            (HealthSyncService.recordKey(podID: "test-pod", record: $0),
+             HealthSyncService.Receipt(date: Date(), signature: HealthSyncService.Preferences().signature,
+                                       closedAt: $0.leftBedDate, enteredAt: $0.enteredBedDate))
+        })
+        defaults.set(try JSONEncoder().encode(legacy), forKey: "healthSyncReceipts")
+        let service = HealthSyncService(store: store, defaults: defaults)
+        service.enabled = true
+        await service.syncRecent(api: api, podID: "test-pod", side: .left, demo: false)
+        #expect(!store.batches.isEmpty)
+        #expect(service.receipts.values.allSatisfy { $0.signature == HealthSyncService.receiptSignature(service.preferences) })
+    }
+
+    @Test func excludedRecordsAreRemovedFromHealthOnlyIfPreviouslyWritten() async throws {
+        let store = FakeHealthStore()
+        let defaults = UserDefaults(suiteName: "health-tests-\(UUID().uuidString)")!
+        let api = ExcludedRecordsClient()
+        let records = try await api.getSleepRecords(side: .left, start: nil, end: nil)
+        let written = records[0]
+        defaults.set(try JSONEncoder().encode([HealthSyncService.recordKey(podID: "test-pod", record: written):
+            HealthSyncService.Receipt(date: Date(), signature: "old", closedAt: written.leftBedDate, enteredAt: written.enteredBedDate)]),
+                     forKey: "healthSyncReceipts")
+        let service = HealthSyncService(store: store, defaults: defaults)
+        service.enabled = true
+        await service.syncRecent(api: api, podID: "test-pod", side: .left, demo: false)
+        #expect(store.batches.isEmpty)
+        #expect(store.deletes.count == 1)
+        #expect(store.deletes.first?.start == written.enteredBedDate && store.deletes.first?.end == written.leftBedDate)
+        #expect(service.receipts.isEmpty)
+        #expect(HealthSyncService(store: store, defaults: defaults).receipts.isEmpty)
     }
 
     @Test func deniedWritesDoNotProduceReceipts() async {
@@ -238,5 +306,17 @@ struct NightPhasesTests {
         #expect(NightPhasesStore.step(72, delta: 1, format: .fahrenheit) == 73)
         #expect(NightPhasesStore.step(72, delta: 1, format: .celsius) == 73)
         #expect(NightPhasesStore.step(110, delta: 1, format: .fahrenheit) == 110)
+    }
+}
+
+/// A capped 16 h session (previously synced) and a 10 min fragment, both of which sync must skip.
+private final class ExcludedRecordsClient: MockAPIClient, @unchecked Sendable {
+    override func getSleepRecords(side: Side?, start: Date?, end: Date?) async throws -> [SleepRecord] {
+        let now = Int(Date().timeIntervalSince1970)
+        return try [(1, now - 20 * 3600, now - 4 * 3600), (2, now - 3 * 3600, now - 3 * 3600 + 600)].map { id, entered, left in
+            try JSONDecoder().decode(SleepRecord.self, from: Data("""
+            {"id":\(id),"side":"left","enteredBedAt":\(entered),"leftBedAt":\(left),"sleepDurationSeconds":\(left - entered)}
+            """.utf8))
+        }
     }
 }

@@ -10,6 +10,7 @@ protocol HealthSyncStore {
     func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus
     func authorize(write: Set<HKSampleType>, read: Set<HKObjectType>) async throws
     func save(_ samples: [HKSample]) async throws
+    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample]
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample]
 }
@@ -23,6 +24,22 @@ final class SystemHealthSyncStore: HealthSyncStore {
         try await store.requestAuthorization(toShare: write, read: read)
     }
     func save(_ samples: [HKSample]) async throws { try await store.save(samples) }
+    // HealthKit only lets an app delete its own samples; the device match keeps other pods and sides out.
+    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws {
+        var predicates = [
+            HKQuery.predicateForObjects(from: .default()),
+            HKQuery.predicateForObjects(withDeviceProperty: HKDevicePropertyKeyLocalIdentifier, allowedValues: [deviceID]),
+            HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        ]
+        if let version {
+            predicates.append(HKQuery.predicateForObjects(withMetadataKey: HKMetadataKeySyncVersion,
+                                                          operatorType: .lessThan, value: version))
+        }
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        for type in types {
+            _ = try await store.deleteObjects(of: type, predicate: predicate)
+        }
+    }
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] {
         await HealthSyncService.querySleepSamples(store: store, start: start, end: end)
     }
@@ -124,12 +141,26 @@ final class HealthSyncService {
     }
 
     static func recordKey(podID: String, record: SleepRecord) -> String { "\(podID)-\(record.side)-\(record.id)" }
+    static func deviceID(podID: String, record: SleepRecord) -> String { "\(podID)-\(record.side)" }
+
+    /// Bump when the samples written for a night change, so every synced night is rewritten once.
+    /// v2: full-night vitals (previously truncated to the last 288 rows), capped and fragment records dropped.
+    static let syncVersion = 2
+    static func receiptSignature(_ preferences: Preferences) -> String { "v\(syncVersion)-\(preferences.signature)" }
+
+    /// The pod force-closes a session after 16 h (MAX_SESSION_S in sleep-detector); those are stuck presence, not sleep.
+    static let maxSessionDuration: TimeInterval = 16 * 3600
+    static let minSessionDuration: TimeInterval = 20 * 60
+    static func isSyncable(_ record: SleepRecord) -> Bool {
+        let duration = record.leftBedDate.timeIntervalSince(record.enteredBedDate)
+        return duration >= minSessionDuration && duration < maxSessionDuration
+    }
 
     func receipt(podID: String, record: SleepRecord) -> Receipt? {
         guard enabled, !writeTypes.isEmpty,
               writeTypes.allSatisfy({ store.authorizationStatus(for: $0) == .sharingAuthorized }),
               let receipt = receipts[Self.recordKey(podID: podID, record: record)],
-              receipt.signature == preferences.signature, receipt.closedAt == record.leftBedDate, receipt.enteredAt == record.enteredBedDate else { return nil }
+              receipt.signature == Self.receiptSignature(preferences), receipt.closedAt == record.leftBedDate, receipt.enteredAt == record.enteredBedDate else { return nil }
         return receipt
     }
 
@@ -173,11 +204,25 @@ final class HealthSyncService {
             let records = try await api.getSleepRecords(side: side, start: start, end: end)
             for record in records where record.side == side.rawValue && record.enteredBedDate.timeIntervalSince1970 > 0 && record.leftBedDate > record.enteredBedDate && record.leftBedDate <= end {
                 let key = Self.recordKey(podID: podID, record: record)
-                guard receipt(podID: podID, record: record) == nil else { continue }
+                let syncable = Self.isSyncable(record)
+                // An excluded record with a receipt was written by an earlier version; only those need cleanup.
+                guard syncable ? receipt(podID: podID, record: record) == nil : receipts[key] != nil else { continue }
                 do {
                     guard !Task.isCancelled, enabled, preferences == requestedPreferences else { return }
                     guard writeTypes.allSatisfy({ store.authorizationStatus(for: $0) == .sharingAuthorized }) else {
                         failures[key] = "Allow the selected write types in Apple Health."
+                        continue
+                    }
+                    let deviceID = Self.deviceID(podID: podID, record: record)
+                    // Cover the interval an earlier sync wrote too, in case the pod has since moved the record's bounds.
+                    let previous = receipts[key]
+                    let clearStart = min(record.enteredBedDate, previous?.enteredAt ?? record.enteredBedDate)
+                    let clearEnd = max(record.leftBedDate, previous?.closedAt ?? record.leftBedDate)
+                    guard syncable else {
+                        try await store.delete(types: writeTypes, deviceID: deviceID, start: clearStart, end: clearEnd, olderThan: nil)
+                        receipts[key] = nil
+                        failures[key] = nil
+                        persistence.set(try JSONEncoder().encode(receipts), forKey: "healthSyncReceipts")
                         continue
                     }
                     let vitals = try await api.getVitals(side: side, start: record.enteredBedDate, end: record.leftBedDate)
@@ -192,11 +237,15 @@ final class HealthSyncService {
                         failures[key] = "Waiting for enough vitals to analyze this night."
                         continue
                     }
-                    let samples = Self.samples(record: record, epochs: analyzer.stages, podID: podID, preferences: requestedPreferences, vitals: filtered)
+                    let version = Int(Date().timeIntervalSince1970 * 1000)
+                    let samples = Self.samples(record: record, epochs: analyzer.stages, podID: podID, preferences: requestedPreferences,
+                                               vitals: filtered, version: version)
                     guard !samples.isEmpty else { continue }
                     try await store.save(samples)
+                    // Save first, then drop whatever this write didn't replace, so a failed save never empties the night.
+                    try await store.delete(types: writeTypes, deviceID: deviceID, start: clearStart, end: clearEnd, olderThan: version)
                     Log.health.info("Saved \(samples.count, privacy: .private) samples to Health")
-                    receipts[key] = Receipt(date: Date(), signature: requestedPreferences.signature, closedAt: record.leftBedDate, enteredAt: record.enteredBedDate)
+                    receipts[key] = Receipt(date: Date(), signature: Self.receiptSignature(requestedPreferences), closedAt: record.leftBedDate, enteredAt: record.enteredBedDate)
                     failures[key] = nil
                     persistence.set(try JSONEncoder().encode(receipts), forKey: "healthSyncReceipts")
                 } catch {
@@ -223,13 +272,13 @@ final class HealthSyncService {
 
     // Sync identifiers, unlike ExternalUUID alone, make retries idempotent in HealthKit.
     // Incrementing the version permits a corrected record to replace earlier samples.
-    static func samples(record: SleepRecord, epochs: [SleepAnalyzer.SleepEpoch], podID: String, preferences: Preferences, vitals: [VitalsRecord]? = nil) -> [HKSample] {
+    static func samples(record: SleepRecord, epochs: [SleepAnalyzer.SleepEpoch], podID: String, preferences: Preferences, vitals: [VitalsRecord]? = nil,
+                        version: Int = Int(Date().timeIntervalSince1970 * 1000)) -> [HKSample] {
         guard record.enteredBedDate.timeIntervalSince1970 > 0, record.leftBedDate > record.enteredBedDate else { return [] }
         let key = recordKey(podID: podID, record: record)
         let device = HKDevice(name: "sleepypod", manufacturer: nil, model: "Pod",
                               hardwareVersion: nil, firmwareVersion: nil, softwareVersion: nil,
-                              localIdentifier: "\(podID)-\(record.side)", udiDeviceIdentifier: nil)
-        let version = Int(Date().timeIntervalSince1970 * 1000)
+                              localIdentifier: deviceID(podID: podID, record: record), udiDeviceIdentifier: nil)
         func metadata(_ epoch: String, type: String) -> [String: Any] {
             [HKMetadataKeyExternalUUID: "\(key)-\(epoch)", HKMetadataKeyWasUserEntered: false,
              HKMetadataKeySyncIdentifier: "\(key)-\(epoch)-\(type)", HKMetadataKeySyncVersion: version,

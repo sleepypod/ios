@@ -1,9 +1,39 @@
-import Foundation
+import SwiftUI
 import Observation
 
 @MainActor
 @Observable
 final class UserProfile {
+    enum Appearance: String, CaseIterable, Identifiable {
+        case system = "System", dark = "Dark", light = "Light"
+        var id: String { rawValue }
+        var colorScheme: ColorScheme? { self == .system ? nil : self == .dark ? .dark : .light }
+    }
+    /// Temperature control on the Temp tab; matches sleepypod-core's `control` pref plus the native Both-sides layout.
+    enum TempControl: String, CaseIterable, Identifiable {
+        case dial, slider, stepper, sides
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .dial: "Dial"
+            case .slider: "Slider"
+            case .stepper: "Night & Dawn"
+            case .sides: "Both sides"
+            }
+        }
+    }
+    var tempControl: TempControl {
+        didSet { UserDefaults.standard.set(tempControl.rawValue, forKey: "tempControl") }
+    }
+    var appearance: Appearance {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "appearance") }
+    }
+    var developer: Bool {
+        didSet { UserDefaults.standard.set(developer, forKey: "developerMode") }
+    }
+    var onboardingComplete: Bool {
+        didSet { UserDefaults.standard.set(onboardingComplete, forKey: "onboardingComplete") }
+    }
     var name: String {
         didSet { UserDefaults.standard.set(name, forKey: "userName") }
     }
@@ -12,6 +42,10 @@ final class UserProfile {
     }
 
     init() {
+        tempControl = TempControl(rawValue: UserDefaults.standard.string(forKey: "tempControl") ?? "dial") ?? .dial
+        appearance = Appearance(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "System") ?? .system
+        developer = UserDefaults.standard.bool(forKey: "developerMode")
+        onboardingComplete = UserDefaults.standard.bool(forKey: "onboardingComplete")
         self.name = UserDefaults.standard.string(forKey: "userName") ?? ""
         let sideRaw = UserDefaults.standard.string(forKey: "userDefaultSide") ?? "left"
         self.defaultSide = Side(rawValue: sideRaw) ?? .left

@@ -121,12 +121,12 @@ final class SleepAnalyzer {
     /// - HRV > 0 and <= 300
     /// - BR 8-25 bpm (values outside are artifacts)
     /// - Windowed median filter: reject HR > 2 SD from 5-minute rolling median
-    private func filterOutliers(vitals: [VitalsRecord]) -> [VitalsRecord] {
+    func filterOutliers(vitals: [VitalsRecord]) -> [VitalsRecord] {
         // First pass: hard physiological limits for sleep context
         var filtered = vitals.filter { r in
-            if let hr = r.heartRate, hr < 45 || hr > 130 { return false }
-            if let hrv = r.hrv, hrv <= 0 || hrv > 300 { return false }
-            if let br = r.breathingRate, br < 8 || br > 25 { return false }
+            if let hr = r.heartRate, !hr.isFinite || hr < 45 || hr > 130 { return false }
+            if let hrv = r.hrv, !hrv.isFinite || hrv <= 0 || hrv > 300 { return false }
+            if let br = r.breathingRate, !br.isFinite || br < 8 || br > 25 { return false }
             return r.heartRate != nil  // must have HR
         }
 

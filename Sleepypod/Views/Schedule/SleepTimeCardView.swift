@@ -80,7 +80,7 @@ struct SleepTimeCardView: View {
                 .foregroundColor(color)
             Text(value)
                 .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
             Text(label)
                 .font(.caption2)
                 .foregroundColor(Theme.textSecondary)
@@ -123,7 +123,7 @@ private struct TimePickerSheet: View {
                 } label: {
                     Text("Set \(title)")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(Theme.accent)

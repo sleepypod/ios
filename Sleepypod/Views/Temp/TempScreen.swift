@@ -8,6 +8,7 @@ struct ActiveCurve: Identifiable {
     let session: RunOnceSession? // non-nil for run-once
     let setPoints: [RunOnceSetPoint]
     let wakeTime: String
+    let bedtime: String
 }
 
 struct TempScreen: View {
@@ -15,8 +16,12 @@ struct TempScreen: View {
     @Environment(SettingsManager.self) private var settingsManager
     @Environment(ScheduleManager.self) private var scheduleManager
 
-    @State private var bgPulse = false
+    @Environment(SensorStreamService.self) private var sensor
+    @Environment(UserProfile.self) private var profile
+    @State private var curveError: String?
     @State private var activeCurve: ActiveCurve?
+    @State private var nightPhases = NightPhasesStore()
+    @State private var stepperTab: StepperTab = .now
 
     private func stopCurve() {
         guard let curve = activeCurve else { return }
@@ -25,13 +30,17 @@ struct TempScreen: View {
         if curve.source == .runOnce {
             Task {
                 let api = APIBackend.current.createClient()
-                try? await api.cancelRunOnce(side: side)
-                let powerOff = SideStatusUpdate(isOn: false)
-                var update = DeviceStatusUpdate()
-                if side == .left { update.left = powerOff } else { update.right = powerOff }
-                try? await api.updateDeviceStatus(update)
-                await deviceManager.fetchStatus()
-                withAnimation { activeCurve = nil }
+                do {
+                    try await api.cancelRunOnce(side: side)
+                    let powerOff = SideStatusUpdate(isOn: false)
+                    var update = DeviceStatusUpdate()
+                    if side == .left { update.left = powerOff } else { update.right = powerOff }
+                    try await api.updateDeviceStatus(update)
+                    await deviceManager.fetchStatus()
+                    curveError = nil
+                    withAnimation { activeCurve = nil }
+                } catch { curveError = error.localizedDescription }
+
             }
         }
     }
@@ -46,7 +55,8 @@ struct TempScreen: View {
                 source: .runOnce,
                 session: session,
                 setPoints: session.setPoints,
-                wakeTime: session.wakeTime
+                wakeTime: session.wakeTime,
+                bedtime: session.setPoints.first?.time ?? "22:00"
             )
             return
         }
@@ -58,8 +68,16 @@ struct TempScreen: View {
             let daily = sideSchedule[today]
 
             if !daily.temperatures.isEmpty {
+                // Sort by offset-from-bedtime so an overnight curve renders left-to-right
+                // as evening → morning. String-sorting ("03:00" < "22:00") would put the
+                // wake-side points first and push bedtime points ~20h into the chart.
+                let bedtime = daily.power.enabled ? daily.power.on : "22:00"
+                let bedMin = clockMinutesOfDay(bedtime)
                 let points = daily.temperatures
-                    .sorted { $0.key < $1.key }
+                    .sorted { lhs, rhs in
+                        offsetFromBedtime(lhs.key, bedtime: bedMin)
+                            < offsetFromBedtime(rhs.key, bedtime: bedMin)
+                    }
                     .map { RunOnceSetPoint(time: $0.key, temperature: Double($0.value)) }
                 let wake = daily.power.enabled ? daily.power.off : "07:00"
                 activeCurve = ActiveCurve(
@@ -67,7 +85,8 @@ struct TempScreen: View {
                     source: .schedule,
                     session: nil,
                     setPoints: points,
-                    wakeTime: wake
+                    wakeTime: wake,
+                    bedtime: bedtime
                 )
                 return
             }
@@ -83,313 +102,231 @@ struct TempScreen: View {
         return days[weekday - 1]
     }
 
-    private var sideName: String {
-        settingsManager.sideName(for: deviceManager.selectedSide.primarySide)
+    private func clockMinutesOfDay(_ time: String) -> Int {
+        let parts = time.split(separator: ":")
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return 0 }
+        return h * 60 + m
     }
 
-    private var ambientColor: Color {
-        guard deviceManager.isConnected, deviceManager.isOn else { return .clear }
-        let status = deviceManager.currentSideStatus
-        let target = status?.targetTemperatureF ?? 80
-        let current = status?.currentTemperatureF ?? 80
-        return TempColor.forDelta(target: target, current: current)
+    private func offsetFromBedtime(_ time: String, bedtime: Int) -> Int {
+        (clockMinutesOfDay(time) - bedtime + 1440) % 1440
+    }
+
+    /// Short "Just now" / "12s ago" / "2m ago" label for the last-updated indicator.
+    static func relativeTime(from date: Date) -> String {
+        let seconds = Int(Date().timeIntervalSince(date))
+        if seconds < 5 { return "just now" }
+        if seconds < 60 { return "\(seconds)s ago" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m ago" }
+        let hours = minutes / 60
+        return "\(hours)h ago"
+    }
+
+    private var sideName: String {
+        if deviceManager.isLinked { return "\(settingsManager.leftName) + \(settingsManager.rightName)" }
+        return settingsManager.sideName(for: deviceManager.selectedSide.primarySide)
     }
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                // Full-screen ambient glow
-                if deviceManager.isConnected && deviceManager.isOn {
-                    RadialGradient(
-                        colors: [
-                            ambientColor.opacity(bgPulse ? 0.3 : 0.18),
-                            ambientColor.opacity(bgPulse ? 0.12 : 0.05),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 40,
-                        endRadius: geo.size.height * (bgPulse ? 0.75 : 0.65)
-                    )
-                    .ignoresSafeArea()
-                    .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: bgPulse)
-                    .animation(.easeInOut(duration: 1.0), value: ambientColor)
-                    .onAppear { bgPulse = true }
-                }
-
+        NavigationStack {
+            Group {
                 if deviceManager.isConnected {
-                    VStack(spacing: 0) {
-                        // Top bar — name + priming + settings gear
-                        HStack {
-                            Text(sideName)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundColor(Theme.textSecondary)
-                            if deviceManager.deviceStatus?.isPriming == true {
-                                PrimingIndicator()
-                            }
-                            Spacer()
-                            UserSelectorView()
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 4)
-
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            // Side selector — below toolbar with a gap
-                            SideSelectorView()
-                                .padding(.horizontal, 16)
-                                .padding(.top, 12)
-
-                            // Alerts
-                            VStack(spacing: 8) {
-                                if deviceManager.isAlarmActive, let side = deviceManager.alarmSide {
-                                    AlarmBanner(side: side) {
-                                        deviceManager.stopAlarm()
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-
-                            Spacer(minLength: 0)
-
-                            // Dial + controls — vertically centered in remaining space
-                            VStack(spacing: 20) {
-                                TemperatureDialView()
-                                    .onTapGesture {
-                                        Haptics.medium()
-                                        deviceManager.togglePower()
-                                    }
-                                    .padding(.top, 8)
-
-                                if let curve = activeCurve {
-                                    RunOnceActiveBanner(
-                                        session: curve.session ?? RunOnceSession(
-                                            id: 0,
-                                            side: deviceManager.selectedSide.primarySide.rawValue,
-                                            setPoints: curve.setPoints,
-                                            wakeTime: curve.wakeTime,
-                                            startedAt: Int(Date().timeIntervalSince1970),
-                                            expiresAt: Int(Date().timeIntervalSince1970) + 28800,
-                                            status: "active"
-                                        ),
-                                        onCancel: { stopCurve() },
-                                        compact: true,
-                                        isSchedule: curve.source == .schedule
-                                    )
-                                    .id(curve.id)
-                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                                } else {
-                                    TempControlsView()
-                                        .transition(.opacity)
-                                }
-
-                                EnvironmentInfoView()
-                            }
-                            .animation(.easeInOut(duration: 0.3), value: activeCurve?.id)
-                            .padding(.horizontal, 16)
-
-                            Spacer(minLength: 0)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: geo.size.height - 60)
+                    switch profile.tempControl {
+                    case .dial, .stepper: centeredControl
+                    case .slider:
+                        TempSliderView(curve: activeCurve, profileName: activeCurve.map { profileName($0.setPoints) } ?? "")
+                    case .sides:
+                        ScrollView { BothSidesView(curve: activeCurve) }
+                            .refreshable { await deviceManager.fetchStatus(); await fetchActiveCurve() }
                     }
-                    .refreshable {
-                        await deviceManager.fetchStatus()
-                        await fetchActiveCurve()
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
-                    .onChange(of: deviceManager.selectedSide) {
-                        activeCurve = nil
-                        Task { await fetchActiveCurve() }
-                    }
-                    .onAppear {
-                        Task { await fetchActiveCurve() }
-                    }
-                    } // VStack
                 } else {
                     DisconnectedTabView(tab: "Temp")
                 }
             }
-        }
-        .background(Theme.background)
-    }
-}
-
-// MARK: - Alert Banner
-
-enum AlertBannerStyle {
-    case info, warning
-
-    var bgGradient: LinearGradient {
-        switch self {
-        case .info:
-            LinearGradient(colors: [Color(hex: "1e3c50").opacity(0.8), Color(hex: "143246").opacity(0.6)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .warning:
-            LinearGradient(colors: [Color(hex: "503c1e").opacity(0.8), Color(hex: "3c2d14").opacity(0.6)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-    }
-
-    var borderColor: Color {
-        switch self {
-        case .info: Color(hex: "468ca0").opacity(0.4)
-        case .warning: Color(hex: "b48c3c").opacity(0.4)
-        }
-    }
-
-    var textColor: Color {
-        switch self {
-        case .info: Color(hex: "8ecfcf")
-        case .warning: Color(hex: "e0c080")
-        }
-    }
-}
-
-private struct AlertBanner: View {
-    let icon: String
-    let title: String
-    let message: String
-    let style: AlertBannerStyle
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(style.textColor)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(style.textColor)
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(style.textColor.opacity(0.7))
-            }
-            Spacer()
-        }
-        .padding(12)
-        .background(style.bgGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(style.borderColor, lineWidth: 1)
-        )
-    }
-}
-
-// MARK: - Alarm Banner
-
-private struct AlarmBanner: View {
-    let side: Side
-    let onStop: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "alarm.fill")
-                .foregroundColor(Color(hex: "e0c080"))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Alarm Active")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(Color(hex: "e0c080"))
-                Text("\(side.displayName) side alarm is vibrating")
-                    .font(.caption)
-                    .foregroundColor(Color(hex: "e0c080").opacity(0.7))
-            }
-            Spacer()
-            Button {
-                Haptics.medium()
-                Task {
-                    _ = try? await APIBackend.current.createClient().snoozeAlarm(side: side, duration: 300)
-                }
-            } label: {
-                Text("Snooze")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(Color(hex: "e0c080"))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color(hex: "e0c080").opacity(0.2))
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            Button("Stop") {
-                Haptics.heavy()
-                onStop()
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Theme.error)
-            .clipShape(Capsule())
-        }
-        .padding(12)
-        .background(
-            LinearGradient(colors: [Color(hex: "503c1e").opacity(0.8), Color(hex: "3c2d14").opacity(0.6)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(hex: "b48c3c").opacity(0.4), lineWidth: 1)
-        )
-    }
-}
-
-// MARK: - Environment Info
-
-private struct EnvironmentInfoView: View {
-    @Environment(DeviceManager.self) private var deviceManager
-    @Environment(SettingsManager.self) private var settingsManager
-    @State private var ambientLight: AmbientLightReading?
-
-    private var ambientTempF: Int {
-        deviceManager.currentSideStatus?.currentTemperatureF ?? 0
-    }
-
-    private var autoOffText: String? {
-        guard let status = deviceManager.currentSideStatus,
-              status.isOn,
-              status.secondsRemaining > 0 else { return nil }
-        let hours = status.secondsRemaining / 3600
-        let minutes = (status.secondsRemaining % 3600) / 60
-        if hours > 0 { return "\(hours)h \(minutes)m" }
-        return "\(minutes)m"
-    }
-
-    var body: some View {
-        HStack(spacing: 20) {
-            if ambientTempF > 0 {
-                HStack(spacing: 6) {
-                    Image(systemName: "house.fill")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                    Text("\(TemperatureConversion.displayTemp(ambientTempF, format: settingsManager.temperatureFormat))  Inside")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+            .background(Theme.background)
+            .navigationTitle(profile.tempControl == .sides ? "Bed" : "")
+            .navigationBarTitleDisplayMode(profile.tempControl == .sides ? .large : .inline)
+            .settingsToolbar()
+            .toolbar {
+                switch profile.tempControl {
+                case .dial, .stepper:
+                    ToolbarItem(placement: .topBarLeading) { header }
+                        .sharedBackgroundVisibility(.hidden)
+                case .slider:
+                    ToolbarItem(placement: .topBarLeading) { sideMenu }
+                case .sides:
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(deviceManager.isLinked ? "Unlink sides" : "Link sides", systemImage: "link") {
+                            Haptics.tap()
+                            deviceManager.toggleLink()
+                        }
+                        .tint(deviceManager.isLinked ? Theme.text1 : Theme.text2)
+                    }
                 }
             }
-
-            if let autoOff = autoOffText {
-                HStack(spacing: 6) {
-                    Image(systemName: "timer")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                    Text(autoOff)
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                }
-            }
-
-            if let light = ambientLight {
-                HStack(spacing: 6) {
-                    Image(systemName: light.lux < 10 ? "moon.fill" : "sun.max.fill")
-                        .font(.caption)
-                        .foregroundColor(light.lux < 10 ? Theme.purple : Theme.amber)
-                    Text("\(Int(light.lux)) lux")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                }
-            }
+        }
+        .task(id: profile.tempControl) {
+            if profile.tempControl == .stepper { await nightPhases.load([.left, .right]) }
         }
         .task {
-            ambientLight = try? await APIBackend.current.createClient().getAmbientLightLatest()
+            await settingsManager.fetchSettings()
+            await scheduleManager.fetchSchedules()
+            await fetchActiveCurve()
+            if deviceManager.isConnected { sensor.connect() }
         }
+        .task(id: deviceManager.selectedSide) { await fetchActiveCurve() }
+        .onReceive(NotificationCenter.default.publisher(for: .switchToTempTab)) { _ in Task { await fetchActiveCurve() } }
+    }
+
+    /// Dial or Night & Dawn stepper, with the side switcher above and today's context below.
+    private var centeredControl: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                SideSelectorView()
+                if profile.tempControl == .stepper {
+                    TempStepperView(store: nightPhases, tab: $stepperTab).padding(.top, 20)
+                    TempControlsView(powerOnly: true).padding(.top, 20)
+                } else {
+                    TemperatureDialView().padding(.top, 28)
+                    TempControlsView().padding(.top, 14)
+                }
+                environmentLine.padding(.top, 26)
+                VStack(spacing: 12) {
+                    if let curveError {
+                        Text(curveError).font(.footnote).foregroundStyle(Theme.amber)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide { alarmCard(side) }
+                    if let curve = activeCurve {
+                        if let session = curve.session {
+                            RunOnceActiveBanner(session: session, onCancel: stopCurve, compact: true)
+                        } else {
+                            tonightCard(curve)
+                        }
+                    }
+                }
+                .padding(.top, 24)
+            }
+            .padding(.horizontal, profile.tempControl == .stepper ? 16 : 20)
+            .padding(.top, 16)
+            .padding(.bottom, 24)
+        }
+        .refreshable {
+            await deviceManager.fetchStatus()
+            await fetchActiveCurve()
+            if profile.tempControl == .stepper { await nightPhases.load([.left, .right]) }
+        }
+    }
+
+    /// 1c puts the side picker in a glass menu instead of the segmented switcher.
+    private var sideMenu: some View {
+        Menu {
+            Picker("Side", selection: Binding(
+                get: { deviceManager.isLinked ? SideSelection.both : deviceManager.selectedSide },
+                set: { selection in
+                    if (selection == .both) != deviceManager.isLinked { deviceManager.toggleLink() }
+                    deviceManager.selectSide(selection)
+                }
+            )) {
+                Text(settingsManager.leftName).tag(SideSelection.left)
+                Label("Both", systemImage: "link").tag(SideSelection.both)
+                Text(settingsManager.rightName).tag(SideSelection.right)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(sideName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text1)
+                Image(systemName: "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.text2)
+            }
+            .padding(.horizontal, 6)
+        }
+        .accessibilityLabel("Side, \(sideName)")
+    }
+
+    private var header: some View {
+        let side = deviceManager.selectedSide.primarySide
+        let occupied = deviceManager.isLinked
+            ? (sensor.isOccupied(side: .left) || sensor.isOccupied(side: .right))
+            : sensor.isOccupied(side: side)
+        let place = deviceManager.isLinked ? "BOTH" : side.rawValue.uppercased()
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(sideName).font(.title2.bold()).tracking(-0.3).lineLimit(1)
+            HStack(spacing: 6) {
+                if occupied { StatusDot() }
+                Eyebrow("\(place) · \(occupied ? "IN BED" : "AWAY")")
+                if APIBackend.current.isDemo && !DebugRoute.marketingCapture { Eyebrow("· DEMO", color: Theme.amber) }
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var environmentLine: some View {
+        HStack(spacing: 18) {
+            let temps = deviceManager.selectedSide.primarySide == .left ? sensor.leftTemps : sensor.rightTemps
+            if let ambient = temps?.amb, ambient.isFinite, ambient > -100 {
+                let format = settingsManager.temperatureFormat == .relative ? .fahrenheit : settingsManager.temperatureFormat
+                Label {
+                    Text("\(TemperatureConversion.displayTemp(Int((ambient * 9 / 5 + 32).rounded()), format: format)) inside")
+                } icon: { Image(systemName: "house") }
+            }
+            if let status = deviceManager.currentSideStatus, status.isOn, status.secondsRemaining > 0 {
+                Label { Text(DisplayTime.duration(status.secondsRemaining)) } icon: { Image(systemName: "timer") }
+                    .accessibilityLabel("Turns off in \(DisplayTime.duration(status.secondsRemaining))")
+            }
+        }
+        .labelStyle(EnvironmentLabelStyle())
+        .font(.mono(12, relativeTo: .caption)).foregroundStyle(Theme.text2)
+        .frame(minHeight: 16)
+    }
+
+    private func tonightCard(_ curve: ActiveCurve) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    Eyebrow("TONIGHT · \(profileName(curve.setPoints).uppercased())")
+                    Spacer(minLength: 8)
+                    range(curve)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Eyebrow("TONIGHT · \(profileName(curve.setPoints).uppercased())")
+                    range(curve)
+                }
+            }
+            TemperatureCurve(points: curve.setPoints, bedtime: curve.bedtime, wake: curve.wakeTime, compact: true)
+        }
+        .cardStyle()
+    }
+
+    private func range(_ curve: ActiveCurve) -> some View {
+        Text("\(DisplayTime.clock(curve.bedtime)) → \(DisplayTime.clock(curve.wakeTime))")
+            .font(.mono(12, relativeTo: .caption)).foregroundStyle(Theme.text2)
+    }
+
+    private func alarmCard(_ side: Side) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "alarm").foregroundStyle(Theme.amber)
+            Text("Alarm").font(.subheadline.weight(.semibold))
+            Spacer()
+            Button("Snooze") {
+                Task { _ = try? await APIBackend.current.createClient().snoozeAlarm(side: side, duration: 300) }
+            }
+            .font(.subheadline.weight(.semibold))
+            Button("Stop") { deviceManager.stopAlarm() }.font(.subheadline.weight(.semibold))
+        }
+        .buttonStyle(.plain)
+        .cardStyle(vertical: 14)
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.amber, lineWidth: 1))
+    }
+
+    private func profileName(_ points: [RunOnceSetPoint]) -> String {
+        let values = points.map { Int($0.temperature) }.sorted()
+        return SleepProfile.allCases.first { $0.temperatures(for: values.count).sorted() == values }?.rawValue ?? "Custom"
+    }
+}
+
+private struct EnvironmentLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) { configuration.icon.font(.system(size: 12)); configuration.title }
     }
 }

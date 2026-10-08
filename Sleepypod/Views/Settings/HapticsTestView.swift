@@ -98,7 +98,7 @@ struct HapticsTestView: View {
         } label: {
             Text(label)
                 .font(.subheadline.weight(.medium))
-                .foregroundColor(isSelected ? .white : Theme.textSecondary)
+                .foregroundColor(isSelected ? Theme.text1 : Theme.textSecondary)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 44)
                 .background(isSelected ? Theme.cooling : Theme.cardElevated)
@@ -159,13 +159,13 @@ struct HapticsTestView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(preset.name)
                     .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                 HStack(spacing: 6) {
                     Text(preset.description)
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                     Text("\(preset.duration)s")
-                        .font(.caption.monospaced())
+                        .font(.mono(12))
                         .foregroundColor(Theme.textMuted)
                     Text(preset.pattern == .double ? "Double" : "Rise")
                         .font(.caption2)
@@ -251,7 +251,7 @@ struct HapticsTestView: View {
                                 .foregroundColor(Theme.textSecondary)
                             Spacer()
                             Text("\(Int(customIntensity))%")
-                                .font(.caption.monospaced())
+                                .font(.mono(12))
                                 .foregroundColor(intensityColor(Int(customIntensity)))
                         }
 
@@ -288,7 +288,7 @@ struct HapticsTestView: View {
                                 .foregroundColor(Theme.textSecondary)
                             Spacer()
                             Text("\(Int(customDuration))s")
-                                .font(.caption.monospaced())
+                                .font(.mono(12))
                                 .foregroundColor(Theme.textSecondary)
                         }
 
@@ -314,7 +314,7 @@ struct HapticsTestView: View {
                             Text("Test Vibration")
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                         .background(Theme.accent)
@@ -336,7 +336,7 @@ struct HapticsTestView: View {
         } label: {
             Text(label)
                 .font(.caption.weight(.semibold))
-                .foregroundColor(isSelected ? .white : Theme.textSecondary)
+                .foregroundColor(isSelected ? Theme.text1 : Theme.textSecondary)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 44)
                 .background(isSelected ? Theme.cooling : Theme.cardElevated)
@@ -357,7 +357,7 @@ struct HapticsTestView: View {
                 Text("Stop All Vibration")
                     .font(.subheadline.weight(.semibold))
             }
-            .foregroundColor(.white)
+            .foregroundColor(Theme.text1)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 50)
             .background(isVibrating ? Theme.error : Theme.error.opacity(0.4))

@@ -51,6 +51,8 @@ final class SensorStreamService {
     var rightVitals = LiveVitals()
     var leftTemps: BedTempSide?
     var rightTemps: BedTempSide?
+    /// When the last bedTemp frame arrived, so views can grey out stale surface readings.
+    var bedTempUpdatedAt: Date?
     var frzHealth: FrzHealthFrame?
 
     var leftVariance: [Float] = Array(repeating: 0, count: 8)
@@ -59,7 +61,13 @@ final class SensorStreamService {
     // Piezo waveform — plain arrays, @MainActor safe
     var piezoLeft: [Int32] = []
     var piezoRight: [Int32] = []
-    private let maxPiezoSamples = 1500
+    /// Absolute number one past each channel's newest sample. Never reset, so a sample keeps
+    /// its number (and its place in the sweep) after older samples are trimmed or cleared.
+    var piezoLeftEnd = 0
+    var piezoRightEnd = 0
+    var piezoHz = 500
+    /// ~12 s per channel: one 8 s sweep plus the cursor's lag behind the newest sample.
+    private var maxPiezoSamples: Int { piezoHz * 12 }
 
     var firmwareLogs: [FirmwareLogEntry] = []
     var leftTempHistory: [(Date, Float)] = []
@@ -80,6 +88,7 @@ final class SensorStreamService {
     var notificationRelay: NotificationRelay?
 
     private var webSocketTask: URLSessionWebSocketTask?
+    private var streamURL: URL?
     private var receiveTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
@@ -110,6 +119,11 @@ final class SensorStreamService {
         return URL(string: "ws://\(ip):3001")
     }
 
+    var isCurrentPod: Bool {
+        if APIBackend.current.isDemo { return demoTask != nil }
+        return podURL != nil && streamURL == podURL
+    }
+
     func connect() {
         // Demo mode — generate fake sensor data instead of connecting WS
         if APIBackend.current.isDemo {
@@ -118,8 +132,7 @@ final class SensorStreamService {
             return
         }
 
-        guard !isConnected else { return
-        }
+        guard !isConnected || !isCurrentPod else { return }
 
         guard let url = podURL else { error = "No pod IP"; return }
         disconnect()
@@ -127,6 +140,7 @@ final class SensorStreamService {
         let session = URLSession(configuration: .default)
         let ws = session.webSocketTask(with: url)
         self.webSocketTask = ws
+        streamURL = url
         ws.resume()
         error = nil
 
@@ -137,7 +151,7 @@ final class SensorStreamService {
 
         pingTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(15))
+                do { try await Task.sleep(for: .seconds(15)) } catch { return }
                 self.webSocketTask?.sendPing { _ in }
             }
         }
@@ -150,14 +164,16 @@ final class SensorStreamService {
 
     /// Fetch last hour of bed temp from tRPC to pre-populate the trend chart.
     private func seedTempHistory() async {
-        guard !tempHistorySeeded else { return }
+        guard !tempHistorySeeded, isCurrentPod else { return }
+        let requestedURL = podURL
         do {
             let end = Date()
             let start = end.addingTimeInterval(-3600)
             let readings = try await APIBackend.current.createClient().getBedTempHistory(
                 start: start, end: end, limit: maxTempHistory, unit: "F"
             )
-            guard !readings.isEmpty, !tempHistorySeeded else { return }
+            guard !readings.isEmpty, !tempHistorySeeded,
+                  requestedURL == podURL, isCurrentPod else { return }
             tempHistorySeeded = true
 
             // tRPC returns descending — reverse for chronological
@@ -186,6 +202,7 @@ final class SensorStreamService {
         reconnectTask?.cancel(); reconnectTask = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
+        streamURL = nil
         isConnected = false
         latestDeviceStatus = nil
     }
@@ -253,8 +270,11 @@ final class SensorStreamService {
                         left.append(Int32(breath + heart + noise))
                         right.append(Int32(breath + heart * 0.8 + noise))
                     }
+                    self.piezoHz = freq
                     self.piezoLeft.append(contentsOf: left)
                     self.piezoRight.append(contentsOf: right)
+                    self.piezoLeftEnd += left.count
+                    self.piezoRightEnd += right.count
                     if self.piezoLeft.count > self.maxPiezoSamples {
                         self.piezoLeft.removeFirst(self.piezoLeft.count - self.maxPiezoSamples)
                     }
@@ -323,14 +343,15 @@ final class SensorStreamService {
                     self.trackDemoFrame("frzHealth")
                 }
 
-                // --- BedTemp (every 32 ticks = 16s) ---
-                if tick % 32 == 0 {
+                // --- BedTemp (on start, then every 32 ticks = 16s) ---
+                if tick == 1 || tick % 32 == 0 {
                     let ambC: Float = 22.5 + Float.random(in: -0.3...0.3)
                     let huPct: Float = 45 + Float.random(in: -2...2)
                     let leftZones: [Float] = [30.5, 31.2, 29.8, 30.0].map { $0 + Float.random(in: -0.2...0.2) }
                     let rightZones: [Float] = [29.0, 29.8, 28.5, 29.2].map { $0 + Float.random(in: -0.2...0.2) }
                     self.leftTemps = BedTempSide(amb: ambC, hu: huPct, temps: leftZones)
                     self.rightTemps = BedTempSide(amb: ambC, hu: huPct, temps: rightZones)
+                    self.bedTempUpdatedAt = .now
                     if let avgL = self.leftTemps?.avgSurfaceTempF {
                         self.leftTempHistory.append((.now, Float(avgL)))
                         if self.leftTempHistory.count > self.maxTempHistory { self.leftTempHistory.removeFirst() }
@@ -366,6 +387,12 @@ final class SensorStreamService {
         do {
             while !Task.isCancelled {
                 let message = try await ws.receive()
+                guard !Task.isCancelled, webSocketTask === ws else { return }
+                guard isCurrentPod else {
+                    disconnect()
+                    connect()
+                    return
+                }
                 if !isConnected { isConnected = true }
                 switch message {
                 case .string(let text):
@@ -376,7 +403,7 @@ final class SensorStreamService {
                 }
             }
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, webSocketTask === ws else { return }
             self.isConnected = false
             self.error = "Disconnected"
             scheduleReconnect()
@@ -418,8 +445,11 @@ final class SensorStreamService {
             rightVariance = computeVariance(rightHistory)
 
         case .piezoDual(let piezo):
+            if piezo.freq > 0 { piezoHz = piezo.freq }
             piezoLeft.append(contentsOf: piezo.left1)
             piezoRight.append(contentsOf: piezo.right1)
+            piezoLeftEnd += piezo.left1.count
+            piezoRightEnd += piezo.right1.count
             if piezoLeft.count > maxPiezoSamples { piezoLeft.removeFirst(piezoLeft.count - maxPiezoSamples) }
             if piezoRight.count > maxPiezoSamples { piezoRight.removeFirst(piezoRight.count - maxPiezoSamples) }
 
@@ -440,6 +470,7 @@ final class SensorStreamService {
         case .bedTemp2(let temp):
             leftTemps = temp.left
             rightTemps = temp.right
+            bedTempUpdatedAt = .now
             tempHistorySeeded = true
             if let avgL = temp.left.avgSurfaceTempF {
                 leftTempHistory.append((.now, Float(avgL)))

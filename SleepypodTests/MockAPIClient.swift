@@ -18,6 +18,7 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func updateSettings(_ settings: PodSettings) async throws -> PodSettings { throw APIError.noBaseURL }
     func getSchedules() async throws -> Schedules { throw APIError.noBaseURL }
     func updateSchedules(_ schedules: Schedules, days: Set<DayOfWeek>? = nil) async throws -> Schedules { throw APIError.noBaseURL }
+    func getLogSources() async throws -> [LogSource] { [] }
     func getServerStatus() async throws -> ServerStatus { throw APIError.noBaseURL }
     func getServices() async throws -> Services { throw APIError.noBaseURL }
     func updateServices(_ services: Services) async throws -> Services { throw APIError.noBaseURL }
@@ -42,6 +43,8 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 0, expiresAt: 0) }
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
     func cancelRunOnce(side: Side) async throws {}
+
+    func getInternetStatus() async throws -> Bool { internetBlocked }
 
     func setInternetAccess(blocked: Bool) async throws {
         if responseDelay > 0 { try? await Task.sleep(for: .seconds(responseDelay)) }

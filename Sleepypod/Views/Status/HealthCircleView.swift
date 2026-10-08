@@ -5,7 +5,6 @@ struct HealthCircleView: View {
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(SettingsManager.self) private var settingsManager
     @State private var showSerials = false
-    @State private var showInternetSheet = false
     @State private var showWaterSheet = false
     @State private var diskUsage: DiskUsage?
     @State private var version: SystemVersion?
@@ -23,7 +22,7 @@ struct HealthCircleView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .stroke(Color(hex: "222222"), lineWidth: 4)
+                        .stroke(Theme.track, lineWidth: 4)
                         .frame(width: 44, height: 44)
                     Circle()
                         .trim(from: 0, to: progress)
@@ -33,8 +32,8 @@ struct HealthCircleView: View {
                         .rotationEffect(.degrees(-90))
                         .animation(.easeInOut(duration: 0.5), value: progress)
                     Text("\(statusManager.healthyCount)")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .font(.mono(14, weight: .bold))
+                        .foregroundColor(Theme.text1)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -42,7 +41,7 @@ struct HealthCircleView: View {
                     HStack(spacing: 8) {
                         Text("sleepypod")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text1)
 
                         if let status {
                             Text(podModelName(status.hubVersion))
@@ -91,20 +90,8 @@ struct HealthCircleView: View {
                     Text("·")
                         .foregroundColor(Theme.textMuted)
 
-                    // Internet — tappable
-                    Button {
-                        Haptics.light()
-                        showInternetSheet = true
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: isInternetBlocked ? "lock.shield.fill" : "globe")
-                                .font(.system(size: 10))
-                            Text(isInternetBlocked ? "Local only" : "Internet")
-                                .font(.caption2)
-                        }
-                        .foregroundColor(isInternetBlocked ? Theme.healthy : Theme.amber)
-                    }
-                    .buttonStyle(.plain)
+                    Label(isInternetBlocked ? "Local only" : "Internet", systemImage: isInternetBlocked ? "lock.shield.fill" : "globe")
+                        .font(.caption2).foregroundStyle(Theme.text2)
                 }
 
                 Divider().background(Theme.cardBorder).padding(.vertical, 10)
@@ -138,17 +125,17 @@ struct HealthCircleView: View {
                         Image(systemName: "arrow.triangle.branch")
                             .font(.system(size: 9))
                         Text(version?.branch ?? status.freeSleep.branch)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .font(.mono(10, weight: .medium))
                         if let v = version {
                             Text(v.shortHash)
-                                .font(.system(size: 9, design: .monospaced))
+                                .font(.mono(9))
                                 .foregroundColor(Theme.textMuted)
                         }
                     }
                     .foregroundColor(Theme.textSecondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color(hex: "222222"))
+                    .background(Theme.active)
                     .clipShape(Capsule())
                 }
 
@@ -174,7 +161,7 @@ struct HealthCircleView: View {
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color(hex: "222222"))
+                                    .fill(Theme.track)
                                     .frame(height: 4)
                                 RoundedRectangle(cornerRadius: 2)
                                     .fill(disk.usedPercent > 90 ? Theme.error : disk.usedPercent > 75 ? Theme.amber : Theme.accent)
@@ -213,7 +200,7 @@ struct HealthCircleView: View {
                             Text("Cover: \(status.coverVersion)")
                             Text("Hub: \(status.hubVersion)")
                         }
-                        .font(.caption2.monospaced())
+                        .font(.mono(11))
                         .foregroundColor(Theme.textMuted)
                         Spacer()
                     }
@@ -233,19 +220,15 @@ struct HealthCircleView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showInternetSheet) {
-            InternetAccessSheet(isBlocked: isInternetBlocked)
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-        }
+
     }
 
     private func podModelName(_ version: String) -> String {
+        // Matches sleepypod-core src/hardware/pods.ts POD_CAPS.
         switch version.uppercased() {
-        case "H00": "Pod 5"
-        case "H01": "Pod 4"
-        case "H02": "Pod 3"
-        case "H03": "Pod 2"
+        case "H00": "Pod 3"
+        case "I00": "Pod 4"
+        case "J00": "Pod 5"
         default: version
         }
     }
@@ -269,79 +252,6 @@ struct HealthCircleView: View {
         case "true", "ok", "full", "good": Theme.healthy
         case "false", "low", "empty": Theme.amber
         default: Theme.textSecondary
-        }
-    }
-}
-
-// MARK: - Internet Access Sheet
-
-private struct InternetAccessSheet: View {
-    let isBlocked: Bool
-    @Environment(StatusManager.self) private var statusManager
-    @Environment(\.dismiss) private var dismiss
-    @State private var isUpdating = false
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                // Icon
-                Image(systemName: isBlocked ? "lock.shield.fill" : "globe")
-                    .font(.system(size: 48))
-                    .foregroundColor(isBlocked ? Theme.healthy : Theme.amber)
-                    .padding(.top, 16)
-
-                // Status
-                VStack(spacing: 6) {
-                    Text(isBlocked ? "Local Network Only" : "Internet Access Enabled")
-                        .font(.title3.weight(.semibold))
-                        .foregroundColor(.white)
-                    Text(isBlocked
-                         ? "Your Sleepypod can only communicate on your local network. It cannot phone home or reach external servers."
-                         : "Your Sleepypod can access the internet. This allows external connections and potential data transmission.")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, 24)
-
-                // Buttons
-                VStack(spacing: 20) {
-                    Button {
-                        Haptics.medium()
-                        isUpdating = true
-                        Task {
-                            await statusManager.setInternetAccess(blocked: !isBlocked)
-                            isUpdating = false
-                            dismiss()
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if isUpdating {
-                                ProgressView().tint(.white).scaleEffect(0.8)
-                            } else {
-                                Image(systemName: isBlocked ? "globe" : "lock.shield.fill")
-                            }
-                            Text(isBlocked ? "Allow Internet Access" : "Block Internet Access")
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(isBlocked ? Theme.amber : Theme.healthy)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isUpdating)
-
-                    Button("Cancel") { dismiss() }
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textMuted)
-                }
-                .padding(.horizontal, 24)
-
-                Spacer()
-            }
-            .background(Theme.background)
         }
     }
 }

@@ -110,7 +110,7 @@ struct MovementCardView: View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.title3.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
             Text(label)
                 .font(.caption2)
                 .foregroundColor(Theme.textSecondary)

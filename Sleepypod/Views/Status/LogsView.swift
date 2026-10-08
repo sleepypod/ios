@@ -19,7 +19,7 @@ struct LogsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("System Logs")
                         .font(.subheadline.weight(.medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                     Text("View service activity")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
@@ -95,7 +95,7 @@ private struct LogsSheet: View {
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.system(size: 8))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .background(Theme.cooling)
@@ -125,7 +125,7 @@ private struct LogsSheet: View {
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.system(size: 8))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .background(Theme.cardElevated)
@@ -211,13 +211,13 @@ private struct LogsSheet: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.message)
                     .font(.system(size: 12))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                     .textSelection(.enabled)
 
                 // Pretty-printed JSON payload if present
                 if let json = entry.jsonPayload {
                     Text(json)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.mono(10))
                         .foregroundColor(Theme.accent.opacity(0.7))
                         .padding(6)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -248,39 +248,16 @@ private struct LogsSheet: View {
         error = nil
         defer { isLoading = false }
 
-        guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else {
-            error = "No Sleepypod connected"
+        guard APIBackend.current == .sleepypodCore else {
+            error = "Device logs require sleepypod-core"
             return
         }
-
-        let unit = "\(selectedService).service"
-        var params = "\"unit\":\"\(unit)\",\"lines\":200"
-        if let priority = selectedPriority {
-            params += ",\"priority\":\"\(priority)\""
-        }
-        let input = "{\"json\":{\(params)}}"
-        let encoded = input.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? input
-        guard let url = URL(string: "http://\(ip):3000/api/trpc/system.getLogs?input=\(encoded)") else { return }
-
         do {
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 10
-            let (data, _) = try await URLSession.shared.data(for: request)
-
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let result = json["result"] as? [String: Any],
-               let dataObj = result["data"] as? [String: Any],
-               let jsonObj = dataObj["json"] as? [String: Any],
-               let lines = jsonObj["lines"] as? [String] {
-                logs = lines.enumerated().map { i, line in
-                    LogEntry.parse(line, index: i)
-                }
-            } else if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let errObj = json["error"] as? [String: Any],
-                      let errJson = errObj["json"] as? [String: Any],
-                      let msg = errJson["message"] as? String {
-                error = msg
-            }
+            let lines = try await SleepypodCoreClient().getLogs(
+                unit: "\(selectedService).service", priority: selectedPriority
+            )
+            guard !Task.isCancelled else { return }
+            logs = lines.enumerated().map { LogEntry.parse($0.element, index: $0.offset) }
         } catch {
             self.error = error.localizedDescription
         }

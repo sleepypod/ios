@@ -199,8 +199,8 @@ struct DeviceStatusFrame: Decodable, Sendable {
     let snooze: WsSnoozeStatus?
 
     struct WsSideStatus: Decodable, Sendable {
-        let currentTemperature: Double
-        let targetTemperature: Double
+        let currentTemperature: Double?
+        let targetTemperature: Double?
         let currentLevel: Int
         let targetLevel: Int
         let heatingDuration: Int
@@ -224,8 +224,8 @@ struct DeviceStatusFrame: Decodable, Sendable {
         DeviceStatus(
             left: SideStatus(
                 currentTemperatureLevel: leftSide.currentLevel,
-                currentTemperatureF: Int(leftSide.currentTemperature.rounded()),
-                targetTemperatureF: Int(leftSide.targetTemperature.rounded()),
+                currentTemperatureF: leftSide.currentTemperature.map { Int($0.rounded()) },
+                targetTemperatureF: leftSide.targetTemperature.map { Int($0.rounded()) },
                 secondsRemaining: leftSide.heatingDuration,
                 isOn: leftSide.targetLevel != 0,
                 isAlarmVibrating: leftSide.isAlarmVibrating,
@@ -233,8 +233,8 @@ struct DeviceStatusFrame: Decodable, Sendable {
             ),
             right: SideStatus(
                 currentTemperatureLevel: rightSide.currentLevel,
-                currentTemperatureF: Int(rightSide.currentTemperature.rounded()),
-                targetTemperatureF: Int(rightSide.targetTemperature.rounded()),
+                currentTemperatureF: rightSide.currentTemperature.map { Int($0.rounded()) },
+                targetTemperatureF: rightSide.targetTemperature.map { Int($0.rounded()) },
                 secondsRemaining: rightSide.heatingDuration,
                 isOn: rightSide.targetLevel != 0,
                 isAlarmVibrating: rightSide.isAlarmVibrating,

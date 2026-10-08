@@ -18,6 +18,7 @@ struct SmartCurveView: View {
         c.hour = 7; c.minute = 0
         return Calendar.current.date(from: c) ?? Date()
     }()
+    @State private var endAction: ScheduleEndAction = .turnOff
     @State private var intensity: CoolingIntensity = .balanced
     @State private var selectedProfile: SmartProfile = .balanced
     @State private var isSaving = false
@@ -64,6 +65,14 @@ struct SmartCurveView: View {
                 timePicker("Wake", icon: "sun.max.fill", color: Theme.amber, date: $wakeTime)
             }
 
+            if settingsManager.supportsScheduleEndAction && !isRunOnce {
+                Picker("After schedule ends", selection: $endAction) {
+                    ForEach(ScheduleEndAction.allCases, id: \.self) { action in
+                        Text(action.label).tag(action)
+                    }
+                }
+            }
+
             // Profile picker — centered
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
@@ -83,10 +92,10 @@ struct SmartCurveView: View {
                             VStack(spacing: 4) {
                                 Image(systemName: profile.icon)
                                     .font(.system(size: 16))
-                                    .foregroundColor(isSelected ? .white : Theme.textSecondary)
+                                    .foregroundColor(isSelected ? Theme.text1 : Theme.textSecondary)
                                 Text(profile.name)
                                     .font(.caption2.weight(.semibold))
-                                    .foregroundColor(isSelected ? .white : Theme.textSecondary)
+                                    .foregroundColor(isSelected ? Theme.text1 : Theme.textSecondary)
                                     .lineLimit(1)
                             }
                             .frame(width: 72, height: 52)
@@ -202,7 +211,7 @@ struct SmartCurveView: View {
                 } label: {
                     HStack(spacing: 6) {
                         if isSaving && !isRunOnce {
-                            ProgressView().tint(.white).scaleEffect(0.8)
+                            ProgressView().tint(Theme.text1).scaleEffect(0.8)
                         } else if showSuccess && !isRunOnce {
                             Image(systemName: "checkmark")
                         } else {
@@ -211,7 +220,7 @@ struct SmartCurveView: View {
                         Text(showSuccess && !isRunOnce ? "Applied!" : isSaving && !isRunOnce ? "Saving…" : "Apply to Schedule")
                     }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                 }
@@ -221,7 +230,7 @@ struct SmartCurveView: View {
                 if APIBackend.current == .sleepypodCore {
                     Divider()
                         .frame(height: 24)
-                        .background(Color.white.opacity(0.3))
+                        .background(Theme.text1.opacity(0.3))
 
                     Button {
                         Haptics.medium()
@@ -229,7 +238,7 @@ struct SmartCurveView: View {
                     } label: {
                         HStack(spacing: 6) {
                             if isSaving && isRunOnce {
-                                ProgressView().tint(.white).scaleEffect(0.8)
+                                ProgressView().tint(Theme.text1).scaleEffect(0.8)
                             } else if showSuccess && isRunOnce {
                                 Image(systemName: "checkmark")
                             } else {
@@ -238,7 +247,7 @@ struct SmartCurveView: View {
                             Text(showSuccess && isRunOnce ? "Started!" : isSaving && isRunOnce ? "Starting…" : "Use Now")
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                     }
@@ -282,7 +291,7 @@ struct SmartCurveView: View {
                         .foregroundColor(color)
                     Text(TemperatureConversion.displayTemp(Int(value.wrappedValue), format: settingsManager.temperatureFormat))
                         .font(.subheadline.weight(.semibold).monospaced())
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                 }
                 .frame(minWidth: 60)
 
@@ -372,11 +381,7 @@ struct SmartCurveView: View {
                     y: .value("Offset", point.tempOffset)
                 )
                 .foregroundStyle(
-                    LinearGradient(
-                        colors: [TempColor.colorForDelta(point.tempOffset).opacity(0.2), Color.clear],
-                        startPoint: point.tempOffset > 0 ? .top : .bottom,
-                        endPoint: point.tempOffset > 0 ? .bottom : .top
-                    )
+                    Theme.cool.opacity(0.12)
                 )
                 .interpolationMethod(.catmullRom)
             }
@@ -392,11 +397,11 @@ struct SmartCurveView: View {
                         let format = settingsManager.temperatureFormat
                         if format == .relative {
                             Text(v > 0 ? "+\(v)" : "\(v)")
-                                .font(.system(size: 9, design: .monospaced))
+                                .font(.mono(9))
                                 .foregroundStyle(Theme.textMuted)
                         } else {
                             Text(TemperatureConversion.displayTemp(80 + v, format: format))
-                                .font(.system(size: 9, design: .monospaced))
+                                .font(.mono(9))
                                 .foregroundStyle(Theme.textMuted)
                         }
                     }
@@ -408,7 +413,7 @@ struct SmartCurveView: View {
                 AxisValueLabel {
                     if let date = value.as(Date.self) {
                         Text(date, format: .dateTime.hour())
-                            .font(.system(size: 8, design: .monospaced))
+                            .font(.mono(8))
                             .foregroundStyle(Theme.textMuted)
                             .rotationEffect(.degrees(-45))
                             .fixedSize()
@@ -543,40 +548,7 @@ struct SmartCurveView: View {
     }
 
     private func queryScheduleSamples(store: HKHealthStore, start: Date, end: Date) async -> (bed: Date, wake: Date)? {
-        let sleepType = HKCategoryType(.sleepAnalysis)
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
-
-        return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: sleepType,
-                predicate: predicate,
-                limit: 50,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
-            ) { _, samples, _ in
-                guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-
-                // Look for inBed samples — the sleep schedule creates these
-                let inBed = samples.filter { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
-                // Also check asleep samples
-                let asleep = samples.filter {
-                    [HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
-                     HKCategoryValueSleepAnalysis.asleepCore.rawValue,
-                     HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
-                     HKCategoryValueSleepAnalysis.asleepREM.rawValue].contains($0.value)
-                }
-
-                if let session = inBed.first ?? asleep.first {
-                    continuation.resume(returning: (bed: session.startDate, wake: session.endDate))
-                } else {
-                    continuation.resume(returning: nil)
-                }
-            }
-
-            store.execute(query)
-        }
+        await HealthSyncService.queryScheduleTimes(store: store, start: start, end: end)
     }
 
     @MainActor
@@ -621,12 +593,17 @@ struct SmartCurveView: View {
         wake.hour = 7; wake.minute = 0
         wakeTime = calendar.date(from: wake) ?? wakeTime
 
+        endAction = settingsManager.settings?.defaultScheduleEndAction ?? .turnOff
         minTemp = 68
         maxTemp = 86
 
         guard let daily = scheduleManager.currentDailySchedule else { return }
         let fmt = DateFormatter()
         fmt.dateFormat = "HH:mm"
+
+        if !daily.temperatures.isEmpty || daily.power.endAction != nil {
+            endAction = daily.power.endAction ?? .turnOff
+        }
 
         // Load bedtime from power schedule
         if daily.power.enabled, let date = fmt.date(from: daily.power.on) {
@@ -759,6 +736,7 @@ struct SmartCurveView: View {
                 daily.temperatures = temps
                 daily.power.on = fmt.string(from: bedtime)
                 daily.power.off = fmt.string(from: wakeTime)
+                if settingsManager.supportsScheduleEndAction { daily.power.endAction = endAction }
                 daily.power.enabled = true
                 daily.alarm.time = fmt.string(from: wakeTime)
                 daily.alarm.enabled = true
@@ -870,16 +848,11 @@ struct SmartCurveView: View {
 
 extension Notification.Name {
     static let switchToTempTab = Notification.Name("switchToTempTab")
+    static let leaveDemoMode = Notification.Name("leaveDemoMode")
 }
 
 // MARK: - TempColor helper
 
 private extension TempColor {
-    static func colorForDelta(_ delta: Int) -> Color {
-        if delta <= -6 { return Color(hex: "2563eb") }
-        if delta <= -2 { return Theme.cooling }
-        if delta >= 4 { return Theme.warming }
-        if delta >= 1 { return Color(hex: "e0976a") }
-        return Theme.textSecondary
-    }
+    static func colorForDelta(_ delta: Int) -> Color { forOffset(delta) }
 }

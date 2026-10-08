@@ -1,6 +1,14 @@
-# Sleepypod iOS
+# sleepypod iOS
 
-Native iOS app for controlling and monitoring your [Sleepypod](https://github.com/sleepypod/core) — temperature control, sleep tracking, biometrics, and on-device analysis.
+[![CI](https://github.com/sleepypod/ios/actions/workflows/contract-test.yml/badge.svg?branch=dev)](https://github.com/sleepypod/ios/actions/workflows/contract-test.yml)
+[![codecov](https://codecov.io/gh/sleepypod/ios/branch/dev/graph/badge.svg)](https://codecov.io/gh/sleepypod/ios)
+[![Release](https://img.shields.io/github/v/release/sleepypod/ios?sort=semver)](https://github.com/sleepypod/ios/releases/latest)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-iOS%2026%2B-lightgrey.svg)](#requirements)
+[![Swift](https://img.shields.io/badge/swift-6.0-orange.svg)](#requirements)
+[![Discord](https://img.shields.io/discord/1450213183653679205?logo=discord&logoColor=white&label=discord)](https://discord.gg/UMmv5R6MXa)
+
+Native iOS app for controlling and monitoring your [sleepypod](https://github.com/sleepypod/core) — temperature control, sleep tracking, biometrics, and on-device analysis.
 
 <p align="center">
   <img src="docs/images/temperature-control.png" width="280" alt="Temperature control" />
@@ -92,7 +100,7 @@ Any backend conforms to `SleepypodProtocol` and the entire app works — no view
 - iOS 26.0+
 - Xcode 26+
 - Swift 6.0
-- A Sleepypod on the local network
+- A sleepypod on the local network
 
 ## Setup
 
@@ -218,4 +226,10 @@ Need help? Join the [Discord](https://discord.gg/UMmv5R6MXa) or [open an issue](
 
 ## License
 
-[AGPL-3.0](LICENSE)
+[AGPL-3.0](LICENSE). The app is free; build it yourself from this source or install it from the App Store.
+
+**App Store exception.** The copyright holder (Jonathan Ng) also distributes compiled builds of sleepypod through Apple's App Store and TestFlight under Apple's terms, which the Free Software Foundation considers incompatible with the AGPL. This is permitted because the copyright holder grants it; it does not change the licence of the source, and it does not extend to anyone else's App Store builds. Contributors agree to the same grant for their changes — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+The bundled IBM Plex Mono fonts are under the [SIL Open Font License 1.1](Sleepypod/Resources/Fonts/OFL.txt). There are no other third-party components.
+
+sleepypod is an independent project, not affiliated with, endorsed by, or sponsored by Eight Sleep, Inc. Eight Sleep and Pod are trademarks of Eight Sleep, Inc., named only to identify compatible hardware.

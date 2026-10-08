@@ -2,17 +2,20 @@ import Foundation
 
 final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
     private let session: URLSession
+    private let configuredBaseURL: URL?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
     private var baseURL: URL? {
+        if let configuredBaseURL { return configuredBaseURL }
         guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else {
             return nil
         }
         return URL(string: "http://\(ip):3000")
     }
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .shared, baseURL: URL? = nil) {
+        self.configuredBaseURL = baseURL
         self.session = session
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
@@ -96,8 +99,12 @@ final class FreeSleepClient: SleepypodProtocol, @unchecked Sendable {
         try await postEmpty(path: "/api/execute", body: ["command": "reboot"])
     }
 
+    func getInternetStatus() async throws -> Bool {
+        throw APIError.notSupported("Internet access controls require sleepypod-core")
+    }
+
     func setInternetAccess(blocked: Bool) async throws {
-        // Not supported on free-sleep
+        throw APIError.notSupported("Internet access controls require sleepypod-core")
     }
 
     func getCalibrationStatus(side: Side) async throws -> CalibrationStatus {

@@ -28,7 +28,7 @@ struct HealthMetricsGridView: View {
                                value: formatValue(summary.avgHeartRate), unit: "bpm", label: "Avg HR")
                     metricCard(icon: "waveform.path.ecg", iconColor: Theme.healthy,
                                value: formatValue(summary.avgHRV), unit: "ms", label: "HRV")
-                    metricCard(icon: "wind", iconColor: Theme.cyan,
+                    metricCard(icon: "wind", iconColor: Theme.cool,
                                value: formatValue(summary.avgBreathingRate), unit: "brpm", label: "Breath")
                     metricCard(icon: "arrow.down.heart.fill", iconColor: Theme.cooling,
                                value: formatValue(summary.minHeartRate), unit: "bpm", label: "Min HR")
@@ -60,7 +60,7 @@ struct HealthMetricsGridView: View {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
                     .font(.subheadline.weight(.bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                 Text(unit)
                     .font(.caption2)
                     .foregroundColor(Theme.textSecondary)

@@ -44,23 +44,6 @@ struct BedMatrixView: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(Theme.cardBorder, lineWidth: 1)
         )
-        .overlay {
-            GeometryReader { geo in
-                LinearGradient(
-                    colors: [.clear, Theme.accent.opacity(0.08), .clear],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .frame(height: 20)
-                .offset(y: scanOffset * geo.size.height)
-                .allowsHitTesting(false)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .onAppear {
-                withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                    scanOffset = 1
-                }
-            }
-        }
     }
 
     private func leftCells(zone: Int) -> some View {
@@ -127,7 +110,7 @@ struct BedMatrixView: View {
                     let f = tempC * 9.0 / 5.0 + 32
                     Text("\(Int(f))°")
                         .font(.system(size: 12, weight: .bold).monospaced())
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .frame(width: 36)
                 } else {
                     Text("--°")
@@ -138,12 +121,12 @@ struct BedMatrixView: View {
 
                 Text(String(format: "%05.1f", cap))
                     .font(.system(size: 7).monospaced())
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(Theme.text1.opacity(0.4))
                     .frame(width: 36)
 
                 Text(variance > 0.01 ? String(format: "±%04.2f", variance) : "±0.00")
                     .font(.system(size: 6).monospaced())
-                    .foregroundColor(actNorm > 0.1 ? Theme.accent : .white.opacity(0.2))
+                    .foregroundColor(actNorm > 0.1 ? Theme.accent : Theme.text1.opacity(0.2))
                     .frame(width: 36)
             }
         }

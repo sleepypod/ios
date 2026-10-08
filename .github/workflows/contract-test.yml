@@ -1,7 +1,12 @@
 name: CI
 
 on:
+  push:
+    branches: [dev]
   pull_request:
+  # Merge queue: the required checks must also report on the temporary
+  # merge-group branch or every queue entry fails.
+  merge_group:
   workflow_dispatch:
   schedule:
     # Run daily to catch core-side drift
@@ -9,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build:
@@ -28,6 +34,19 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
           -quiet
+
+      - name: Unit and transport regression tests
+        run: |
+          IOS_SIM_ID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          matches = [d["udid"] for runtime, group in sorted(devices.items(), reverse=True)
+                     if ".iOS-26-" in runtime for d in group if d["name"].startswith("iPhone")]
+          if not matches: sys.exit("No iOS 26 iPhone simulator installed")
+          print(matches[0])')
+          xcodebuild test -project Sleepypod.xcodeproj -scheme Sleepypod \
+            -destination "platform=iOS Simulator,id=$IOS_SIM_ID" \
+            -only-testing:SleepypodTests CODE_SIGNING_ALLOWED=NO -quiet
 
   lint:
     runs-on: macos-15
@@ -51,6 +70,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sleepypod/core
+          ref: dev
           path: core-checkout
 
       - name: Copy iOS model files into Swift package
@@ -96,10 +116,46 @@ jobs:
           cd core-checkout && bash ../contract-tests/scripts/seed-test-data.sh
 
       - name: Snapshot API responses
+        env:
+          ALLOW_UNAVAILABLE_DEVICE: '1'
         run: bash contract-tests/scripts/snapshot-responses.sh
 
       - name: Run Swift contract tests
-        run: cd contract-tests && swift test
+        run: cd contract-tests && swift test --enable-code-coverage --xunit-output test-results.xml
+
+      - name: Export coverage to lcov
+        if: always()
+        run: |
+          cd contract-tests
+          BIN_PATH=$(swift build --show-bin-path)
+          PROFDATA="$BIN_PATH/codecov/default.profdata"
+          XCTEST_BIN=$(find "$BIN_PATH" -name '*.xctest' -print -quit)
+          BINARY="$XCTEST_BIN/Contents/MacOS/$(basename "$XCTEST_BIN" .xctest)"
+          if [ -f "$PROFDATA" ] && [ -f "$BINARY" ]; then
+            xcrun llvm-cov export -format=lcov \
+              -instr-profile "$PROFDATA" \
+              "$BINARY" > lcov.info
+          else
+            echo "::warning::profdata or xctest binary missing — skipping lcov export"
+            : > lcov.info
+          fi
+
+      - name: Upload coverage reports to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          slug: sleepypod/ios
+          files: contract-tests/lcov.info
+          flags: contract-tests
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          use_oidc: true
+          slug: sleepypod/ios
+          files: contract-tests/test-results.xml
 
       - name: Stop server
         if: always()

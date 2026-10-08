@@ -10,17 +10,20 @@ import Foundation
 /// handled internally so managers never know which backend is active.
 final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     private let session: URLSession
+    private let configuredBaseURL: URL?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
     private var baseURL: URL? {
+        if let configuredBaseURL { return configuredBaseURL }
         guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else {
             return nil
         }
         return URL(string: "http://\(ip):3000")
     }
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .shared, baseURL: URL? = nil) {
+        self.configuredBaseURL = baseURL
         self.session = session
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
@@ -29,28 +32,26 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     // MARK: - Device Status
 
     func getDeviceStatus() async throws -> DeviceStatus {
+        // Keep the first usable status independent of diagnostics and shell-based Wi-Fi queries.
         let status: TRPCDeviceStatus = try await query("device.getStatus")
-        let settings: TRPCSettings = try await query("settings.getAll")
-        let health: TRPCSystemHealth = try await query("health.system")
-        let wifi = try? await query("system.wifiStatus") as TRPCWifiStatus
 
         return DeviceStatus(
             left: SideStatus(
-                currentTemperatureLevel: fahrenheitToLevel(status.leftSide.currentTemperature),
-                currentTemperatureF: Int(status.leftSide.currentTemperature),
-                targetTemperatureF: Int(status.leftSide.targetTemperature),
+                currentTemperatureLevel: status.leftSide.currentLevel,
+                currentTemperatureF: status.leftSide.currentTemperature.map { Int($0.rounded()) },
+                targetTemperatureF: status.leftSide.targetTemperature.map { Int($0.rounded()) },
                 secondsRemaining: status.leftSide.heatingDuration,
                 isOn: status.leftSide.targetLevel != 0,
-                isAlarmVibrating: false,
+                isAlarmVibrating: status.leftSide.isAlarmVibrating ?? false,
                 taps: mapGestures(status.gestures, side: .left)
             ),
             right: SideStatus(
-                currentTemperatureLevel: fahrenheitToLevel(status.rightSide.currentTemperature),
-                currentTemperatureF: Int(status.rightSide.currentTemperature),
-                targetTemperatureF: Int(status.rightSide.targetTemperature),
+                currentTemperatureLevel: status.rightSide.currentLevel,
+                currentTemperatureF: status.rightSide.currentTemperature.map { Int($0.rounded()) },
+                targetTemperatureF: status.rightSide.targetTemperature.map { Int($0.rounded()) },
                 secondsRemaining: status.rightSide.heatingDuration,
                 isOn: status.rightSide.targetLevel != 0,
-                isAlarmVibrating: false,
+                isAlarmVibrating: status.rightSide.isAlarmVibrating ?? false,
                 taps: mapGestures(status.gestures, side: .right)
             ),
             waterLevel: status.waterLevel,
@@ -59,40 +60,25 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             coverVersion: status.sensorLabel,
             hubVersion: status.podVersion,
             freeSleep: FreeSleepInfo(
-                version: health.status == "ok" ? "core" : "core (degraded)",
+                version: "core",
                 branch: "main"
             ),
-            wifiStrength: wifi?.signal ?? 0
+            wifiStrength: status.wifiStrength ?? 0
         )
     }
 
     func updateDeviceStatus(_ update: DeviceStatusUpdate) async throws {
-        // Map to individual tRPC mutations
-        if let left = update.left {
-            if let temp = left.targetTemperatureF {
+        for (side, value) in [("left", update.left), ("right", update.right)] {
+            guard let value else { continue }
+            if let powered = value.isOn {
+                var input: [String: Any] = ["side": side, "powered": powered]
+                if powered, let temperature = value.targetTemperatureF {
+                    input["temperature"] = temperature
+                }
+                let _: TRPCSuccess = try await mutate("device.setPower", input: input)
+            } else if let temperature = value.targetTemperatureF {
                 let _: TRPCSuccess = try await mutate("device.setTemperature", input: [
-                    "side": "left",
-                    "temperature": temp
-                ])
-            }
-            if let isOn = left.isOn {
-                let _: TRPCSuccess = try await mutate("device.setPower", input: [
-                    "side": "left",
-                    "powered": isOn
-                ])
-            }
-        }
-        if let right = update.right {
-            if let temp = right.targetTemperatureF {
-                let _: TRPCSuccess = try await mutate("device.setTemperature", input: [
-                    "side": "right",
-                    "temperature": temp
-                ])
-            }
-            if let isOn = right.isOn {
-                let _: TRPCSuccess = try await mutate("device.setPower", input: [
-                    "side": "right",
-                    "powered": isOn
+                    "side": side, "temperature": temperature
                 ])
             }
         }
@@ -111,6 +97,9 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let primePodEnabled = settings.primePodDaily.enabled
         let primePodTime = settings.primePodDaily.time.isEmpty ? "14:00" : settings.primePodDaily.time
         var deviceInput: [String: Any] = [:]
+        if let action = settings.defaultScheduleEndAction {
+            deviceInput["defaultScheduleEndAction"] = action.rawValue
+        }
         deviceInput["timezone"] = settings.timeZone
         deviceInput["temperatureUnit"] = settings.temperatureFormat == .fahrenheit ? "F" : "C"
         deviceInput["rebootDaily"] = settings.rebootDaily
@@ -146,56 +135,61 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func updateSchedules(_ schedules: Schedules, days: Set<DayOfWeek>? = nil) async throws -> Schedules {
         let daysToUpdate = days ?? Set(DayOfWeek.allCases)
+        let dayStrings = Set(daysToUpdate.map(\.rawValue))
+
+        var tempDeletes: [Int] = []
+        var powerDeletes: [Int] = []
+        var alarmDeletes: [Int] = []
+
+        var tempCreates: [[String: Any]] = []
+        var powerCreates: [[String: Any]] = []
+        var alarmCreates: [[String: Any]] = []
 
         for side in [Side.left, .right] {
             let existing: TRPCScheduleSet = try await query("schedules.getAll", input: ["side": side.rawValue])
             let sideSchedule = schedules.schedule(for: side)
 
+            // Collect IDs to delete for the days being updated
+            tempDeletes.append(contentsOf: existing.temperature.filter { dayStrings.contains($0.dayOfWeek) }.map(\.id))
+            powerDeletes.append(contentsOf: existing.power.filter { dayStrings.contains($0.dayOfWeek) }.map(\.id))
+            alarmDeletes.append(contentsOf: existing.alarm.filter { dayStrings.contains($0.dayOfWeek) }.map(\.id))
+
             for day in daysToUpdate {
                 let daily = sideSchedule[day]
-                let hasData = !daily.temperatures.isEmpty || daily.power.enabled || daily.alarm.enabled
-
-                // Delete existing entries for this day only
-                for sched in existing.temperature where sched.dayOfWeek == day.rawValue {
-                    let _: TRPCSuccess = try await mutate("schedules.deleteTemperatureSchedule", input: ["id": sched.id])
-                }
-                for sched in existing.power where sched.dayOfWeek == day.rawValue {
-                    let _: TRPCSuccess = try await mutate("schedules.deletePowerSchedule", input: ["id": sched.id])
-                }
-                for sched in existing.alarm where sched.dayOfWeek == day.rawValue {
-                    let _: TRPCSuccess = try await mutate("schedules.deleteAlarmSchedule", input: ["id": sched.id])
-                }
-
-                // Only recreate if this day has data
-                guard hasData else { continue }
 
                 for (time, tempF) in daily.temperatures {
-                    let _: TRPCTemperatureSchedule = try await mutate("schedules.createTemperatureSchedule", input: [
+                    tempCreates.append([
                         "side": side.rawValue,
                         "dayOfWeek": day.rawValue,
                         "time": time,
-                        "temperature": tempF
+                        "temperature": tempF,
+                        "enabled": true
                     ])
                 }
 
-                if daily.power.enabled {
-                    // Skip power schedule if it crosses midnight (core#205)
-                    let onMinutes = minutesFromTime(daily.power.on)
-                    let offMinutes = minutesFromTime(daily.power.off)
-                    if let on = onMinutes, let off = offMinutes, on < off {
-                        let _: TRPCPowerSchedule = try await mutate("schedules.createPowerSchedule", input: [
-                            "side": side.rawValue,
-                            "dayOfWeek": day.rawValue,
-                            "onTime": daily.power.on,
-                            "offTime": daily.power.off,
-                            "onTemperature": daily.power.onTemperature,
-                            "enabled": true
-                        ])
+                // A returned endAction identifies cores supporting the new power
+                // model. Preserve their disabled rows and overnight windows;
+                // older cores retain the legacy same-day-only write path.
+                let on = minutesFromTime(daily.power.on)
+                let off = minutesFromTime(daily.power.off)
+                let legacyWindow = daily.power.enabled && on != nil && off != nil && on! < off!
+                if daily.power.endAction != nil || legacyWindow {
+                    var powerInput: [String: Any] = [
+                        "side": side.rawValue,
+                        "dayOfWeek": day.rawValue,
+                        "onTime": daily.power.on,
+                        "offTime": daily.power.off,
+                        "onTemperature": daily.power.onTemperature,
+                        "enabled": daily.power.enabled
+                    ]
+                    if let action = daily.power.endAction {
+                        powerInput["endAction"] = action.rawValue
                     }
+                    powerCreates.append(powerInput)
                 }
 
                 if daily.alarm.enabled {
-                    let _: TRPCAlarmSchedule = try await mutate("schedules.createAlarmSchedule", input: [
+                    alarmCreates.append([
                         "side": side.rawValue,
                         "dayOfWeek": day.rawValue,
                         "time": daily.alarm.time,
@@ -209,21 +203,67 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             }
         }
 
+        // Server caps each delete/create array at max(100) per call. Chunk so no
+        // single array exceeds that limit; worst case for an "apply to all 7 days"
+        // with an AI curve is ~3 chunks, still far fewer round trips than the
+        // old N+1 per-schedule pattern.
+        let chunks = max(
+            1,
+            (tempDeletes.count + 99) / 100,
+            (powerDeletes.count + 99) / 100,
+            (alarmDeletes.count + 99) / 100,
+            (tempCreates.count + 99) / 100,
+            (powerCreates.count + 99) / 100,
+            (alarmCreates.count + 99) / 100
+        )
+
+        func slice<T>(_ arr: [T], chunk: Int) -> [T] {
+            let start = chunk * 100
+            guard start < arr.count else { return [] }
+            return Array(arr[start..<min(start + 100, arr.count)])
+        }
+
+        for i in 0..<chunks {
+            let batchInput: [String: Any] = [
+                "deletes": [
+                    "temperature": slice(tempDeletes, chunk: i),
+                    "power": slice(powerDeletes, chunk: i),
+                    "alarm": slice(alarmDeletes, chunk: i)
+                ],
+                "creates": [
+                    "temperature": slice(tempCreates, chunk: i),
+                    "power": slice(powerCreates, chunk: i),
+                    "alarm": slice(alarmCreates, chunk: i)
+                ],
+                "updates": [
+                    "temperature": [] as [Any],
+                    "power": [] as [Any],
+                    "alarm": [] as [Any]
+                ]
+            ]
+            let _: TRPCSuccess = try await mutate("schedules.batchUpdate", input: batchInput)
+        }
+
         return try await getSchedules()
     }
 
     // MARK: - Server Status
 
     func getServerStatus() async throws -> ServerStatus {
-        let health: TRPCSystemHealth = try await query("health.system")
-        let scheduler: TRPCSchedulerHealth = try await query("health.scheduler")
+        let results = try await batchQuery([
+            BatchCall(procedure: "health.system", input: nil),
+            BatchCall(procedure: "health.scheduler", input: nil),
+            BatchCall(procedure: "health.hardware", input: nil),
+            BatchCall(procedure: "health.dacMonitor", input: nil),
+            BatchCall(procedure: "system.wifiStatus", input: nil)
+        ])
+        let health = try decoder.decode(TRPCSystemHealth.self, from: results[0].get())
+        let scheduler = try decoder.decode(TRPCSchedulerHealth.self, from: results[1].get())
 
-        // Fetch additional health endpoints (non-critical — don't fail if unavailable)
-        let hardware = try? await query("health.hardware") as TRPCHardwareHealth
-        let dacMonitor = try? await query("health.dacMonitor") as TRPCDacMonitor
-        let bioProcessing = try? await query("biometrics.getProcessingStatus") as TRPCBiometricsProcessing
-        let internet = try? await query("system.internetStatus") as TRPCInternetStatus
-        let wifi = try? await query("system.wifiStatus") as TRPCWifiStatus
+        // Additional health endpoints are non-critical — tolerate per-call failures
+        let hardware = tryDecode(TRPCHardwareHealth.self, from: results[2])
+        let dacMonitor = tryDecode(TRPCDacMonitor.self, from: results[3])
+        let wifi = tryDecode(TRPCWifiStatus.self, from: results[4])
 
         func info(_ name: String, status: ServiceStatus, desc: String, msg: String = "OK") -> StatusInfo {
             StatusInfo(name: name, status: status, description: desc, message: msg)
@@ -239,14 +279,10 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let dacStatus: ServiceStatus = dacMonitor?.status == "running" ? .healthy : (dacMonitor != nil ? .failed : .healthy)
         let dacMsg = dacMonitor.map { "\($0.status)\($0.gesturesSupported == true ? " · gestures" : "")" } ?? "OK"
 
-        // Biometrics processing
-        let bioStatus: ServiceStatus = bioProcessing?.iosProcessingActive == true ? .started : .healthy
-        let bioMsg = bioProcessing.map { $0.iosProcessingActive ? "Processing active" : "Idle" } ?? "OK"
-
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", status: schedStatus, desc: "Wake-up alarm scheduler", msg: "\(scheduler.jobCounts.alarm) alarms"),
             database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "\(String(format: "%.1fms", health.database.latencyMs ?? 0)) latency"),
-            express: info("Sleepypod Core", status: .healthy, desc: "API and hardware bridge"),
+            express: info("sleepypod core", status: .healthy, desc: "API and hardware bridge"),
             podSocket: info("Hardware Socket", status: hwStatus, desc: "DAC communication", msg: hwLatency),
             podSocketMonitor: info("DAC Monitor", status: dacStatus, desc: "Hardware watchdog", msg: dacMsg),
             jobs: info("Job Scheduler", status: schedStatus, desc: "Background task runner", msg: "Jobs: \(scheduler.jobCounts.total)"),
@@ -256,7 +292,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             powerSchedule: info("Power Schedule", status: schedStatus, desc: "Auto on/off scheduler", msg: "\(scheduler.jobCounts.powerOn + scheduler.jobCounts.powerOff) power jobs"),
             primeSchedule: info("Prime Schedule", status: schedStatus, desc: "Daily prime scheduler", msg: "\(scheduler.jobCounts.prime) prime jobs"),
             rebootSchedule: info("Reboot Schedule", status: schedStatus, desc: "Daily reboot scheduler", msg: "\(scheduler.jobCounts.reboot) reboot jobs"),
-            systemDate: info("Biometrics", status: bioStatus, desc: "Sleep data processing", msg: bioMsg),
+            systemDate: info("Biometrics", status: .notStarted, desc: "Sleep data processing", msg: "Status unavailable"),
             temperatureSchedule: info("Temperature Schedule", status: schedStatus, desc: "Temperature curve scheduler", msg: "\(scheduler.jobCounts.temperature) temp jobs")
         )
     }
@@ -283,8 +319,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func updateServices(_ services: Services) async throws -> Services {
-        // No-op for sleepypod-core — biometrics are managed via systemd
-        return services
+        throw APIError.notSupported("Service management is not exposed by sleepypod-core")
     }
 
     // MARK: - Log Sources
@@ -301,7 +336,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func getSleepRecords(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [SleepRecord] {
         var input: [String: Any] = [:]
-        input["side"] = (side ?? .left).rawValue
+        if let side { input["side"] = side.rawValue }
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
@@ -309,12 +344,19 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func getVitals(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [VitalsRecord] {
-        var input: [String: Any] = [:]
-        input["side"] = (side ?? .left).rawValue
+        // The core's default of 288 assumes 5-minute rows; vitals are now per-minute, so ask for its max.
+        var input: [String: Any] = ["limit": 20000]
+        if let side { input["side"] = side.rawValue }
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
-        return try await query("biometrics.getVitals", input: input, dateKeys: dateKeys)
+        do {
+            return try await query("biometrics.getVitals", input: input, dateKeys: dateKeys)
+        } catch APIError.serverError {
+            // Cores before the 20000 cap reject it in validation; 1000 was their max.
+            input["limit"] = 1000
+            return try await query("biometrics.getVitals", input: input, dateKeys: dateKeys)
+        }
     }
 
     func getVitalsSummary(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> VitalsSummary {
@@ -330,8 +372,8 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func getMovement(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [MovementRecord] {
-        var input: [String: Any] = [:]
-        input["side"] = (side ?? .left).rawValue
+        var input: [String: Any] = ["limit": 1000]
+        if let side { input["side"] = side.rawValue }
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
@@ -412,7 +454,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         if enteredBedAt != nil { dateKeys.append("enteredBedAt") }
         if leftBedAt != nil { dateKeys.append("leftBedAt") }
         // Use mutation — the endpoint is biometrics.updateSleepRecord
-        let _: SleepRecord = try await mutate("biometrics.updateSleepRecord", input: input)
+        let _: SleepRecord = try await mutate("biometrics.updateSleepRecord", input: input, dateKeys: dateKeys)
     }
 
     func deleteSleepRecord(id: Int) async throws {
@@ -440,6 +482,14 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let _: TRPCSuccess = try await mutate("runOnce.cancel", input: ["side": side.rawValue])
     }
 
+    func getNightPhases(side: Side) async throws -> NightPhases? {
+        try await query("schedules.getNightPhases", input: ["side": side.rawValue])
+    }
+
+    func setNightPhase(side: Side, phase: NightPhaseKey, temperatureF: Int) async throws -> NightPhases? {
+        try await mutate("schedules.setNightPhase", input: ["side": side.rawValue, "phase": phase.rawValue, "temperature": temperatureF])
+    }
+
     func getDiskUsage() async throws -> DiskUsage {
         try await query("system.getDiskUsage")
     }
@@ -448,15 +498,32 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         try await query("biometrics.getFileCount")
     }
 
+    func getInternetStatus() async throws -> Bool {
+        let status: TRPCInternetStatus = try await query("system.internetStatus")
+        return status.blocked
+    }
+
+    func getLogs(unit: String, lines: Int = 200, priority: String? = nil) async throws -> [String] {
+        struct LogPage: Decodable {
+            let lines: [String]
+            let nextCursor: String?
+        }
+        var input: [String: Any] = ["unit": unit, "lines": lines]
+        if let priority { input["priority"] = priority }
+        let page: LogPage = try await query("system.getLogs", input: input)
+        return page.lines
+    }
+
     func setInternetAccess(blocked: Bool) async throws {
         let _: TRPCInternetStatus = try await mutate("system.setInternetAccess", input: ["blocked": blocked])
     }
 
-    func reboot() async throws {
-        // sleepypod-core uses system.triggerUpdate for restarts
-        // For a full reboot, there's no direct endpoint — this is a best-effort
+    func startPriming() async throws {
         let _: TRPCSuccess = try await mutate("device.startPriming", input: [:] as [String: String])
-        // TODO: Add a reboot procedure to the system router
+    }
+
+    func reboot() async throws {
+        throw APIError.notSupported("Reboot is not exposed by sleepypod-core")
     }
 
     // MARK: - tRPC Transport
@@ -487,35 +554,106 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         } else {
             wrapped = "{\"json\":\(inputJSON)}"
         }
-        let encoded = wrapped.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? wrapped
+        let encoded = wrapped.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&+=?#"))) ?? wrapped
         urlString += "?input=\(encoded)"
 
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.timeoutInterval = 30 // Hardware can be slow
+        request.timeoutInterval = 8
 
         let (data, response) = try await performRequest(request)
-        try validateResponse(response)
+        try validateResponse(response, data: data, procedure: procedure)
         return try decodeTRPCResult(data)
     }
 
     /// tRPC mutation — POST /api/trpc/{procedure} with body {"json": input}
-    private func mutate<T: Decodable>(_ procedure: String, input: [String: Any]) async throws -> T {
+    private func mutate<T: Decodable>(_ procedure: String, input: [String: Any], dateKeys: [String] = []) async throws -> T {
         guard let base = baseURL else { throw APIError.noBaseURL }
         guard let url = URL(string: "\(base)/api/trpc/\(procedure)") else { throw APIError.invalidURL }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
+        request.timeoutInterval = 15
 
-        let wrapped: [String: Any] = ["json": input]
+        var wrapped: [String: Any] = ["json": input]
+        if !dateKeys.isEmpty {
+            wrapped["meta"] = ["values": Dictionary(uniqueKeysWithValues: dateKeys.map { ($0, ["Date"]) })]
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: wrapped)
 
         let (data, response) = try await performRequest(request)
-        try validateResponse(response)
+        try validateResponse(response, data: data, procedure: procedure)
         return try decodeTRPCResult(data)
+    }
+
+    /// tRPC batch query — coalesces multiple queries into one HTTP request.
+    /// Mirrors @trpc/client's httpBatchLink format:
+    ///   GET /api/trpc/a,b,c?batch=1&input={"0":{"json":...},"1":{"json":...}}
+    /// Response is an array; each slot is either result-wrapped or error-wrapped.
+    /// Per-call results come back as re-serialized json payloads so callers decode
+    /// heterogeneous types into their own models. Per-call errors surface as .failure.
+    private func batchQuery(_ calls: [BatchCall]) async throws -> [Result<Data, Error>] {
+        guard let base = baseURL else { throw APIError.noBaseURL }
+        guard !calls.isEmpty else { return [] }
+
+        let procedures = calls.map(\.procedure).joined(separator: ",")
+
+        var inputMap: [String: Any] = [:]
+        for (i, call) in calls.enumerated() {
+            inputMap[String(i)] = ["json": call.input ?? [:]]
+        }
+        let inputData = try JSONSerialization.data(withJSONObject: inputMap)
+        let inputJSON = String(data: inputData, encoding: .utf8) ?? "{}"
+        let encoded = inputJSON.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&+=?#"))) ?? inputJSON
+
+        let urlString = "\(base)/api/trpc/\(procedures)?batch=1&input=\(encoded)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 8
+
+        let (data, response) = try await performRequest(request)
+        try validateResponse(response)
+
+        let parsed = try JSONSerialization.jsonObject(with: data)
+        guard let envelope = parsed as? [Any], envelope.count == calls.count else {
+            throw APIError.decodingFailed(NSError(
+                domain: "tRPC.batch", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Expected array of \(calls.count) results"]
+            ))
+        }
+
+        return envelope.map { item in
+            guard let obj = item as? [String: Any] else {
+                return .failure(APIError.decodingFailed(NSError(domain: "tRPC.batch", code: 1)))
+            }
+            if let err = obj["error"] as? [String: Any] {
+                let msg = (err["json"] as? [String: Any])?["message"] as? String
+                    ?? err["message"] as? String
+                    ?? "tRPC error"
+                return .failure(APIError.serverError(message: msg))
+            }
+            guard let result = obj["result"] as? [String: Any],
+                  let dataObj = result["data"] as? [String: Any],
+                  let json = dataObj["json"] else {
+                return .failure(APIError.decodingFailed(NSError(domain: "tRPC.batch", code: 2)))
+            }
+            do {
+                let bytes = try JSONSerialization.data(withJSONObject: json, options: [.fragmentsAllowed])
+                return .success(bytes)
+            } catch {
+                return .failure(error)
+            }
+        }
+    }
+
+    /// Decode a batch slot optionally — used for non-critical calls that may fail.
+    private func tryDecode<T: Decodable>(_ type: T.Type, from result: Result<Data, Error>) -> T? {
+        guard let data = try? result.get() else { return nil }
+        return try? decoder.decode(type, from: data)
     }
 
     /// Decode tRPC response envelope: {"result": {"data": {"json": T}}}
@@ -532,18 +670,41 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await session.data(for: request)
+        } catch let error as URLError where request.httpMethod == "GET" && Self.isTransient(error) {
+            // A pooled keep-alive connection the pod already closed fails once; queries are safe to resend.
+            Log.network.info("Retrying \(request.url?.path ?? "?") after \(error.code.rawValue)")
+            do {
+                return try await session.data(for: request)
+            } catch {
+                Log.network.error("Request failed: \(request.url?.absoluteString ?? "?") — \(error)")
+                throw APIError.networkError(error)
+            }
         } catch {
             Log.network.error("Request failed: \(request.url?.absoluteString ?? "?") — \(error)")
             throw APIError.networkError(error)
         }
     }
 
-    private func validateResponse(_ response: URLResponse) throws {
+    static func isTransient(_ error: URLError) -> Bool {
+        [.networkConnectionLost, .timedOut, .notConnectedToInternet].contains(error.code)
+    }
+
+    private func validateResponse(_ response: URLResponse, data: Data? = nil, procedure: String? = nil) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse(statusCode: 0)
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            Log.network.error("HTTP \(httpResponse.statusCode): \(httpResponse.url?.absoluteString ?? "?")")
+            let tag = procedure ?? httpResponse.url?.absoluteString ?? "?"
+            // Surface the tRPC error message so validation failures aren't silent
+            let body = data.flatMap { String(data: $0, encoding: .utf8) }?.prefix(500) ?? ""
+            Log.network.error("HTTP \(httpResponse.statusCode) \(tag) — \(String(body))")
+            if let data,
+               let envelope = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let error = envelope["error"] as? [String: Any],
+               let payload = error["json"] as? [String: Any],
+               let message = payload["message"] as? String {
+                throw APIError.serverError(message: message)
+            }
             throw APIError.invalidResponse(statusCode: httpResponse.statusCode)
         }
     }
@@ -610,6 +771,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         }
 
         return PodSettings(
+            defaultScheduleEndAction: device?.defaultScheduleEndAction,
             id: "1",
             timeZone: device?.timezone ?? TimeZone.current.identifier,
             left: SideSettings(
@@ -652,9 +814,9 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         }
 
         // Fill power schedules (take last one per day)
-        for p in scheds.power where p.enabled {
+        for p in scheds.power {
             byDay[p.dayOfWeek, default: emptyDaily].power = PowerSchedule(
-                on: p.onTime, off: p.offTime, onTemperature: Int(p.onTemperature), enabled: true
+                on: p.onTime, off: p.offTime, endAction: p.endAction, onTemperature: Int(p.onTemperature), enabled: p.enabled
             )
         }
 
@@ -684,6 +846,11 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
 // MARK: - tRPC Envelope Types
 
+private struct BatchCall {
+    let procedure: String
+    let input: [String: Any]?
+}
+
 private struct TRPCEnvelope<R: Decodable>: Decodable {
     let result: TRPCResultData<R>
 }
@@ -703,11 +870,12 @@ private struct TRPCSuccess: Decodable {
 }
 
 private struct TRPCSideStatus: Decodable {
-    let currentTemperature: Double
-    let targetTemperature: Double
+    let currentTemperature: Double?
+    let targetTemperature: Double?
     let currentLevel: Int
     let targetLevel: Int
     let heatingDuration: Int
+    let isAlarmVibrating: Bool?
 }
 
 private struct TRPCGesturePair: Decodable {
@@ -730,9 +898,11 @@ private struct TRPCDeviceStatus: Decodable {
     let podVersion: String
     let sensorLabel: String
     let gestures: TRPCGestures?
+    let wifiStrength: Int?
 }
 
 private struct TRPCDeviceSettings: Decodable {
+    let defaultScheduleEndAction: ScheduleEndAction?
     let timezone: String?
     let temperatureUnit: String?
     let rebootDaily: Bool?
@@ -817,6 +987,7 @@ private struct TRPCTemperatureSchedule: Decodable {
 }
 
 private struct TRPCPowerSchedule: Decodable {
+    let endAction: ScheduleEndAction?
     let id: Int
     let side: String
     let dayOfWeek: String
@@ -901,11 +1072,6 @@ private struct TRPCDacMonitor: Decodable {
     let status: String
     let podVersion: String?
     let gesturesSupported: Bool?
-}
-
-private struct TRPCBiometricsProcessing: Decodable {
-    let iosProcessingActive: Bool
-    let connectedSince: String?
 }
 
 private struct TRPCInternetStatus: Decodable {

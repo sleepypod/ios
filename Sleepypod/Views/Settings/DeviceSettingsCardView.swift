@@ -55,6 +55,22 @@ struct DeviceSettingsCardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
+            if settingsManager.supportsScheduleEndAction {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("After schedule ends", selection: Binding(
+                        get: { settingsManager.settings?.defaultScheduleEndAction ?? .turnOff },
+                        set: { action in Task { await settingsManager.updateDefaultScheduleEndAction(action) } }
+                    )) {
+                        ForEach(ScheduleEndAction.allCases, id: \.self) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+                    Text("Default for new curves. Existing schedules keep their own setting.")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+            }
+
             // Auto reboot
             HStack {
                 VStack(alignment: .leading, spacing: 2) {

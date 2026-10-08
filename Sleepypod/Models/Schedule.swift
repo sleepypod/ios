@@ -14,9 +14,20 @@ enum VibrationPattern: String, Codable, Sendable {
     case rise
 }
 
+enum ScheduleEndAction: String, Codable, Sendable, CaseIterable {
+    case turnOff = "turn_off"
+    case maintain
+
+    var label: String {
+        self == .turnOff ? "Turn off" : "Maintain final temperature"
+    }
+}
+
 struct PowerSchedule: Codable, Sendable {
     var on: String   // "HH:mm"
-    var off: String  // "HH:mm"
+    var off: String  // "HH:mm" — schedule boundary, even when maintaining
+    // Optional so legacy cores and Free Sleep payloads continue to decode.
+    var endAction: ScheduleEndAction? = nil
     var onTemperature: Int
     var enabled: Bool
 }

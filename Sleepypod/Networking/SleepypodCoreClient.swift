@@ -350,7 +350,13 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
-        return try await query("biometrics.getVitals", input: input, dateKeys: dateKeys)
+        do {
+            return try await query("biometrics.getVitals", input: input, dateKeys: dateKeys)
+        } catch APIError.serverError {
+            // Cores before the 20000 cap reject it in validation; 1000 was their max.
+            input["limit"] = 1000
+            return try await query("biometrics.getVitals", input: input, dateKeys: dateKeys)
+        }
     }
 
     func getVitalsSummary(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> VitalsSummary {

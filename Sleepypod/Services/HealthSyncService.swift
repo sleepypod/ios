@@ -10,7 +10,7 @@ protocol HealthSyncStore {
     func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus
     func authorize(write: Set<HKSampleType>, read: Set<HKObjectType>) async throws
     func save(_ samples: [HKSample]) async throws
-    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date) async throws
+    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample]
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample]
 }
@@ -25,12 +25,17 @@ final class SystemHealthSyncStore: HealthSyncStore {
     }
     func save(_ samples: [HKSample]) async throws { try await store.save(samples) }
     // HealthKit only lets an app delete its own samples; the device match keeps other pods and sides out.
-    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date) async throws {
-        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws {
+        var predicates = [
             HKQuery.predicateForObjects(from: .default()),
             HKQuery.predicateForObjects(withDeviceProperty: HKDevicePropertyKeyLocalIdentifier, allowedValues: [deviceID]),
             HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
-        ])
+        ]
+        if let version {
+            predicates.append(HKQuery.predicateForObjects(withMetadataKey: HKMetadataKeySyncVersion,
+                                                          operatorType: .lessThan, value: version))
+        }
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
         for type in types {
             _ = try await store.deleteObjects(of: type, predicate: predicate)
         }
@@ -209,8 +214,12 @@ final class HealthSyncService {
                         continue
                     }
                     let deviceID = Self.deviceID(podID: podID, record: record)
+                    // Cover the interval an earlier sync wrote too, in case the pod has since moved the record's bounds.
+                    let previous = receipts[key]
+                    let clearStart = min(record.enteredBedDate, previous?.enteredAt ?? record.enteredBedDate)
+                    let clearEnd = max(record.leftBedDate, previous?.closedAt ?? record.leftBedDate)
                     guard syncable else {
-                        try await store.delete(types: writeTypes, deviceID: deviceID, start: record.enteredBedDate, end: record.leftBedDate)
+                        try await store.delete(types: writeTypes, deviceID: deviceID, start: clearStart, end: clearEnd, olderThan: nil)
                         receipts[key] = nil
                         failures[key] = nil
                         persistence.set(try JSONEncoder().encode(receipts), forKey: "healthSyncReceipts")
@@ -228,11 +237,13 @@ final class HealthSyncService {
                         failures[key] = "Waiting for enough vitals to analyze this night."
                         continue
                     }
-                    let samples = Self.samples(record: record, epochs: analyzer.stages, podID: podID, preferences: requestedPreferences, vitals: filtered)
+                    let version = Int(Date().timeIntervalSince1970 * 1000)
+                    let samples = Self.samples(record: record, epochs: analyzer.stages, podID: podID, preferences: requestedPreferences,
+                                               vitals: filtered, version: version)
                     guard !samples.isEmpty else { continue }
-                    // Clear the night first so epochs or records a newer analysis drops don't linger in Health.
-                    try await store.delete(types: writeTypes, deviceID: deviceID, start: record.enteredBedDate, end: record.leftBedDate)
                     try await store.save(samples)
+                    // Save first, then drop whatever this write didn't replace, so a failed save never empties the night.
+                    try await store.delete(types: writeTypes, deviceID: deviceID, start: clearStart, end: clearEnd, olderThan: version)
                     Log.health.info("Saved \(samples.count, privacy: .private) samples to Health")
                     receipts[key] = Receipt(date: Date(), signature: Self.receiptSignature(requestedPreferences), closedAt: record.leftBedDate, enteredAt: record.enteredBedDate)
                     failures[key] = nil
@@ -261,13 +272,13 @@ final class HealthSyncService {
 
     // Sync identifiers, unlike ExternalUUID alone, make retries idempotent in HealthKit.
     // Incrementing the version permits a corrected record to replace earlier samples.
-    static func samples(record: SleepRecord, epochs: [SleepAnalyzer.SleepEpoch], podID: String, preferences: Preferences, vitals: [VitalsRecord]? = nil) -> [HKSample] {
+    static func samples(record: SleepRecord, epochs: [SleepAnalyzer.SleepEpoch], podID: String, preferences: Preferences, vitals: [VitalsRecord]? = nil,
+                        version: Int = Int(Date().timeIntervalSince1970 * 1000)) -> [HKSample] {
         guard record.enteredBedDate.timeIntervalSince1970 > 0, record.leftBedDate > record.enteredBedDate else { return [] }
         let key = recordKey(podID: podID, record: record)
         let device = HKDevice(name: "sleepypod", manufacturer: nil, model: "Pod",
                               hardwareVersion: nil, firmwareVersion: nil, softwareVersion: nil,
                               localIdentifier: deviceID(podID: podID, record: record), udiDeviceIdentifier: nil)
-        let version = Int(Date().timeIntervalSince1970 * 1000)
         func metadata(_ epoch: String, type: String) -> [String: Any] {
             [HKMetadataKeyExternalUUID: "\(key)-\(epoch)", HKMetadataKeyWasUserEntered: false,
              HKMetadataKeySyncIdentifier: "\(key)-\(epoch)-\(type)", HKMetadataKeySyncVersion: version,

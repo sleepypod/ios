@@ -93,7 +93,7 @@ private final class FakeHealthStore: HealthSyncStore {
     var allowed = true
     var failSave = false
     var batches: [[HKSample]] = []
-    var deletes: [(deviceID: String, start: Date, end: Date)] = []
+    var deletes: [(deviceID: String, start: Date, end: Date, olderThan: Int?)] = []
     var events: [String] = []
     var requestedWrites: Set<HKSampleType> = []
     var requestedReads: Set<HKObjectType> = []
@@ -104,8 +104,8 @@ private final class FakeHealthStore: HealthSyncStore {
         batches.append(samples)
         events.append("save")
     }
-    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date) async throws {
-        deletes.append((deviceID, start, end))
+    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws {
+        deletes.append((deviceID, start, end, version))
         events.append("delete")
     }
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] { [] }
@@ -168,16 +168,18 @@ struct HealthSyncLifecycleTests {
         #expect(!HealthSyncService.isSyncable(try record(16 * 3600)))
     }
 
-    @Test func eachNightIsClearedBeforeItIsWritten() async throws {
+    @Test func eachNightDropsOnlyOlderSamplesAfterItIsWritten() async throws {
         let store = FakeHealthStore()
         let service = HealthSyncService(store: store, defaults: UserDefaults(suiteName: "health-tests-\(UUID().uuidString)")!)
         service.enabled = true
         await service.syncRecent(api: MockClient(), podID: "test-pod", side: .left, demo: false)
         #expect(!store.batches.isEmpty)
-        #expect(store.events == Array(repeating: ["delete", "save"], count: store.batches.count).flatMap { $0 })
+        #expect(store.events == Array(repeating: ["save", "delete"], count: store.batches.count).flatMap { $0 })
         for (delete, batch) in zip(store.deletes, store.batches) {
             #expect(delete.deviceID == "test-pod-left")
             #expect(batch.allSatisfy { $0.startDate >= delete.start && $0.startDate < delete.end })
+            #expect(delete.olderThan != nil)
+            #expect(batch.allSatisfy { $0.metadata?[HKMetadataKeySyncVersion] as? Int == delete.olderThan })
         }
     }
 
@@ -214,6 +216,7 @@ struct HealthSyncLifecycleTests {
         #expect(store.batches.isEmpty)
         #expect(store.deletes.count == 1)
         #expect(store.deletes.first?.start == written.enteredBedDate && store.deletes.first?.end == written.leftBedDate)
+        #expect(store.deletes.first?.olderThan == nil)
         #expect(service.receipts.isEmpty)
         #expect(HealthSyncService(store: store, defaults: defaults).receipts.isEmpty)
     }

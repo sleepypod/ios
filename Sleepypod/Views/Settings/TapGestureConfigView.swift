@@ -10,7 +10,7 @@ struct TapGestureConfigView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Tap Gestures")
                 .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
 
             Text("Tap on the pod cover to control temperature or alarm")
                 .font(.caption)
@@ -55,7 +55,7 @@ struct TapGestureConfigView: View {
 
             Text(configDescription(config))
                 .font(.caption)
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
         }
     }
 

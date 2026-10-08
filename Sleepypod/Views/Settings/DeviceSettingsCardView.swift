@@ -17,7 +17,7 @@ struct DeviceSettingsCardView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Device Settings")
                 .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
 
             // Timezone
             VStack(alignment: .leading, spacing: 6) {
@@ -30,7 +30,7 @@ struct DeviceSettingsCardView: View {
                         .foregroundColor(Theme.textTertiary)
                     Text(settingsManager.timeZone)
                         .font(.subheadline)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.caption)
@@ -76,7 +76,7 @@ struct DeviceSettingsCardView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Auto Reboot Daily")
                         .font(.subheadline)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                     Text("Automatically reboot pod each day")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
@@ -95,7 +95,7 @@ struct DeviceSettingsCardView: View {
                 DatePicker("Reboot Time", selection: $rebootTime, displayedComponents: .hourAndMinute)
                     .datePickerStyle(.compact)
                     .font(.subheadline)
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                     .tint(Theme.accent)
                     .onChange(of: rebootTime) { _, newValue in
                         let formatter = DateFormatter()
@@ -110,7 +110,7 @@ struct DeviceSettingsCardView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Auto Prime Daily")
                         .font(.subheadline)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                     Text("Runs 1 hour after daily reboot")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
@@ -132,7 +132,7 @@ struct DeviceSettingsCardView: View {
                         .foregroundColor(Theme.textSecondary)
                     Spacer()
                     Text("\(Int(ledValue))%")
-                        .font(.caption.monospaced())
+                        .font(.mono(12))
                         .foregroundColor(Theme.textSecondary)
                 }
 
@@ -183,7 +183,7 @@ struct DeviceSettingsCardView: View {
         } label: {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundColor(isSelected ? .white : Theme.textSecondary)
+                .foregroundColor(isSelected ? Theme.text1 : Theme.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(isSelected ? Theme.cooling : Color(hex: "2a2a3a"))
@@ -201,7 +201,7 @@ struct SidesCardView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Sides")
                 .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
 
             if let settings = settingsManager.settings {
                 // Left side
@@ -258,7 +258,7 @@ struct SidesCardView: View {
             HStack {
                 Text("Away Mode")
                     .font(.subheadline)
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                 Spacer()
                 Toggle("", isOn: Binding(
                     get: { awayMode },

@@ -17,13 +17,13 @@ struct CalibrationSheet: View {
                 // Icon
                 Image(systemName: "tuningfork")
                     .font(.system(size: 44))
-                    .foregroundColor(Theme.cyan)
+                    .foregroundColor(Theme.cool)
                     .padding(.top, 20)
 
                 // Title
                 Text("Sensor Calibration")
                     .font(.title3.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
 
                 // Explanation
                 VStack(alignment: .leading, spacing: 12) {
@@ -53,7 +53,7 @@ struct CalibrationSheet: View {
                             LazyVStack(alignment: .leading, spacing: 2) {
                                 ForEach(Array(terminalLines.enumerated()), id: \.offset) { i, line in
                                     Text(line)
-                                        .font(.system(size: 10, design: .monospaced))
+                                        .font(.mono(10))
                                         .foregroundColor(terminalColor(line))
                                         .id(i)
                                 }
@@ -99,10 +99,10 @@ struct CalibrationSheet: View {
                         } label: {
                             Text("Calibrate Both Sides")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(Theme.text1)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(Theme.cyan)
+                                .background(Theme.cool)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                         .buttonStyle(.plain)
@@ -110,7 +110,7 @@ struct CalibrationSheet: View {
                     .padding(.horizontal, 24)
                 } else if isCalibrating {
                     HStack(spacing: 8) {
-                        ProgressView().tint(Theme.cyan).scaleEffect(0.8)
+                        ProgressView().tint(Theme.cool).scaleEffect(0.8)
                         Text("Calibrating…")
                             .font(.caption)
                             .foregroundColor(Theme.textMuted)
@@ -144,7 +144,7 @@ struct CalibrationSheet: View {
 
             Text("Calibration Complete")
                 .font(.title3.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background.opacity(0.95))
@@ -161,7 +161,7 @@ struct CalibrationSheet: View {
             } else {
                 Image(systemName: icon)
                     .font(.system(size: 13))
-                    .foregroundColor(Theme.cyan)
+                    .foregroundColor(Theme.cool)
                     .frame(width: 20)
             }
             Text(text)
@@ -183,10 +183,10 @@ struct CalibrationSheet: View {
                 Text("\(side.displayName) Side")
                     .font(.caption.weight(.semibold))
             }
-            .foregroundColor(Theme.cyan)
+            .foregroundColor(Theme.cool)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(Theme.cyan.opacity(0.1))
+            .background(Theme.cool.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)

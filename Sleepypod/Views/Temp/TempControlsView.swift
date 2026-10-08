@@ -1,67 +1,47 @@
 import SwiftUI
 
 struct TempControlsView: View {
-    @Environment(DeviceManager.self) private var deviceManager
-
-    private var isOn: Bool {
-        deviceManager.isOn
-    }
-
-    private var offset: Int {
-        deviceManager.currentOffset
-    }
+    @Environment(DeviceManager.self) private var device
+    /// The stepper has its own − / +, so it only needs power here.
+    var powerOnly = false
+    private var target: Int { device.currentSideStatus?.targetTemperatureF ?? 80 }
 
     var body: some View {
-        HStack(spacing: 24) {
-            // Minus button — glass
-            Button {
-                Haptics.light()
-                deviceManager.adjustOffset(by: -1)
-            } label: {
-                Image(systemName: "minus")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 56, height: 56)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!isOn || offset <= TemperatureConversion.minOffset)
-            .opacity(!isOn || offset <= TemperatureConversion.minOffset ? 0.4 : 1)
-
-            // Center OFF/power toggle — glass
-            Button {
-                Haptics.medium()
-                deviceManager.togglePower()
-            } label: {
-                Image(systemName: "power")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(isOn ? Theme.healthy : .white.opacity(0.7))
-                    .frame(width: 56, height: 56)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(isOn ? Theme.healthy.opacity(0.4) : .white.opacity(0.1), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-
-            // Plus button — glass
-            Button {
-                Haptics.light()
-                deviceManager.adjustOffset(by: 1)
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 56, height: 56)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!isOn || offset >= TemperatureConversion.maxOffset)
-            .opacity(!isOn || offset >= TemperatureConversion.maxOffset ? 0.4 : 1)
+        GlassEffectContainer(spacing: 28) {
+            HStack(spacing: 28) {
+                if !powerOnly { step("minus", delta: -1) }
+                Button {
+                    Haptics.medium()
+                    device.togglePower()
+                } label: {
+                    if device.isOn {
+                        Image(systemName: "power").font(.system(size: 22, weight: .medium))
+                            .foregroundStyle(Theme.background)
+                            .frame(width: 64, height: 64)
+                            .background(Theme.text1, in: Circle())
+                    } else {
+                        Image(systemName: "power").font(.system(size: 22, weight: .medium))
+                            .foregroundStyle(Theme.text1)
+                            .frame(width: 64, height: 64)
+                            .chromeSurface(Circle())
+                    }
+                }
+                .accessibilityLabel(device.isOn ? "Turn off" : "Turn on")
+                if !powerOnly { step("plus", delta: 1) }
+            }.buttonStyle(.plain)
         }
+    }
+
+    private func step(_ symbol: String, delta: Int) -> some View {
+        Button {
+            Haptics.light()
+            device.setTemperature(target + delta)
+        } label: {
+            Image(systemName: symbol).font(.system(size: 22, weight: .regular)).foregroundStyle(Theme.text1)
+                .frame(width: 64, height: 64).chromeSurface(Circle())
+        }
+        .accessibilityLabel(delta < 0 ? "Decrease temperature" : "Increase temperature")
+        .disabled(!device.isOn || (delta < 0 ? target <= 55 : target >= 110))
+        .opacity(device.isOn ? 1 : 0.45)
     }
 }

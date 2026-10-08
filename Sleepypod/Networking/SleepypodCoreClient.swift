@@ -282,7 +282,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", status: schedStatus, desc: "Wake-up alarm scheduler", msg: "\(scheduler.jobCounts.alarm) alarms"),
             database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "\(String(format: "%.1fms", health.database.latencyMs ?? 0)) latency"),
-            express: info("Sleepypod Core", status: .healthy, desc: "API and hardware bridge"),
+            express: info("sleepypod core", status: .healthy, desc: "API and hardware bridge"),
             podSocket: info("Hardware Socket", status: hwStatus, desc: "DAC communication", msg: hwLatency),
             podSocketMonitor: info("DAC Monitor", status: dacStatus, desc: "Hardware watchdog", msg: dacMsg),
             jobs: info("Job Scheduler", status: schedStatus, desc: "Background task runner", msg: "Jobs: \(scheduler.jobCounts.total)"),
@@ -475,6 +475,14 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let _: TRPCSuccess = try await mutate("runOnce.cancel", input: ["side": side.rawValue])
     }
 
+    func getNightPhases(side: Side) async throws -> NightPhases? {
+        try await query("schedules.getNightPhases", input: ["side": side.rawValue])
+    }
+
+    func setNightPhase(side: Side, phase: NightPhaseKey, temperatureF: Int) async throws -> NightPhases? {
+        try await mutate("schedules.setNightPhase", input: ["side": side.rawValue, "phase": phase.rawValue, "temperature": temperatureF])
+    }
+
     func getDiskUsage() async throws -> DiskUsage {
         try await query("system.getDiskUsage")
     }
@@ -501,6 +509,10 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func setInternetAccess(blocked: Bool) async throws {
         let _: TRPCInternetStatus = try await mutate("system.setInternetAccess", input: ["blocked": blocked])
+    }
+
+    func startPriming() async throws {
+        let _: TRPCSuccess = try await mutate("device.startPriming", input: [:] as [String: String])
     }
 
     func reboot() async throws {
@@ -651,10 +663,23 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await session.data(for: request)
+        } catch let error as URLError where request.httpMethod == "GET" && Self.isTransient(error) {
+            // A pooled keep-alive connection the pod already closed fails once; queries are safe to resend.
+            Log.network.info("Retrying \(request.url?.path ?? "?") after \(error.code.rawValue)")
+            do {
+                return try await session.data(for: request)
+            } catch {
+                Log.network.error("Request failed: \(request.url?.absoluteString ?? "?") — \(error)")
+                throw APIError.networkError(error)
+            }
         } catch {
             Log.network.error("Request failed: \(request.url?.absoluteString ?? "?") — \(error)")
             throw APIError.networkError(error)
         }
+    }
+
+    static func isTransient(_ error: URLError) -> Bool {
+        [.networkConnectionLost, .timedOut, .notConnectedToInternet].contains(error.code)
     }
 
     private func validateResponse(_ response: URLResponse, data: Data? = nil, procedure: String? = nil) throws {

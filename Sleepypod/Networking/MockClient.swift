@@ -63,7 +63,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
                 currentTemperatureLevel: 0,
                 currentTemperatureF: leftCurrentF,
                 targetTemperatureF: leftTargetF,
-                secondsRemaining: 0,
+                secondsRemaining: 22320,
                 isOn: leftOn,
                 isAlarmVibrating: false,
                 taps: TapCounts(doubleTap: 12, tripleTap: 3, quadTap: 1)
@@ -72,7 +72,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
                 currentTemperatureLevel: 0,
                 currentTemperatureF: rightCurrentF,
                 targetTemperatureF: rightTargetF,
-                secondsRemaining: 0,
+                secondsRemaining: 22320,
                 isOn: rightOn,
                 isAlarmVibrating: false,
                 taps: TapCounts(doubleTap: 8, tripleTap: 2, quadTap: 0)
@@ -140,7 +140,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", desc: "Wake-up alarm scheduler", msg: "2 alarms"),
             database: info("Database", desc: "SQLite database", msg: "0.3ms latency"),
-            express: info("Sleepypod Core", desc: "API and hardware bridge"),
+            express: info("sleepypod core", desc: "API and hardware bridge"),
             podSocket: info("Hardware Socket", desc: "DAC communication", msg: "1.2ms"),
             podSocketMonitor: info("DAC Monitor", desc: "Hardware watchdog", msg: "running"),
             jobs: info("Job Scheduler", desc: "Background task runner", msg: "Jobs: 14"),
@@ -344,6 +344,8 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
         // no-op in demo
     }
 
+    func startPriming() async throws {}
+
     func reboot() async throws {
         // no-op in demo
     }
@@ -453,6 +455,63 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
     func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 1, expiresAt: Int(Date().timeIntervalSince1970) + 28800) }
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
     func cancelRunOnce(side: Side) async throws {}
+
+    // MARK: - Night / Dawn (demo approximation of sleepypod-core's src/lib/nightPhases)
+
+    func getNightPhases(side: Side) async throws -> NightPhases? {
+        demoPhases(side: side)
+    }
+
+    func setNightPhase(side: Side, phase: NightPhaseKey, temperatureF: Int) async throws -> NightPhases? {
+        guard let phases = demoPhases(side: side), let current = phases.phase(phase) else { return nil }
+        let delta = temperatureF - Int(current.temperatureF.rounded())
+        var sideSchedule = schedules.schedule(for: side)
+        for day in phases.days {
+            for time in current.times {
+                if let value = sideSchedule[day].temperatures[time] {
+                    sideSchedule[day].temperatures[time] = min(110, max(55, value + delta))
+                }
+            }
+        }
+        schedules.setSchedule(sideSchedule, for: side)
+        return demoPhases(side: side)
+    }
+
+    private func demoPhases(side: Side) -> NightPhases? {
+        let calendar = Calendar.current
+        let now = Date()
+        let tonight = calendar.component(.hour, from: now) < 4 ? now.addingTimeInterval(-86400) : now
+        let days: [DayOfWeek] = [.sunday, .monday, .tuesday, .wednesday, .thursday, .friday, .saturday]
+        let day = days[calendar.component(.weekday, from: tonight) - 1]
+        let sideSchedule = schedules.schedule(for: side)
+        let temps = sideSchedule[day].temperatures
+        guard !temps.isEmpty else { return nil }
+        let minutes = temps.map { (time: $0.key, temp: Double($0.value), m: DisplayTime.minutes($0.key)) }
+            .map { $0.m < 720 ? ($0.time, $0.temp, $0.m + 1440) : ($0.time, $0.temp, $0.m) }
+            .sorted { $0.2 < $1.2 }
+        guard let first = minutes.first, let last = minutes.last else { return nil }
+        let dawnFrom = Double(last.2) - Double(last.2 - first.2) * 0.25
+        let split = minutes.count >= 2 ? (minutes.firstIndex { Double($0.2) >= dawnFrom } ?? minutes.count) : minutes.count
+        func phase(_ points: ArraySlice<(String, Double, Int)>, endM: Int, endTime: String) -> NightPhase {
+            var weighted = 0.0, total = 0.0
+            for (index, point) in points.enumerated() {
+                let next = index + 1 < points.count ? points[points.startIndex + index + 1].2 : endM
+                let weight = Double(max(next - point.2, 1))
+                weighted += point.1 * weight; total += weight
+            }
+            return NightPhase(temperatureF: weighted / total, start: points.first?.0 ?? first.0, end: endTime,
+                              minutes: Double(max(endM - (points.first?.2 ?? first.2), 1)), times: points.map { $0.0 })
+        }
+        let nightPoints = minutes[..<split], dawnPoints = minutes[split...]
+        let finalM = last.2 + 30
+        return NightPhases(
+            draft: false, day: day,
+            days: days.filter { sideSchedule[$0].temperatures == temps },
+            night: dawnPoints.isEmpty ? phase(nightPoints, endM: finalM, endTime: last.0)
+                : phase(nightPoints, endM: dawnPoints.first?.2 ?? finalM, endTime: dawnPoints.first?.0 ?? last.0),
+            dawn: dawnPoints.isEmpty ? nil : phase(dawnPoints, endM: finalM, endTime: last.0)
+        )
+    }
 
     func updateSleepRecord(id: Int, enteredBedAt: Date?, leftBedAt: Date?) async throws {
         // no-op in demo

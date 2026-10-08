@@ -169,7 +169,7 @@ struct FirmwareLogConsoleView: View {
                                 Text(String(format: "%.1fs", age))
                                     .foregroundColor(Theme.textMuted.opacity(0.5))
                             }
-                            .font(.system(size: 9, design: .monospaced))
+                            .font(.mono(9))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(selectedFrame?.id == frame.id ? Theme.accent.opacity(0.1) : .clear)
@@ -192,12 +192,12 @@ struct FirmwareLogConsoleView: View {
                             Text(Self.timeFmt.string(from: frame.timestamp))
                                 .foregroundColor(Theme.textMuted)
                         }
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.mono(10))
 
                         // Pretty-print JSON
                         Text(prettyJSON(frame.json))
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.7))
+                            .font(.mono(9))
+                            .foregroundColor(Theme.text1.opacity(0.7))
                             .textSelection(.enabled)
                     }
                     .padding(8)
@@ -217,10 +217,10 @@ struct FirmwareLogConsoleView: View {
                 .foregroundColor(entry.level.color)
                 .frame(width: 30, alignment: .leading)
             Text(cleanMessage(entry.message))
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(Theme.text1.opacity(0.85))
                 .lineLimit(2)
         }
-        .font(.system(size: 9, design: .monospaced))
+        .font(.mono(9))
     }
 
     private static let timeFmt: DateFormatter = {

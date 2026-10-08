@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "app_name": "sleepypod",
+  "icon": {
+    "path": "../../Sleepypod/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+    "pixel_sha256": "e310bb86466500d99569f428ddbad337395af1dfb8ccc7c39c5de587d58e6d1a"
+  },
+  "appearances": {
+    "dark": {
+      "accent": "#A58BE0",
+      "text": "#ECECEC",
+      "muted": "#8B8B92",
+      "background": [
+        "#0B0B0C",
+        "#11152E",
+        "#2A2466"
+      ],
+      "glow": "#D9779A",
+      "bezel": "#050506"
+    },
+    "light": {
+      "accent": "#34509E",
+      "text": "#111113",
+      "muted": "#6B6B70",
+      "background": [
+        "#F6F6F5",
+        "#E3E6F4",
+        "#C9C2EE"
+      ],
+      "glow": "#F2B596",
+      "bezel": "#17171A"
+    }
+  },
+  "output_dir": "output/iphone-6.5/{appearance}",
+  "screenshots": [
+    {
+      "input": "raw/iphone-6.9/{appearance}/01-temperature.png",
+      "output": "01-temperature.png",
+      "eyebrow": "Temperature",
+      "caption": "Dial in your side of the bed, to the degree."
+    },
+    {
+      "input": "raw/iphone-6.9/{appearance}/02-both-sides.png",
+      "output": "02-both-sides.png",
+      "eyebrow": "Both sides",
+      "caption": "Two sleepers, two temperatures, one bed."
+    },
+    {
+      "input": "raw/iphone-6.9/{appearance}/03-night-dawn.png",
+      "output": "03-night-dawn.png",
+      "eyebrow": "Night & Dawn",
+      "caption": "Cooler for deep sleep, warmer to wake up."
+    },
+    {
+      "input": "raw/iphone-6.9/{appearance}/04-schedule.png",
+      "output": "04-schedule.png",
+      "eyebrow": "Schedule",
+      "caption": "Shape the whole night, from bedtime to wake."
+    },
+    {
+      "input": "raw/iphone-6.9/{appearance}/05-sleep-night.png",
+      "output": "05-sleep-night.png",
+      "eyebrow": "Sleep",
+      "caption": "See each night's stages and vitals."
+    },
+    {
+      "input": "raw/iphone-6.9/{appearance}/06-sleep-week.png",
+      "output": "06-sleep-week.png",
+      "eyebrow": "Weekly trends",
+      "caption": "Your week, checked against your Watch."
+    },
+    {
+      "input": "raw/iphone-6.9/{appearance}/07-apple-watch.png",
+      "output": "07-apple-watch.png",
+      "eyebrow": "Apple Watch",
+      "caption": "Compare each night with your Apple Watch."
+    },
+    {
+      "input": "raw/iphone-6.9/{appearance}/08-apple-health.png",
+      "output": "08-apple-health.png",
+      "eyebrow": "Apple Health",
+      "caption": "Sleep and vitals, together in Apple Health."
+    }
+  ]
+}

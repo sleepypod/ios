@@ -11,11 +11,13 @@ final class ScheduleManager {
     var isLoading = false
     var error: String?
 
-    private let api: SleepypodProtocol
+    private var api: SleepypodProtocol
 
     init(api: SleepypodProtocol) {
         self.api = api
     }
+
+    func switchBackend(_ client: SleepypodProtocol) { api = client }
 
     // MARK: - Current Schedule
 
@@ -28,17 +30,67 @@ final class ScheduleManager {
     var phases: [SchedulePhase] {
         guard let daily = currentDailySchedule else { return [] }
         let sorted = daily.temperatures.sorted { time1, time2 in
-            time1.key < time2.key
+            (DisplayTime.minutes(time1.key) - DisplayTime.minutes(daily.power.on) + 1440) % 1440 < (DisplayTime.minutes(time2.key) - DisplayTime.minutes(daily.power.on) + 1440) % 1440
         }
-
-        let phaseNames = ["Bedtime", "Deep Sleep", "Pre-Wake", "Wake Up"]
-        let phaseIcons = ["moon.fill", "moon.zzz.fill", "sunrise.fill", "sun.max.fill"]
 
         return sorted.enumerated().map { index, entry in
-            let name = index < phaseNames.count ? phaseNames[index] : "Phase \(index + 1)"
-            let icon = index < phaseIcons.count ? phaseIcons[index] : "clock.fill"
+            let (name, icon) = Self.phaseLabel(index: index, count: sorted.count)
             return SchedulePhase(name: name, icon: icon, time: entry.key, temperatureF: entry.value)
         }
+    }
+
+    /// First point is bedtime, the last is pre-wake, and the ones between are the night holds.
+    static func phaseLabel(index: Int, count: Int) -> (String, String) {
+        if index == 0 { return ("Bedtime", "bed.double") }
+        if index == count - 1 && count >= 2 { return ("Pre-wake", "sunrise") }
+        switch index {
+        case 1: return ("Deep", "moon")
+        case 2: return ("Late night", "moon.stars")
+        default: return ("Phase \(index + 1)", "moon.stars")
+        }
+    }
+
+    func applyTemplate(_ template: CurveTemplate) async -> Bool {
+        guard var updated = schedules else { return false }
+        for side in selectedSide.sides {
+            var sideSchedule = updated.schedule(for: side)
+            for day in selectedDays {
+                var daily = sideSchedule[day]
+                daily.temperatures = template.points
+                daily.power.on = template.bedtime
+                daily.power.off = template.wake
+                daily.power.enabled = true
+                daily.alarm.time = template.wake
+                daily.alarm.enabled = true
+                sideSchedule[day] = daily
+            }
+            updated.setSchedule(sideSchedule, for: side)
+        }
+        do { schedules = try await api.updateSchedules(updated, days: selectedDays); error = nil; return true }
+        catch { self.error = error.localizedDescription; return false }
+    }
+
+    func editPhase(oldTime: String, newTime: String, temperature: Int) async -> Bool {
+        guard var updated = schedules else { return false }
+        for side in selectedSide.sides {
+            var sideSchedule = updated.schedule(for: side)
+            for day in selectedDays {
+                var daily = sideSchedule[day]
+                if oldTime != newTime && daily.temperatures[newTime] != nil {
+                    error = "There is already a set point at that time."
+                    return false
+                }
+                daily.temperatures.removeValue(forKey: oldTime)
+                daily.temperatures[newTime] = max(55, min(110, temperature))
+                sideSchedule[day] = daily
+            }
+            updated.setSchedule(sideSchedule, for: side)
+        }
+        do {
+            schedules = try await api.updateSchedules(updated, days: selectedDays)
+            error = nil
+            return true
+        } catch { self.error = error.localizedDescription; return false }
     }
 
     // MARK: - Fetch
@@ -55,6 +107,37 @@ final class ScheduleManager {
     }
 
     // MARK: - Toggle Power Schedule
+
+    /// What the pod does when the schedule ends: turn off, or keep the final temperature.
+    func setPowerEndAction(_ action: ScheduleEndAction) async {
+        guard var schedules else { return }
+        let side = selectedSide.primarySide
+        var sideSchedule = schedules.schedule(for: side)
+        var daily = sideSchedule[selectedDay]
+        guard daily.power.endAction != action else { return }
+
+        daily.power.endAction = action
+        sideSchedule[selectedDay] = daily
+        schedules.setSchedule(sideSchedule, for: side)
+
+        if selectedSide == .both {
+            let other: Side = side == .left ? .right : .left
+            var otherSide = schedules.schedule(for: other)
+            var otherDaily = otherSide[selectedDay]
+            otherDaily.power.endAction = action
+            otherSide[selectedDay] = otherDaily
+            schedules.setSchedule(otherSide, for: other)
+        }
+
+        self.schedules = schedules
+
+        do {
+            self.schedules = try await api.updateSchedules(schedules, days: [selectedDay])
+        } catch {
+            self.error = error.localizedDescription
+            await fetchSchedules()
+        }
+    }
 
     func togglePowerSchedule() async {
         guard var schedules else { return }
@@ -242,29 +325,27 @@ final class ScheduleManager {
     // MARK: - Profile Presets
 
     func applyProfile(_ profile: SleepProfile) async {
-        guard var schedules else { return }
-        let side = selectedSide.primarySide
-        var sideSchedule = schedules.schedule(for: side)
-        var daily = sideSchedule[selectedDay]
-
-        let temps = daily.temperatures.keys.sorted()
-        let profileTemps = profile.temperatures(for: temps.count)
-
-        for (index, time) in temps.enumerated() {
-            daily.temperatures[time] = profileTemps[index]
+        guard var updated = schedules else { return }
+        for side in selectedSide.sides {
+            var sideSchedule = updated.schedule(for: side)
+            for day in selectedDays {
+                var daily = sideSchedule[day]
+                let bedtime = DisplayTime.minutes(daily.power.on)
+                let times = daily.temperatures.keys.sorted {
+                    (DisplayTime.minutes($0) - bedtime + 1440) % 1440 < (DisplayTime.minutes($1) - bedtime + 1440) % 1440
+                }
+                let temperatures = profile.temperatures(for: times.count)
+                for (index, time) in times.enumerated() { daily.temperatures[time] = temperatures[index] }
+                sideSchedule[day] = daily
+            }
+            updated.setSchedule(sideSchedule, for: side)
         }
-
-        sideSchedule[selectedDay] = daily
-        schedules.setSchedule(sideSchedule, for: side)
-        self.schedules = schedules
-
         do {
-            self.schedules = try await api.updateSchedules(schedules, days: [selectedDay])
-        } catch {
-            self.error = error.localizedDescription
-            await fetchSchedules()
-        }
+            schedules = try await api.updateSchedules(updated, days: selectedDays)
+            error = nil
+        } catch { self.error = error.localizedDescription }
     }
+
 }
 
 // MARK: - Sleep Profiles

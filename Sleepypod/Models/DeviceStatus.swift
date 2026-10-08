@@ -39,6 +39,17 @@ struct DeviceStatus: Codable, Sendable {
     var freeSleep: FreeSleepInfo
     var wifiStrength: Int
 
+    var podModelName: String {
+        switch hubVersion.uppercased() {
+        case "H00": "Pod 5"
+        case "H01": "Pod 4"
+        case "H02": "Pod 3"
+        case "H03": "Pod 2"
+        case "2", "3", "4", "5": "Pod \(hubVersion)"
+        default: "Pod"
+        }
+    }
+
     func status(for side: Side) -> SideStatus {
         switch side {
         case .left: left

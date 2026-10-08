@@ -27,7 +27,7 @@ struct ServiceCategoryView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(category.name)
                             .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text1)
                         Text(category.description)
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
@@ -53,7 +53,7 @@ struct ServiceCategoryView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(hex: "222222"))
+                    .background(Theme.active)
                     .clipShape(Capsule())
 
                     // Chevron

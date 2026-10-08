@@ -35,7 +35,7 @@ struct UpdateCardView: View {
                 Spacer()
                 Text("NEW")
                     .font(.caption2.weight(.bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Theme.error)
@@ -91,7 +91,7 @@ struct UpdateCardView: View {
                     .foregroundColor(Theme.healthy)
                 Text("Software Up to Date")
                     .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
             }
 
             HStack(spacing: 8) {

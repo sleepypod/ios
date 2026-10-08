@@ -36,9 +36,23 @@ enum TemperatureConversion {
         }
     }
 
+    /// Big-number text: "76°" (°F), "24°" (°C) or the signed offset from 80°F in relative mode.
+    static func valueText(_ tempF: Int, format: TemperatureFormat) -> String {
+        switch format {
+        case .fahrenheit: "\(tempF)°"
+        case .celsius: "\(Int(tempFToC(tempF).rounded()))°"
+        case .relative: offsetDisplay(tempF - baseTempF)
+        }
+    }
+
+    /// Status word for a target against the bed temperature.
+    static func stateWord(target: Int, bed: Int, isOn: Bool) -> String {
+        !isOn ? "OFF" : target < bed ? "COOLING" : target > bed ? "WARMING" : "HOLDING"
+    }
+
     static func offsetDisplay(_ offset: Int) -> String {
         if offset > 0 { return "+\(offset)" }
-        if offset < 0 { return "\(offset)" }
+        if offset < 0 { return "−\(abs(offset))" }
         return "0"
     }
 }
@@ -46,43 +60,19 @@ enum TemperatureConversion {
 // MARK: - Temperature Colors
 
 enum TempColor {
-    // Deep blue → soft blue → neutral → soft orange → deep red
-    private static let coldDeep = Color(hex: "2563eb")   // -10°F+
-    private static let coldMid  = Color(hex: "4a90d9")   // -5°F
-    private static let coldSoft = Color(hex: "7ab5e0")   // -2°F
-    private static let neutral  = Color(hex: "9ca3af")   // 0°F
-    private static let warmSoft = Color(hex: "e0976a")   // +2°F
-    private static let warmMid  = Color(hex: "dc6646")   // +5°F
-    private static let warmDeep = Color(hex: "dc2626")   // +10°F+
-
-    /// Gradient color based on delta between target and current temp.
-    /// Intensity scales with how far apart they are.
     static func forDelta(target: Int, current: Int) -> Color {
-        let delta = target - current  // positive = warming, negative = cooling
-        return colorForDelta(delta)
+        target < current ? Theme.cool : target > current ? Theme.warm : Theme.neutral
     }
 
-    static func glowForDelta(target: Int, current: Int) -> Color {
-        let delta = target - current
-        let intensity = min(abs(Double(delta)) / 8.0, 1.0) * 0.8
-        return colorForDelta(delta).opacity(max(intensity, 0.3))
-    }
-
-    /// Offset-based color for side selector (relative to 80°F base)
     static func forOffset(_ offset: Int) -> Color {
-        colorForDelta(offset)
+        forDelta(target: offset, current: 0)
     }
 
-    private static func colorForDelta(_ delta: Int) -> Color {
-        switch delta {
-        case ...(-8): return coldDeep
-        case -7...(-5): return coldMid
-        case -4...(-2): return coldSoft
-        case -1...1: return neutral
-        case 2...4: return warmSoft
-        case 5...7: return warmMid
-        default: return warmDeep
-        }
+    /// Scheduled set points compare against the pod's 80°F neutral with a ±2° holding band,
+    /// matching the source curve (76° cool, 78° neutral, 84° warm).
+    static func forScheduled(_ tempF: Int) -> Color {
+        let delta = tempF - TemperatureConversion.baseTempF
+        return delta < -2 ? Theme.cool : delta > 2 ? Theme.warm : Theme.neutral
     }
 }
 
@@ -133,23 +123,36 @@ enum TempRamp {
 // MARK: - Theme Colors
 
 enum Theme {
-    static let background = Color(hex: "0a0a0a")
-    static let card = Color(hex: "141414")
-    static let cardBorder = Color(hex: "333333")
-    static let cardElevated = Color(hex: "1a1a1a")
+    static let background = Color("background")
+    static let card = Color("card")
+    static let active = Color("active")
+    static let border1 = Color("border1")
+    static let border2 = Color("border2")
+    static let text1 = Color("text1")
+    static let text2 = Color("text2")
+    static let text3 = Color("text3")
+    static let icon = Color("icon")
+    static let cool = Color("cool")
+    static let warm = Color("warm")
+    static let neutral = Color("neutral")
+    static let green = Color("green")
+    static let amber = Color("amber")
+    static let red = Color("red")
+    static let violet = Color("violet")
+    static let indigo = Color("indigo")
+    static let track = Color("track")
 
-    static let warming = Color(hex: "dc6646")
-    static let cooling = Color(hex: "4a90d9")
-    static let accent = Color(hex: "5cb8e0")
-    static let healthy = Color(hex: "50c878")
-    static let error = Color(hex: "e05050")
-    static let amber = Color(hex: "d4a84a")
-    static let purple = Color(hex: "a080d0")
-    static let cyan = Color(hex: "4ecdc4")
-
-    static let textSecondary = Color(hex: "888888")
-    static let textTertiary = Color(hex: "666666")
-    static let textMuted = Color(hex: "555555")
+    static let cardBorder = border1
+    static let cardElevated = active
+    static let warming = warm
+    static let cooling = cool
+    static let accent = cool
+    static let healthy = green
+    static let error = red
+    static let purple = violet
+    static let textSecondary = text2
+    static let textTertiary = text3
+    static let textMuted = text3
 }
 
 // MARK: - Color Extension
@@ -163,22 +166,5 @@ extension Color {
         let g = Double((int >> 8) & 0xFF) / 255.0
         let b = Double(int & 0xFF) / 255.0
         self.init(red: r, green: g, blue: b)
-    }
-}
-
-// MARK: - Card Style Modifier
-
-struct CardStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .padding(16)
-            .background(Theme.card)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-extension View {
-    func cardStyle() -> some View {
-        modifier(CardStyle())
     }
 }

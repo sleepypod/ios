@@ -102,7 +102,7 @@ struct DataPipelineView: View {
 
             // Row 4 — Browser/App
             DAGNode(id: "browser", label: "iOS App", subtitle: "SwiftUI",
-                    color: .white, nx: 0.5, ny: 0.88)
+                    color: Theme.text1, nx: 0.5, ny: 0.88)
         ]
     }
 
@@ -152,7 +152,7 @@ struct DataPipelineView: View {
         HStack {
             Text("Data Pipeline")
                 .font(.caption.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
             Spacer()
             HStack(spacing: 8) {
                 legendBadge(label: "read ↓", color: Color(hex: "60a5fa"))
@@ -192,7 +192,7 @@ struct DataPipelineView: View {
                         for y in stride(from: dotGap, to: size.height, by: dotGap) {
                             ctx.fill(
                                 Path(ellipseIn: CGRect(x: x - 0.5, y: y - 0.5, width: 1, height: 1)),
-                                with: .color(Color.white.opacity(0.06))
+                                with: .color(Theme.text1.opacity(0.06))
                             )
                         }
                     }
@@ -251,8 +251,8 @@ struct DataPipelineView: View {
         VStack(spacing: 2) {
             HStack(spacing: 0) {
                 Text(String(format: "%.1f", totalRate))
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.white)
+                    .font(.mono(9))
+                    .foregroundColor(Theme.text1)
                 Text("/s total · 30s window")
                     .font(.system(size: 9))
                     .foregroundColor(Theme.textMuted)
@@ -264,7 +264,7 @@ struct DataPipelineView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(timelineLanes.enumerated()), id: \.offset) { _, lane in
                         Text(lane.label)
-                            .font(.system(size: 7, design: .monospaced))
+                            .font(.mono(7))
                             .foregroundColor(lane.color.opacity(0.7))
                             .frame(height: 16, alignment: .center)
                     }
@@ -292,7 +292,7 @@ struct DataPipelineView: View {
                                 var sep = Path()
                                 sep.move(to: CGPoint(x: 0, y: y))
                                 sep.addLine(to: CGPoint(x: size.width, y: y))
-                                context.stroke(sep, with: .color(Color.white.opacity(0.03)), lineWidth: 0.5)
+                                context.stroke(sep, with: .color(Theme.text1.opacity(0.03)), lineWidth: 0.5)
                             }
 
                             // Time markers at -10s and -20s
@@ -301,12 +301,12 @@ struct DataPipelineView: View {
                                 var markerPath = Path()
                                 markerPath.move(to: CGPoint(x: x, y: 0))
                                 markerPath.addLine(to: CGPoint(x: x, y: size.height))
-                                context.stroke(markerPath, with: .color(Color.white.opacity(0.05)), lineWidth: 0.5)
+                                context.stroke(markerPath, with: .color(Theme.text1.opacity(0.05)), lineWidth: 0.5)
 
                                 context.draw(
                                     Text("-\(Int(sec))s")
-                                        .font(.system(size: 7, design: .monospaced))
-                                        .foregroundColor(Color.white.opacity(0.12)),
+                                        .font(.mono(7))
+                                        .foregroundColor(Theme.text1.opacity(0.12)),
                                     at: CGPoint(x: x + 10, y: size.height - 5)
                                 )
                             }
@@ -341,7 +341,7 @@ struct DataPipelineView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                     Text("30s")
-                        .font(.system(size: 8, design: .monospaced))
+                        .font(.mono(8))
                         .foregroundColor(Theme.textMuted)
                         .padding(.trailing, 6)
                         .padding(.bottom, 3)

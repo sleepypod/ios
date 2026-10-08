@@ -101,7 +101,7 @@ struct PrimePodDaily: Codable, Sendable {
 }
 
 struct PodSettings: Codable, Sendable {
-    var defaultScheduleEndAction: ScheduleEndAction? = nil
+    var defaultScheduleEndAction: ScheduleEndAction?
     var id: String
     var timeZone: String
     var left: SideSettings

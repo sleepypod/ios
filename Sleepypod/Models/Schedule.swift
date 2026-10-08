@@ -27,7 +27,7 @@ struct PowerSchedule: Codable, Sendable {
     var on: String   // "HH:mm"
     var off: String  // "HH:mm" — schedule boundary, even when maintaining
     // Optional so legacy cores and Free Sleep payloads continue to decode.
-    var endAction: ScheduleEndAction? = nil
+    var endAction: ScheduleEndAction?
     var onTemperature: Int
     var enabled: Bool
 }

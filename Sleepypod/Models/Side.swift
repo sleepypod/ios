@@ -21,7 +21,7 @@ enum Side: String, Codable, CaseIterable, Sendable, Identifiable {
     }
 }
 
-enum SideSelection: Equatable, Sendable {
+enum SideSelection: Hashable, Sendable {
     case left
     case right
     case both

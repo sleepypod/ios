@@ -18,7 +18,7 @@ struct PhaseBlockCompactView: View {
 
             Text(phase.name)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text1)
                 .lineLimit(1)
 
             Text(formatTime(phase.time))
@@ -41,7 +41,7 @@ struct PhaseBlockCompactView: View {
                 .buttonStyle(.plain)
 
                 Text(TemperatureConversion.displayTemp(phase.temperatureF, format: settingsManager.temperatureFormat))
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.mono(14, weight: .bold))
                     .foregroundColor(tempColor)
                     .frame(width: 40)
                     .contentTransition(.numericText())
@@ -108,7 +108,7 @@ struct PhaseBlockView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(phase.name)
                     .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                 Text(formatTime(phase.time))
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
@@ -134,7 +134,7 @@ struct PhaseBlockView: View {
                 .buttonStyle(.plain)
 
                 Text(tempDisplay)
-                    .font(.system(size: 20, weight: .medium, design: .rounded))
+                    .font(.mono(20, weight: .medium))
                     .foregroundColor(tempColor)
                     .frame(minWidth: 50)
                     .contentTransition(.numericText())

@@ -35,7 +35,7 @@ struct ServiceRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(service.name)
                     .font(.subheadline)
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                 if !service.description.isEmpty {
                     Text(service.description)
                         .font(.caption)
@@ -60,7 +60,7 @@ struct ServiceRowView: View {
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .frame(width: 28, height: 28)
                         .background(Theme.accent.opacity(0.3))
                         .clipShape(Circle())

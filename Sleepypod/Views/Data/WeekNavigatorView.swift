@@ -26,8 +26,8 @@ struct WeekNavigatorView: View {
                     .font(.system(size: 13))
                     .foregroundColor(Theme.accent)
                 Text(metricsManager.weekLabel)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
+                    .font(.mono(13))
+                    .foregroundColor(Theme.text1)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)

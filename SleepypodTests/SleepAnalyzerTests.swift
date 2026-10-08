@@ -70,15 +70,14 @@ struct SleepAnalyzerTests {
     @MainActor
     func deepSleepThreshold() {
         let analyzer = SleepAnalyzer()
-        // Five epochs isolate classification from the separate rolling outlier
-        // filter. Mean HR is 61.4: 56 / 61.4 ≈ 0.912, below 0.92 but above 0.90.
-        let vitals = [
-            makeVital(hr: 65, hrv: 40),
-            makeVital(hr: 65, hrv: 40),
-            makeVital(hr: 56, hrv: 50),
-            makeVital(hr: 56, hrv: 50),
-            makeVital(hr: 65, hrv: 40),
-        ]
+        // A sustained low-HR interval below 0.92 of the night mean. Distinct
+        // timestamps exercise the rolling filter and temporal smoothing too.
+        let heartRates = Array(repeating: 65.0, count: 10) + Array(repeating: 58.0, count: 6) + Array(repeating: 65.0, count: 10)
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let vitals = heartRates.enumerated().map { index, hr in
+            VitalsRecord(id: index, heartRate: hr, hrv: 45, breathingRate: 14,
+                         date: start.addingTimeInterval(Double(index) * 60))
+        }
         analyzer.analyze(vitals: vitals)
         let deepCount = analyzer.stages.filter { $0.stage == .deep }.count
         #expect(deepCount >= 2)

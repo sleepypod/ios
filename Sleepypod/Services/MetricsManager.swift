@@ -13,11 +13,13 @@ final class MetricsManager {
     var isLoading = false
     var error: String?
 
-    private let api: SleepypodProtocol
+    private var api: SleepypodProtocol
 
     init(api: SleepypodProtocol) {
         self.api = api
     }
+
+    func switchBackend(_ client: SleepypodProtocol) { api = client }
 
     // MARK: - Computed
 
@@ -62,59 +64,47 @@ final class MetricsManager {
 
     // MARK: - Fetch
 
+    private var requestGeneration = 0
+
     func fetchAll() async {
+        requestGeneration += 1
+        let generation = requestGeneration
+        let side = selectedSide
+        let start = selectedWeekStart
+        // Include the morning following the last bedtime in this week.
+        let end = selectedWeekEnd.addingTimeInterval(12 * 3600)
         isLoading = true
         error = nil
-        let start = selectedWeekStart
-        let end = selectedWeekEnd
-
-        async let sleepTask: () = fetchSleep(start: start, end: end)
-        async let vitalsTask: () = fetchVitals(start: start, end: end)
-        async let movementTask: () = fetchMovement(start: start, end: end)
-        async let summaryTask: () = fetchVitalsSummary(start: start, end: end)
-
-        _ = await (sleepTask, vitalsTask, movementTask, summaryTask)
-        isLoading = false
-    }
-
-    private func fetchSleep(start: Date, end: Date) async {
         do {
-            sleepRecords = try await api.getSleepRecords(side: selectedSide, start: start, end: end)
+            async let sleep = api.getSleepRecords(side: side, start: start, end: end)
+            async let vitals = api.getVitals(side: side, start: start, end: end)
+            async let movement = api.getMovement(side: side, start: start, end: end)
+            async let summary = api.getVitalsSummary(side: side, start: start, end: end)
+            let result = try await (sleep, vitals, movement, summary)
+            guard generation == requestGeneration, side == selectedSide, start == selectedWeekStart else { return }
+            sleepRecords = result.0.filter { $0.side == side.rawValue && $0.enteredBedDate >= start && $0.enteredBedDate < selectedWeekEnd }
+                .sorted { $0.enteredBedDate > $1.enteredBedDate }
+            vitalsRecords = result.1.filter { $0.side == side.rawValue }
+            movementRecords = result.2
+            vitalsSummary = result.3
         } catch {
+            guard generation == requestGeneration else { return }
             self.error = error.localizedDescription
+            sleepRecords = []; vitalsRecords = []; movementRecords = []; vitalsSummary = nil
         }
+        if generation == requestGeneration { isLoading = false }
     }
 
-    private func fetchVitals(start: Date, end: Date) async {
-        do {
-            vitalsRecords = try await api.getVitals(side: selectedSide, start: start, end: end)
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    private func fetchVitalsSummary(start: Date, end: Date) async {
-        do {
-            vitalsSummary = try await api.getVitalsSummary(side: selectedSide, start: start, end: end)
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    private func fetchMovement(start: Date, end: Date) async {
-        do {
-            movementRecords = try await api.getMovement(side: selectedSide, start: start, end: end)
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
 }
 
 // MARK: - Calendar Extension
 
 extension Calendar {
+    /// Weeks start on Monday, matching the M–S day chips and week bars.
     func startOfWeek(for date: Date) -> Date {
-        let components = dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
-        return self.date(from: components) ?? date
+        var calendar = self
+        calendar.firstWeekday = 2
+        let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        return calendar.date(from: components) ?? date
     }
 }

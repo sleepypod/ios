@@ -116,7 +116,7 @@ DEMO MODE provides simulated data including:
 - Live sensor waveforms and pipeline visualization
 - Schedule management and settings
 
-To exit demo: Settings gear (top-right) → "Connect to Real Pod"
+To exit demo: Settings gear (top-right) → "Connect to a pod"
 ```
 
 ### Contact

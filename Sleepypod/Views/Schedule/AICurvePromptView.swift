@@ -122,11 +122,11 @@ struct AICurvePromptView: View {
                             if isCompleted {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.text1)
                             } else {
                                 Text("\(index + 1)")
                                     .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(isActive ? .white : Theme.textMuted)
+                                    .foregroundColor(isActive ? Theme.text1 : Theme.textMuted)
                             }
                         }
                         Text(stepLabels[index])
@@ -160,7 +160,7 @@ struct AICurvePromptView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Describe your sleep preferences")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
 
                     TextField("e.g., I run hot, bed at 11pm...", text: $prompt, axis: .vertical)
                         .lineLimit(3...6)
@@ -225,7 +225,7 @@ struct AICurvePromptView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Review & Copy")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
@@ -244,7 +244,7 @@ struct AICurvePromptView: View {
                     .foregroundColor(Theme.textMuted)
 
                     Text(generatedPrompt)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.mono(11))
                         .foregroundColor(Theme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -261,7 +261,7 @@ struct AICurvePromptView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { withAnimation { copiedPrompt = false } }
                 }
 
-                Divider().frame(height: 20).background(Color.white.opacity(0.2))
+                Divider().frame(height: 20).background(Theme.text1.opacity(0.2))
 
                 // Share (manual UIActivityViewController to avoid ShareLink freeze)
                 floatingButton(title: "Share", icon: "square.and.arrow.up") {
@@ -277,7 +277,7 @@ struct AICurvePromptView: View {
                     }
                 }
 
-                Divider().frame(height: 20).background(Color.white.opacity(0.2))
+                Divider().frame(height: 20).background(Theme.text1.opacity(0.2))
 
                 // Next
                 floatingButton(title: "Next", icon: "arrow.right") {
@@ -296,7 +296,7 @@ struct AICurvePromptView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Import Results")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
 
                     Text("Copy the AI response to your clipboard, then tap Paste below.")
                         .font(.subheadline)
@@ -311,7 +311,7 @@ struct AICurvePromptView: View {
                         TextField("Paste JSON here...", text: $pastedJSON, axis: .vertical)
                             .lineLimit(5...12)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.mono(11))
                             .padding(12)
                             .background(Theme.card)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -398,10 +398,10 @@ struct AICurvePromptView: View {
                             HStack {
                                 Text("Preview & Edit")
                                     .font(.headline)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.text1)
                                 Spacer()
                                 Text("\(result.bedtime) \u{2192} \(result.wake)")
-                                    .font(.caption2.monospaced())
+                                    .font(.mono(11))
                                     .foregroundColor(Theme.textMuted)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
@@ -435,7 +435,7 @@ struct AICurvePromptView: View {
                         phaseLegend
 
                         // Editable set points
-                        SetPointEditor(
+                        CurveSetPointList(
                             points: $editablePoints,
                             temperatureFormat: settingsManager.temperatureFormat,
                             onChanged: { syncResultFromEdits() }
@@ -478,14 +478,14 @@ struct AICurvePromptView: View {
                     showSaveDialog = true
                 }
 
-                Divider().frame(height: 20).background(Color.white.opacity(0.2))
+                Divider().frame(height: 20).background(Theme.text1.opacity(0.2))
 
                 floatingButton(title: isApplied ? "Applied!" : "Apply", icon: isApplied ? "checkmark" : "calendar.badge.plus") {
                     applyToSchedule()
                 }
 
                 if APIBackend.current == .sleepypodCore {
-                    Divider().frame(height: 20).background(Color.white.opacity(0.2))
+                    Divider().frame(height: 20).background(Theme.text1.opacity(0.2))
 
                     floatingButton(title: isRunOnce ? "Started!" : "Use Now", icon: isRunOnce ? "checkmark" : "play.fill") {
                         useNow()
@@ -519,7 +519,7 @@ struct AICurvePromptView: View {
                             HStack(spacing: 6) {
                                 Text(template.name)
                                     .font(.caption2.weight(.medium))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.text1)
                                     .lineLimit(1)
 
                                 Button {
@@ -591,11 +591,7 @@ struct AICurvePromptView: View {
                     y: .value("Offset", offset)
                 )
                 .foregroundStyle(
-                    LinearGradient(
-                        colors: [Theme.accent.opacity(0.15), Color.clear],
-                        startPoint: offset > 0 ? .top : .bottom,
-                        endPoint: offset > 0 ? .bottom : .top
-                    )
+                    Theme.cool.opacity(0.12)
                 )
                 .interpolationMethod(.catmullRom)
 
@@ -617,11 +613,11 @@ struct AICurvePromptView: View {
                         let format = settingsManager.temperatureFormat
                         if format == .relative {
                             Text(v > 0 ? "+\(v)" : "\(v)")
-                                .font(.system(size: 9, design: .monospaced))
+                                .font(.mono(9))
                                 .foregroundStyle(Theme.textMuted)
                         } else {
                             Text(TemperatureConversion.displayTemp(80 + v, format: format))
-                                .font(.system(size: 9, design: .monospaced))
+                                .font(.mono(9))
                                 .foregroundStyle(Theme.textMuted)
                         }
                     }
@@ -633,7 +629,7 @@ struct AICurvePromptView: View {
                 AxisValueLabel {
                     if let time = value.as(String.self) {
                         Text(time)
-                            .font(.system(size: 8, design: .monospaced))
+                            .font(.mono(8))
                             .foregroundStyle(Theme.textMuted)
                             .rotationEffect(.degrees(-45))
                             .fixedSize()
@@ -691,7 +687,7 @@ struct AICurvePromptView: View {
                 Text(title)
             }
             .font(.subheadline.weight(.semibold))
-            .foregroundColor(.white)
+            .foregroundColor(Theme.text1)
         }
         .buttonStyle(.plain)
     }

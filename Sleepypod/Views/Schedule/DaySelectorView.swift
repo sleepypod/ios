@@ -4,7 +4,7 @@ struct DaySelectorView: View {
     @Environment(ScheduleManager.self) private var scheduleManager
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             ForEach(DayOfWeek.weekdays) { day in
                 let isSelected = scheduleManager.selectedDays.contains(day)
                 Button {
@@ -14,21 +14,20 @@ struct DaySelectorView: View {
                     } else if !isSelected {
                         scheduleManager.selectedDays.insert(day)
                     }
-                    scheduleManager.selectedDay = day
+                    scheduleManager.selectedDay = scheduleManager.selectedDays.contains(day) ? day : (DayOfWeek.weekdays.first { scheduleManager.selectedDays.contains($0) } ?? day)
                 } label: {
                     Text(day.shortLabel)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(isSelected ? .white : Theme.textMuted)
-                        .frame(width: 38, height: 38)
-                        .background(isSelected ? Theme.cooling : Color.clear)
-                        .clipShape(Circle())
+                        .font(.mono(13, relativeTo: .footnote))
+                        .foregroundStyle(isSelected ? Theme.background : Theme.text2)
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .background(isSelected ? Theme.text1 : Color.clear, in: Capsule())
+                        .overlay(Capsule().stroke(isSelected ? Color.clear : Theme.border2, lineWidth: 1))
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(day.displayName)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 }

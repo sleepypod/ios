@@ -69,7 +69,7 @@ struct RawDataSheet: View {
                             Text("Export All as CSV")
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(Theme.accent)
@@ -134,7 +134,7 @@ struct RawDataSheet: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
                         .font(.subheadline.monospaced())
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                     Text("\(rows) rows")
                         .font(.caption2)
                         .foregroundColor(Theme.textMuted)
@@ -176,7 +176,7 @@ struct RawDataSheet: View {
 
     private func exportAll() {
         // Combine all data into one CSV with sections
-        var combined = "# Sleepypod Raw Data Export\n"
+        var combined = "# sleepypod raw data export\n"
         combined += "# Side: \(metricsManager.selectedSide.displayName)\n"
         combined += "# Date: \(Date().ISO8601Format())\n\n"
 

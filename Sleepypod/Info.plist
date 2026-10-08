@@ -2,9 +2,23 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_sleepypod._tcp.</string>
+	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>sleepypod saves your sleep stages and overnight vitals to Apple Health for this iPhone's side of the bed.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>IBMPlexMono-Light.ttf</string>
+		<string>IBMPlexMono-Regular.ttf</string>
+		<string>IBMPlexMono-Medium.ttf</string>
 	</array>
 </dict>
 </plist>

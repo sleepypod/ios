@@ -282,7 +282,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", status: schedStatus, desc: "Wake-up alarm scheduler", msg: "\(scheduler.jobCounts.alarm) alarms"),
             database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "\(String(format: "%.1fms", health.database.latencyMs ?? 0)) latency"),
-            express: info("Sleepypod Core", status: .healthy, desc: "API and hardware bridge"),
+            express: info("sleepypod core", status: .healthy, desc: "API and hardware bridge"),
             podSocket: info("Hardware Socket", status: hwStatus, desc: "DAC communication", msg: hwLatency),
             podSocketMonitor: info("DAC Monitor", status: dacStatus, desc: "Hardware watchdog", msg: dacMsg),
             jobs: info("Job Scheduler", status: schedStatus, desc: "Background task runner", msg: "Jobs: \(scheduler.jobCounts.total)"),
@@ -475,6 +475,14 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let _: TRPCSuccess = try await mutate("runOnce.cancel", input: ["side": side.rawValue])
     }
 
+    func getNightPhases(side: Side) async throws -> NightPhases? {
+        try await query("schedules.getNightPhases", input: ["side": side.rawValue])
+    }
+
+    func setNightPhase(side: Side, phase: NightPhaseKey, temperatureF: Int) async throws -> NightPhases? {
+        try await mutate("schedules.setNightPhase", input: ["side": side.rawValue, "phase": phase.rawValue, "temperature": temperatureF])
+    }
+
     func getDiskUsage() async throws -> DiskUsage {
         try await query("system.getDiskUsage")
     }
@@ -501,6 +509,10 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func setInternetAccess(blocked: Bool) async throws {
         let _: TRPCInternetStatus = try await mutate("system.setInternetAccess", input: ["blocked": blocked])
+    }
+
+    func startPriming() async throws {
+        let _: TRPCSuccess = try await mutate("device.startPriming", input: [:] as [String: String])
     }
 
     func reboot() async throws {

@@ -81,12 +81,14 @@ struct SleepRecord: Codable, Sendable, Identifiable {
 
     var bedtimeFormatted: String {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "h:mm a"
         return formatter.string(from: enteredBedDate)
     }
 
     var wakeTimeFormatted: String {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "h:mm a"
         return formatter.string(from: leftBedDate)
     }

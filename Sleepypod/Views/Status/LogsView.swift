@@ -19,7 +19,7 @@ struct LogsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("System Logs")
                         .font(.subheadline.weight(.medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                     Text("View service activity")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
@@ -95,7 +95,7 @@ private struct LogsSheet: View {
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.system(size: 8))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .background(Theme.cooling)
@@ -125,7 +125,7 @@ private struct LogsSheet: View {
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.system(size: 8))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text1)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .background(Theme.cardElevated)
@@ -211,13 +211,13 @@ private struct LogsSheet: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.message)
                     .font(.system(size: 12))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text1)
                     .textSelection(.enabled)
 
                 // Pretty-printed JSON payload if present
                 if let json = entry.jsonPayload {
                     Text(json)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.mono(10))
                         .foregroundColor(Theme.accent.opacity(0.7))
                         .padding(6)
                         .frame(maxWidth: .infinity, alignment: .leading)

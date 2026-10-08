@@ -220,9 +220,11 @@ final class DeviceManager {
         setTemperature(newTempF)
     }
 
-    func setTemperature(_ tempF: Int) {
+    /// Sets the target for the selected side, or for `side` when given (Both-sides layout).
+    /// Linked sides always move together.
+    func setTemperature(_ tempF: Int, side: Side? = nil) {
         let clampedTempF = max(TemperatureConversion.minTempF, min(TemperatureConversion.maxTempF, tempF))
-        let sides = isLinked ? [Side.left, .right] : selectedSide.sides
+        let sides = isLinked ? [Side.left, .right] : side.map { [$0] } ?? selectedSide.sides
 
         // Optimistic update
         for side in sides {
@@ -244,10 +246,10 @@ final class DeviceManager {
 
     // MARK: - Power Control
 
-    func togglePower() {
-        guard let status = currentSideStatus else { return }
+    func togglePower(side: Side? = nil) {
+        guard let status = side.flatMap({ deviceStatus?.status(for: $0) }) ?? currentSideStatus else { return }
         let newIsOn = !status.isOn
-        let sides = isLinked ? [Side.left, .right] : selectedSide.sides
+        let sides = isLinked ? [Side.left, .right] : side.map { [$0] } ?? selectedSide.sides
 
         // Optimistic update
         for side in sides {

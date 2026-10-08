@@ -1,6 +1,8 @@
+import BackgroundTasks
 import Foundation
 import HealthKit
 import Observation
+import UIKit
 
 @MainActor
 protocol HealthSyncStore {
@@ -131,6 +133,35 @@ final class HealthSyncService {
         return receipt
     }
 
+    /// BGTaskScheduler identifier; must match BGTaskSchedulerPermittedIdentifiers in Info.plist.
+    nonisolated static let backgroundTaskID = "com.jonathanng.sleepypod.health-sync"
+
+    /// Ask iOS to wake the app later to sync finished nights. iOS picks the actual time,
+    /// usually around when the phone is in use, so this is a floor, not a schedule.
+    nonisolated static func scheduleBackgroundSync(after interval: TimeInterval = 60 * 60) {
+        let request = BGAppRefreshTaskRequest(identifier: backgroundTaskID)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: interval)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            Log.health.error("Couldn't schedule background Health sync: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Background refresh entry point. Rebuilds the pod and side from saved settings, since
+    /// no UI is running. Skips while the phone is locked: Health data is encrypted then and
+    /// writes fail, so the next wake-up retries instead of recording a failure.
+    func syncInBackground() async {
+        guard enabled, UIApplication.shared.isProtectedDataAvailable else { return }
+        let backend = APIBackend.current
+        guard !backend.isDemo,
+              let address = UserDefaults.standard.string(forKey: "podIPAddress"), !address.isEmpty else { return }
+        let side = Side(rawValue: UserDefaults.standard.string(forKey: "userDefaultSide") ?? "") ?? .left
+        await syncRecent(api: backend.createClient(), podID: SettingsManager.registerPodIdentity(address: address),
+                         side: side, demo: false)
+        Log.health.info("Background Health sync finished")
+    }
+
     func syncRecent(api: SleepypodProtocol, podID: String, side: Side, demo: Bool) async {
         guard enabled, !demo, !isSyncing, !podID.isEmpty, store.available, !writeTypes.isEmpty else { return }
         isSyncing = true
@@ -169,14 +200,25 @@ final class HealthSyncService {
                     failures[key] = nil
                     persistence.set(try JSONEncoder().encode(receipts), forKey: "healthSyncReceipts")
                 } catch {
+                    // A cancelled sync (scene change, backgrounding) retries next time; it isn't a failed night.
+                    if Self.isCancellation(error) { return }
                     failures[key] = error.localizedDescription
-                    Log.health.error("Health sync failed: \(error.localizedDescription, privacy: .private)")
+                    Log.health.error("Health sync failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
         } catch {
+            if Self.isCancellation(error) { return }
             authorizationError = error.localizedDescription
-            Log.health.error("Health sync fetch failed: \(error.localizedDescription, privacy: .private)")
+            Log.health.error("Health sync fetch failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    nonisolated static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if case APIError.networkError(let underlying) = error {
+            return (underlying as? URLError)?.code == .cancelled || underlying is CancellationError
+        }
+        return (error as? URLError)?.code == .cancelled
     }
 
     // Sync identifiers, unlike ExternalUUID alone, make retries idempotent in HealthKit.

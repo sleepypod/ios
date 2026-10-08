@@ -76,6 +76,24 @@ enum GlassFill {
     }
 }
 
+/// Primary-button label that swaps to a spinner and progress text while work runs.
+struct BusyLabel: View {
+    let title: String
+    let busyTitle: String
+    let isBusy: Bool
+
+    var body: some View {
+        if isBusy {
+            HStack(spacing: 10) {
+                ProgressView().tint(Theme.background)
+                Text(busyTitle)
+            }
+        } else {
+            Text(title)
+        }
+    }
+}
+
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {

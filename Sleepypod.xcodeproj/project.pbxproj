@@ -105,6 +105,7 @@
 		C4D7F73C779F1ED2B685A770 /* DataPipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C23ED1E696702811954A0DA /* DataPipelineView.swift */; };
 		C92D44C303EF1CBE9D6B8F3A /* SmartCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883B7737894F367125F721FF /* SmartCurveView.swift */; };
 		CC96C885B1F06EF7B0288588 /* StartupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CCC78B5D75C00C87626CA24 /* StartupTests.swift */; };
+		HBGSYNC002HBGSYNC002HBGS /* HealthBackgroundSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = HBGSYNC001HBGSYNC001HBGS /* HealthBackgroundSyncTests.swift */; };
 		CA9D9A4FA299AD4C47BD59E4 /* MarketingTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D7A6E0B1458A3D80DFDC3C /* MarketingTour.swift */; };
 		CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */; };
 		D45FD73FE3DE25E49C9FAD2D /* PrimingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E5DFA72720A6968DE3369C /* PrimingIndicator.swift */; };
@@ -189,6 +190,7 @@
 		537D551820017038203719E1 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodApp.swift; sourceTree = "<group>"; };
 		5CCC78B5D75C00C87626CA24 /* StartupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupTests.swift; sourceTree = "<group>"; };
+		HBGSYNC001HBGSYNC001HBGS /* HealthBackgroundSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthBackgroundSyncTests.swift; sourceTree = "<group>"; };
 		58B707F5F934F822B7D3D2C1 /* HealthSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncService.swift; sourceTree = "<group>"; };
 		5C8D4D424A4CEC3378E85D58 /* IBMPlexMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IBMPlexMono-Medium.ttf"; sourceTree = "<group>"; };
 		5EB30F6B5F7F58639454A71E /* SleepCurve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepCurve.swift; sourceTree = "<group>"; };
@@ -443,6 +445,7 @@
 				THRMTST001THRMTST001THRM /* ThermalBedTests.swift */,
 				PZSWTST001PZSWTST001PZSW /* PiezoSweepTests.swift */,
 				5CCC78B5D75C00C87626CA24 /* StartupTests.swift */,
+				HBGSYNC001HBGSYNC001HBGS /* HealthBackgroundSyncTests.swift */,
 				B5CB2ABDFB609592AB94357C /* ModernizationTests.swift */,
 				97C4FF2FF166CD9D12DEEBD0 /* WatchComparisonTests.swift */,
 			);
@@ -679,6 +682,7 @@
 				THRMTST002THRMTST002THRM /* ThermalBedTests.swift in Sources */,
 				PZSWTST002PZSWTST002PZSW /* PiezoSweepTests.swift in Sources */,
 				CC96C885B1F06EF7B0288588 /* StartupTests.swift in Sources */,
+				HBGSYNC002HBGSYNC002HBGS /* HealthBackgroundSyncTests.swift in Sources */,
 				71C68D220DF59FEB219D0245 /* ModernizationTests.swift in Sources */,
 				B69F31ED0A8F9F53BCA75DBB /* WatchComparisonTests.swift in Sources */,
 			);

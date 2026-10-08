@@ -230,7 +230,9 @@ struct WelcomeScreen: View {
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {
-                Button(connecting ? "Connecting…" : "Connect") { Task { await connect() } }
+                Button { Task { await connect() } } label: {
+                    BusyLabel(title: "Connect", busyTitle: "Connecting…", isBusy: connecting)
+                }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(connecting || (manualIP.isEmpty && discovery.discoveredPods.isEmpty))
                 Button("Explore demo") {
@@ -294,14 +296,7 @@ struct WelcomeScreen: View {
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom) {
             Button { Task { await saveSides() } } label: {
-                if savingSides {
-                    HStack(spacing: 10) {
-                        ProgressView().tint(Theme.background)
-                        Text("Saving…")
-                    }
-                } else {
-                    Text("Continue")
-                }
+                BusyLabel(title: "Continue", busyTitle: "Saving…", isBusy: savingSides)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(savingSides)
@@ -313,6 +308,7 @@ struct WelcomeScreen: View {
     // MARK: Actions
 
     private func connect() async {
+        Haptics.light()
         connecting = true
         defer { connecting = false }
         if manualIP.isEmpty, let pod = selectedPod ?? discovery.discoveredPods.first {
@@ -320,21 +316,24 @@ struct WelcomeScreen: View {
             selectedPod = pod
             discovery.connectedPodName = pod.name
         }
-        guard !manualIP.isEmpty else { failure = "Couldn't resolve the pod's address."; return }
+        guard !manualIP.isEmpty else { Haptics.error(); failure = "Couldn't resolve the pod's address."; return }
         discovery.stopBrowsing()
         SettingsManager.registerPodIdentity(address: manualIP, bonjourID: selectedPod?.id)
         settings.podIP = manualIP
         await device.fetchStatus()
-        guard device.isConnected else { failure = "Couldn't connect. Check the address and Wi-Fi, then retry."; return }
+        guard device.isConnected else { Haptics.error(); failure = "Couldn't connect. Check the address and Wi-Fi, then retry."; return }
+        Haptics.success()
         await prepareSides()
     }
 
     private func saveSides() async {
+        Haptics.light()
         savingSides = true
         defer { savingSides = false }
         let saved = await settings.updateSideNames(left: leftName.trimmingCharacters(in: .whitespacesAndNewlines),
                                                    right: rightName.trimmingCharacters(in: .whitespacesAndNewlines))
-        guard saved else { failure = settings.error ?? "Couldn't save the side names."; return }
+        guard saved else { Haptics.error(); failure = settings.error ?? "Couldn't save the side names."; return }
+        Haptics.success()
         device.selectSide(profile.defaultSide == .left ? .left : .right)
         failure = nil
         withAnimation { step = 3 }

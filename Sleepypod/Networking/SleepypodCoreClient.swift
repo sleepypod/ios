@@ -663,10 +663,23 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await session.data(for: request)
+        } catch let error as URLError where request.httpMethod == "GET" && Self.isTransient(error) {
+            // A pooled keep-alive connection the pod already closed fails once; queries are safe to resend.
+            Log.network.info("Retrying \(request.url?.path ?? "?") after \(error.code.rawValue)")
+            do {
+                return try await session.data(for: request)
+            } catch {
+                Log.network.error("Request failed: \(request.url?.absoluteString ?? "?") — \(error)")
+                throw APIError.networkError(error)
+            }
         } catch {
             Log.network.error("Request failed: \(request.url?.absoluteString ?? "?") — \(error)")
             throw APIError.networkError(error)
         }
+    }
+
+    static func isTransient(_ error: URLError) -> Bool {
+        [.networkConnectionLost, .timedOut, .notConnectedToInternet].contains(error.code)
     }
 
     private func validateResponse(_ response: URLResponse, data: Data? = nil, procedure: String? = nil) throws {

@@ -97,9 +97,11 @@ struct HealthAccessView: View {
                     }
                 }
                 Button {
+                    Haptics.light()
                     Task {
                         await health.syncRecent(api: APIBackend.current.createClient(), podID: settings.podID,
                                                 side: profile.defaultSide, demo: APIBackend.current.isDemo)
+                        if health.failures.isEmpty && health.authorizationError == nil { Haptics.success() } else { Haptics.warning() }
                     }
                 } label: {
                     SettingsRow(health.isSyncing ? "Syncing…" : "Sync last 7 nights now", icon: "arrow.triangle.2.circlepath") {
@@ -117,15 +119,21 @@ struct HealthAccessView: View {
     }
 
     private var allowButton: some View {
-        Button(requesting ? "Requesting access…" : "Allow Health access") {
+        Button {
+            Haptics.light()
             requesting = true
             Task {
                 if await health.requestAuthorization() {
+                    Haptics.success()
                     if health.preferences.readSleep { await importSchedule() }
                     onComplete?()
+                } else {
+                    Haptics.warning()
                 }
                 requesting = false
             }
+        } label: {
+            BusyLabel(title: "Allow Health access", busyTitle: "Requesting access…", isBusy: requesting)
         }
         .buttonStyle(PrimaryButtonStyle()).disabled(requesting)
     }

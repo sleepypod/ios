@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.jonathanng.sleepypod.health-sync</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSBonjourServices</key>
@@ -14,6 +18,10 @@
 	<string>sleepypod saves your sleep stages and overnight vitals to Apple Health for this iPhone's side of the bed.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>UIAppFonts</key>
 	<array>
 		<string>IBMPlexMono-Light.ttf</string>

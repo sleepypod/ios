@@ -56,6 +56,11 @@ struct SleepypodApp: App {
                     }
                 }
         }
+        .backgroundTask(.appRefresh(HealthSyncService.backgroundTaskID)) { [healthSync] in
+            // Queue the next wake-up first so a sync that runs out of time doesn't end the chain.
+            HealthSyncService.scheduleBackgroundSync()
+            await healthSync.syncInBackground()
+        }
     }
 }
 
@@ -166,6 +171,11 @@ struct ContentView: View {
                                                 side: profile.defaultSide, demo: isDemo)
                 }
                 do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            }
+        }
+        .onChange(of: scenePhase) {
+            if scenePhase == .background && healthSync.enabled && !isDemo {
+                HealthSyncService.scheduleBackgroundSync()
             }
         }
         .onChange(of: deviceManager.isConnected) {

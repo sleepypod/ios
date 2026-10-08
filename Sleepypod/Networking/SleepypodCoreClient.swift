@@ -10,17 +10,20 @@ import Foundation
 /// handled internally so managers never know which backend is active.
 final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     private let session: URLSession
+    private let configuredBaseURL: URL?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
     private var baseURL: URL? {
+        if let configuredBaseURL { return configuredBaseURL }
         guard let ip = UserDefaults.standard.string(forKey: "podIPAddress"), !ip.isEmpty else {
             return nil
         }
         return URL(string: "http://\(ip):3000")
     }
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .shared, baseURL: URL? = nil) {
+        self.configuredBaseURL = baseURL
         self.session = session
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
@@ -29,33 +32,26 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     // MARK: - Device Status
 
     func getDeviceStatus() async throws -> DeviceStatus {
-        let results = try await batchQuery([
-            BatchCall(procedure: "device.getStatus", input: nil),
-            BatchCall(procedure: "health.system", input: nil),
-            BatchCall(procedure: "system.wifiStatus", input: nil)
-        ])
-        let status = try decoder.decode(TRPCDeviceStatus.self, from: results[0].get())
-        // health and wifi are non-essential metadata — don't fail polling if they flake
-        let health = tryDecode(TRPCSystemHealth.self, from: results[1])
-        let wifi = tryDecode(TRPCWifiStatus.self, from: results[2])
+        // Keep the first usable status independent of diagnostics and shell-based Wi-Fi queries.
+        let status: TRPCDeviceStatus = try await query("device.getStatus")
 
         return DeviceStatus(
             left: SideStatus(
-                currentTemperatureLevel: fahrenheitToLevel(status.leftSide.currentTemperature),
-                currentTemperatureF: Int(status.leftSide.currentTemperature),
-                targetTemperatureF: Int(status.leftSide.targetTemperature),
+                currentTemperatureLevel: status.leftSide.currentLevel,
+                currentTemperatureF: status.leftSide.currentTemperature.map { Int($0.rounded()) },
+                targetTemperatureF: status.leftSide.targetTemperature.map { Int($0.rounded()) },
                 secondsRemaining: status.leftSide.heatingDuration,
                 isOn: status.leftSide.targetLevel != 0,
-                isAlarmVibrating: false,
+                isAlarmVibrating: status.leftSide.isAlarmVibrating ?? false,
                 taps: mapGestures(status.gestures, side: .left)
             ),
             right: SideStatus(
-                currentTemperatureLevel: fahrenheitToLevel(status.rightSide.currentTemperature),
-                currentTemperatureF: Int(status.rightSide.currentTemperature),
-                targetTemperatureF: Int(status.rightSide.targetTemperature),
+                currentTemperatureLevel: status.rightSide.currentLevel,
+                currentTemperatureF: status.rightSide.currentTemperature.map { Int($0.rounded()) },
+                targetTemperatureF: status.rightSide.targetTemperature.map { Int($0.rounded()) },
                 secondsRemaining: status.rightSide.heatingDuration,
                 isOn: status.rightSide.targetLevel != 0,
-                isAlarmVibrating: false,
+                isAlarmVibrating: status.rightSide.isAlarmVibrating ?? false,
                 taps: mapGestures(status.gestures, side: .right)
             ),
             waterLevel: status.waterLevel,
@@ -64,40 +60,25 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             coverVersion: status.sensorLabel,
             hubVersion: status.podVersion,
             freeSleep: FreeSleepInfo(
-                version: health?.status == "ok" ? "core" : "core (degraded)",
+                version: "core",
                 branch: "main"
             ),
-            wifiStrength: wifi?.signal ?? 0
+            wifiStrength: status.wifiStrength ?? 0
         )
     }
 
     func updateDeviceStatus(_ update: DeviceStatusUpdate) async throws {
-        // Map to individual tRPC mutations
-        if let left = update.left {
-            if let temp = left.targetTemperatureF {
+        for (side, value) in [("left", update.left), ("right", update.right)] {
+            guard let value else { continue }
+            if let powered = value.isOn {
+                var input: [String: Any] = ["side": side, "powered": powered]
+                if powered, let temperature = value.targetTemperatureF {
+                    input["temperature"] = temperature
+                }
+                let _: TRPCSuccess = try await mutate("device.setPower", input: input)
+            } else if let temperature = value.targetTemperatureF {
                 let _: TRPCSuccess = try await mutate("device.setTemperature", input: [
-                    "side": "left",
-                    "temperature": temp
-                ])
-            }
-            if let isOn = left.isOn {
-                let _: TRPCSuccess = try await mutate("device.setPower", input: [
-                    "side": "left",
-                    "powered": isOn
-                ])
-            }
-        }
-        if let right = update.right {
-            if let temp = right.targetTemperatureF {
-                let _: TRPCSuccess = try await mutate("device.setTemperature", input: [
-                    "side": "right",
-                    "temperature": temp
-                ])
-            }
-            if let isOn = right.isOn {
-                let _: TRPCSuccess = try await mutate("device.setPower", input: [
-                    "side": "right",
-                    "powered": isOn
+                    "side": side, "temperature": temperature
                 ])
             }
         }
@@ -274,7 +255,6 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             BatchCall(procedure: "health.scheduler", input: nil),
             BatchCall(procedure: "health.hardware", input: nil),
             BatchCall(procedure: "health.dacMonitor", input: nil),
-            BatchCall(procedure: "biometrics.getProcessingStatus", input: nil),
             BatchCall(procedure: "system.wifiStatus", input: nil)
         ])
         let health = try decoder.decode(TRPCSystemHealth.self, from: results[0].get())
@@ -283,8 +263,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         // Additional health endpoints are non-critical — tolerate per-call failures
         let hardware = tryDecode(TRPCHardwareHealth.self, from: results[2])
         let dacMonitor = tryDecode(TRPCDacMonitor.self, from: results[3])
-        let bioProcessing = tryDecode(TRPCBiometricsProcessing.self, from: results[4])
-        let wifi = tryDecode(TRPCWifiStatus.self, from: results[5])
+        let wifi = tryDecode(TRPCWifiStatus.self, from: results[4])
 
         func info(_ name: String, status: ServiceStatus, desc: String, msg: String = "OK") -> StatusInfo {
             StatusInfo(name: name, status: status, description: desc, message: msg)
@@ -300,10 +279,6 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         let dacStatus: ServiceStatus = dacMonitor?.status == "running" ? .healthy : (dacMonitor != nil ? .failed : .healthy)
         let dacMsg = dacMonitor.map { "\($0.status)\($0.gesturesSupported == true ? " · gestures" : "")" } ?? "OK"
 
-        // Biometrics processing
-        let bioStatus: ServiceStatus = bioProcessing?.iosProcessingActive == true ? .started : .healthy
-        let bioMsg = bioProcessing.map { $0.iosProcessingActive ? "Processing active" : "Idle" } ?? "OK"
-
         return ServerStatus(
             alarmSchedule: info("Alarm Schedule", status: schedStatus, desc: "Wake-up alarm scheduler", msg: "\(scheduler.jobCounts.alarm) alarms"),
             database: info("Database", status: dbStatus, desc: "SQLite database", msg: health.database.error ?? "\(String(format: "%.1fms", health.database.latencyMs ?? 0)) latency"),
@@ -317,7 +292,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             powerSchedule: info("Power Schedule", status: schedStatus, desc: "Auto on/off scheduler", msg: "\(scheduler.jobCounts.powerOn + scheduler.jobCounts.powerOff) power jobs"),
             primeSchedule: info("Prime Schedule", status: schedStatus, desc: "Daily prime scheduler", msg: "\(scheduler.jobCounts.prime) prime jobs"),
             rebootSchedule: info("Reboot Schedule", status: schedStatus, desc: "Daily reboot scheduler", msg: "\(scheduler.jobCounts.reboot) reboot jobs"),
-            systemDate: info("Biometrics", status: bioStatus, desc: "Sleep data processing", msg: bioMsg),
+            systemDate: info("Biometrics", status: .notStarted, desc: "Sleep data processing", msg: "Status unavailable"),
             temperatureSchedule: info("Temperature Schedule", status: schedStatus, desc: "Temperature curve scheduler", msg: "\(scheduler.jobCounts.temperature) temp jobs")
         )
     }
@@ -344,8 +319,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     }
 
     func updateServices(_ services: Services) async throws -> Services {
-        // No-op for sleepypod-core — biometrics are managed via systemd
-        return services
+        throw APIError.notSupported("Service management is not exposed by sleepypod-core")
     }
 
     // MARK: - Log Sources
@@ -362,7 +336,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func getSleepRecords(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [SleepRecord] {
         var input: [String: Any] = [:]
-        input["side"] = (side ?? .left).rawValue
+        if let side { input["side"] = side.rawValue }
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
@@ -371,7 +345,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func getVitals(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [VitalsRecord] {
         var input: [String: Any] = [:]
-        input["side"] = (side ?? .left).rawValue
+        if let side { input["side"] = side.rawValue }
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
@@ -392,7 +366,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
 
     func getMovement(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [MovementRecord] {
         var input: [String: Any] = [:]
-        input["side"] = (side ?? .left).rawValue
+        if let side { input["side"] = side.rawValue }
         var dateKeys: [String] = []
         if let start { input["startDate"] = ISO8601DateFormatter().string(from: start); dateKeys.append("startDate") }
         if let end { input["endDate"] = ISO8601DateFormatter().string(from: end); dateKeys.append("endDate") }
@@ -473,7 +447,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         if enteredBedAt != nil { dateKeys.append("enteredBedAt") }
         if leftBedAt != nil { dateKeys.append("leftBedAt") }
         // Use mutation — the endpoint is biometrics.updateSleepRecord
-        let _: SleepRecord = try await mutate("biometrics.updateSleepRecord", input: input)
+        let _: SleepRecord = try await mutate("biometrics.updateSleepRecord", input: input, dateKeys: dateKeys)
     }
 
     func deleteSleepRecord(id: Int) async throws {
@@ -509,15 +483,28 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         try await query("biometrics.getFileCount")
     }
 
+    func getInternetStatus() async throws -> Bool {
+        let status: TRPCInternetStatus = try await query("system.internetStatus")
+        return status.blocked
+    }
+
+    func getLogs(unit: String, lines: Int = 200, priority: String? = nil) async throws -> [String] {
+        struct LogPage: Decodable {
+            let lines: [String]
+            let nextCursor: String?
+        }
+        var input: [String: Any] = ["unit": unit, "lines": lines]
+        if let priority { input["priority"] = priority }
+        let page: LogPage = try await query("system.getLogs", input: input)
+        return page.lines
+    }
+
     func setInternetAccess(blocked: Bool) async throws {
         let _: TRPCInternetStatus = try await mutate("system.setInternetAccess", input: ["blocked": blocked])
     }
 
     func reboot() async throws {
-        // sleepypod-core uses system.triggerUpdate for restarts
-        // For a full reboot, there's no direct endpoint — this is a best-effort
-        let _: TRPCSuccess = try await mutate("device.startPriming", input: [:] as [String: String])
-        // TODO: Add a reboot procedure to the system router
+        throw APIError.notSupported("Reboot is not exposed by sleepypod-core")
     }
 
     // MARK: - tRPC Transport
@@ -548,7 +535,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         } else {
             wrapped = "{\"json\":\(inputJSON)}"
         }
-        let encoded = wrapped.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? wrapped
+        let encoded = wrapped.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&+=?#"))) ?? wrapped
         urlString += "?input=\(encoded)"
 
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
@@ -557,12 +544,12 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         request.timeoutInterval = 8
 
         let (data, response) = try await performRequest(request)
-        try validateResponse(response)
+        try validateResponse(response, data: data, procedure: procedure)
         return try decodeTRPCResult(data)
     }
 
     /// tRPC mutation — POST /api/trpc/{procedure} with body {"json": input}
-    private func mutate<T: Decodable>(_ procedure: String, input: [String: Any]) async throws -> T {
+    private func mutate<T: Decodable>(_ procedure: String, input: [String: Any], dateKeys: [String] = []) async throws -> T {
         guard let base = baseURL else { throw APIError.noBaseURL }
         guard let url = URL(string: "\(base)/api/trpc/\(procedure)") else { throw APIError.invalidURL }
 
@@ -571,7 +558,10 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 15
 
-        let wrapped: [String: Any] = ["json": input]
+        var wrapped: [String: Any] = ["json": input]
+        if !dateKeys.isEmpty {
+            wrapped["meta"] = ["values": Dictionary(uniqueKeysWithValues: dateKeys.map { ($0, ["Date"]) })]
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: wrapped)
 
         let (data, response) = try await performRequest(request)
@@ -597,7 +587,7 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         }
         let inputData = try JSONSerialization.data(withJSONObject: inputMap)
         let inputJSON = String(data: inputData, encoding: .utf8) ?? "{}"
-        let encoded = inputJSON.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? inputJSON
+        let encoded = inputJSON.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&+=?#"))) ?? inputJSON
 
         let urlString = "\(base)/api/trpc/\(procedures)?batch=1&input=\(encoded)"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
@@ -676,6 +666,13 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
             // Surface the tRPC error message so validation failures aren't silent
             let body = data.flatMap { String(data: $0, encoding: .utf8) }?.prefix(500) ?? ""
             Log.network.error("HTTP \(httpResponse.statusCode) \(tag) — \(String(body))")
+            if let data,
+               let envelope = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let error = envelope["error"] as? [String: Any],
+               let payload = error["json"] as? [String: Any],
+               let message = payload["message"] as? String {
+                throw APIError.serverError(message: message)
+            }
             throw APIError.invalidResponse(statusCode: httpResponse.statusCode)
         }
     }
@@ -841,11 +838,12 @@ private struct TRPCSuccess: Decodable {
 }
 
 private struct TRPCSideStatus: Decodable {
-    let currentTemperature: Double
-    let targetTemperature: Double
+    let currentTemperature: Double?
+    let targetTemperature: Double?
     let currentLevel: Int
     let targetLevel: Int
     let heatingDuration: Int
+    let isAlarmVibrating: Bool?
 }
 
 private struct TRPCGesturePair: Decodable {
@@ -868,6 +866,7 @@ private struct TRPCDeviceStatus: Decodable {
     let podVersion: String
     let sensorLabel: String
     let gestures: TRPCGestures?
+    let wifiStrength: Int?
 }
 
 private struct TRPCDeviceSettings: Decodable {
@@ -1041,11 +1040,6 @@ private struct TRPCDacMonitor: Decodable {
     let status: String
     let podVersion: String?
     let gesturesSupported: Bool?
-}
-
-private struct TRPCBiometricsProcessing: Decodable {
-    let iosProcessingActive: Bool
-    let connectedSince: String?
 }
 
 private struct TRPCInternetStatus: Decodable {

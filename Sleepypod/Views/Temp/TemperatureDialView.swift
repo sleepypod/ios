@@ -57,7 +57,7 @@ struct TemperatureDialView: View {
     }
 
     private var directionLabel: (text: String, icon: String, color: Color)? {
-        guard isOn else { return nil }
+        guard isOn, sideStatus?.targetTemperatureF != nil, sideStatus?.currentTemperatureF != nil else { return nil }
         if targetTempF > currentTempF { return ("WARMING", "flame.fill", Theme.warming) }
         if targetTempF < currentTempF { return ("COOLING", "snowflake", Theme.cooling) }
         return nil
@@ -83,7 +83,7 @@ struct TemperatureDialView: View {
                 .frame(width: dialSize, height: dialSize)
 
             // Colored arc between current and target (the "journey")
-            if isOn && targetTempF != currentTempF {
+            if isOn && sideStatus?.currentTemperatureF != nil && sideStatus?.targetTemperatureF != nil && targetTempF != currentTempF {
                 let fromProgress = min(currentProgress, targetProgress)
                 let toProgress = max(currentProgress, targetProgress)
                 Arc(startAngle: .degrees(startAngle + fromProgress * totalSweep),
@@ -105,7 +105,7 @@ struct TemperatureDialView: View {
             }
 
             // Current temp marker (where you are)
-            if isOn {
+            if isOn && sideStatus?.currentTemperatureF != nil {
                 currentTempMarker
             }
 
@@ -116,7 +116,11 @@ struct TemperatureDialView: View {
 
             // Center content
             VStack(spacing: 4) {
-                if isOn {
+                if isOn && sideStatus?.targetTemperatureF == nil {
+                    Text("Waiting for temperature")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+                } else if isOn {
                     if let direction = directionLabel {
                         HStack(spacing: 6) {
                             Image(systemName: direction.icon)
@@ -139,7 +143,7 @@ struct TemperatureDialView: View {
                             .contentTransition(.numericText())
                             .animation(.easeInOut(duration: 0.2), value: targetOffset)
 
-                        Text("Now \(TemperatureConversion.displayTemp(currentTempF, format: .fahrenheit))")
+                        Text("Now \(sideStatus?.currentTemperatureF.map { TemperatureConversion.displayTemp($0, format: .fahrenheit) } ?? "—")")
                             .font(.system(size: 13))
                             .foregroundColor(Theme.textMuted)
                             .padding(.top, 2)
@@ -279,7 +283,9 @@ struct TemperatureDialView: View {
     }
 
     private var currentTempDisplay: String {
-        TemperatureConversion.displayTemp(currentTempF, format: settingsManager.temperatureFormat)
+        sideStatus?.currentTemperatureF.map {
+            TemperatureConversion.displayTemp($0, format: settingsManager.temperatureFormat)
+        } ?? "—"
     }
 
     private func formatRemaining(_ seconds: Int) -> String {

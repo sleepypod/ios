@@ -13,8 +13,6 @@
 		0911824544AF401433A9DC43 /* PiezoWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */; };
 		THRMBED002THRMBED002THRM /* ThermalBedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = THRMBED001THRMBED001THRM /* ThermalBedView.swift */; };
 		PZSWEEP002PZSWEEP002PZSW /* PiezoSweep.swift in Sources */ = {isa = PBXBuildFile; fileRef = PZSWEEP001PZSWEEP001PZSW /* PiezoSweep.swift */; };
-		BEDTEMPTV002BEDTEMPTV002 /* BedTempTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEDTEMPTV001BEDTEMPTV001 /* BedTempTrendView.swift */; };
-		RUNONCEBANNER02RUNONCE /* RunOnceActiveBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = RUNONCEBANNER01RUNONCE /* RunOnceActiveBanner.swift */; };
 		0B484FB88EA2286B4B2B83EB /* ScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00032A1688C27E11B0BF64CC /* ScheduleScreen.swift */; };
 		1201459B0B50A7E1250D248B /* openapi.json in Resources */ = {isa = PBXBuildFile; fileRef = B881147C7D2F0ADEBAD1AD02 /* openapi.json */; };
 		1558A064C84FC3F65897D129 /* TemperatureConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */; };
@@ -42,6 +40,7 @@
 		59D63C6FB621C08C2D068AA7 /* NotificationRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B44F02B272682A83840CA4 /* NotificationRelay.swift */; };
 		5D6566441668D7E70CE84F29 /* FreeSleepClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */; };
 		5F58632442748EC2A7862CB1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9E902CB9201C2AE527A6C49F /* Assets.xcassets */; };
+		6363D9DF1E8F01CF5B5D7B88 /* SanitizeIPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3176EB2A6FF2F190D09EC5 /* SanitizeIPTests.swift */; };
 		650EC4F1527BA82FBF187755 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */; };
 		67DB457E3E2AF5AE9DCB628F /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B89A040B405BEF4117A8324F /* UserProfile.swift */; };
 		6C2843125C47D323DAB695BC /* APIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 295C867DF528905A55668F52 /* APIBackend.swift */; };
@@ -58,12 +57,14 @@
 		80473DBF0C206E692C09E07B /* StatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F4EAF0885B4206D02501DC8 /* StatusManager.swift */; };
 		8267672B7C3A060FF4D8AB52 /* HealthMetricsGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04710A8ABCD6BE865AA7E37E /* HealthMetricsGridView.swift */; };
 		874862C240D71E13B2FE3722 /* PiezoAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4464A41F150702F0C25D231 /* PiezoAnalyzer.swift */; };
+		89AD7DED764ACC27468103F0 /* BedTempTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB9D4912797C4F2688E60E8A /* BedTempTrendView.swift */; };
 		89CC786871A5B3B08D0EC3C4 /* Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2FC5FEF1954A73556633CF /* Schedule.swift */; };
 		8DD9CBBCA55884DBA45F5938 /* MetricsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A651EEB721EF0EFD1B2D16 /* MetricsManager.swift */; };
 		8DDF8FDD9FE7688543CA8831 /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42ACA637081CABD4502D011 /* APIError.swift */; };
 		8FE251F5B081255681839A64 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22017869B6697F13244EF76 /* ShareSheet.swift */; };
 		910535B30A8B5FBB4DE1B33C /* SleepTimeCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FCC5EA8D41BF91BCCFDEA6D /* SleepTimeCardView.swift */; };
 		9134DC5F465DB3F287914037 /* HealthCircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AB3B17FD36D878C2457E20 /* HealthCircleView.swift */; };
+		92B1607F8D33BC281B15AAAE /* RunOnceActiveBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20D1974B2E3BAF1AB09CDAB /* RunOnceActiveBanner.swift */; };
 		973184378E3DE691E858EC2E /* DaySelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9FF9D7BA24408A31A5A650C /* DaySelectorView.swift */; };
 		9D7F9E63ABF049359432DF0F /* DeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2941CA088FC1C77B69F36D60 /* DeviceManager.swift */; };
 		A0711D54FE9EF5E664D13E9C /* SleepypodCoreClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87060AD52798647A518FA8BE /* SleepypodCoreClient.swift */; };
@@ -81,11 +82,12 @@
 		BA94451123ED98F30EAC7AF8 /* Side.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB85BC15DC6D3030C728B6FC /* Side.swift */; };
 		BC37EEEE2AD3A4072D8141B0 /* InternetToggleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */; };
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
-		C0264F041E3EDCEB719883ED /* SanitizeIPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */; };
 		THRMTST002THRMTST002THRM /* ThermalBedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = THRMTST001THRMTST001THRM /* ThermalBedTests.swift */; };
 		PZSWTST002PZSWTST002PZSW /* PiezoSweepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = PZSWTST001PZSWTST001PZSW /* PiezoSweepTests.swift */; };
+		C410FCBED61138E4165AAB43 /* FirstBootTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E152E058D4B193B3FD0F1D0D /* FirstBootTests.swift */; };
 		C4D7F73C779F1ED2B685A770 /* DataPipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C23ED1E696702811954A0DA /* DataPipelineView.swift */; };
 		C92D44C303EF1CBE9D6B8F3A /* SmartCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883B7737894F367125F721FF /* SmartCurveView.swift */; };
+		CC96C885B1F06EF7B0288588 /* StartupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CCC78B5D75C00C87626CA24 /* StartupTests.swift */; };
 		CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */; };
 		D45FD73FE3DE25E49C9FAD2D /* PrimingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E5DFA72720A6968DE3369C /* PrimingIndicator.swift */; };
 		D5D9989913D7AC299A9531E4 /* SleepProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A89CDBBC9BF2AAE10BA0302 /* SleepProfile.swift */; };
@@ -114,6 +116,13 @@
 			remoteGlobalIDString = DA66F8DC293B6B7F9BDC21B5;
 			remoteInfo = Sleepypod;
 		};
+		E95BD1DB06475207E57911F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D367879AC27A1F41611261E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA66F8DC293B6B7F9BDC21B5;
+			remoteInfo = Sleepypod;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -135,11 +144,11 @@
 		2D039BE0CE64C5F6438E6442 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
 		2D8F3BFDBBA72B77A16C8606 /* Services.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services.swift; sourceTree = "<group>"; };
 		2DA03A26B85DE4C884EF0CE7 /* UserSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSelectorView.swift; sourceTree = "<group>"; };
+		2E3176EB2A6FF2F190D09EC5 /* SanitizeIPTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SanitizeIPTests.swift; sourceTree = "<group>"; };
 		2EFD212CB1C1A249CAD940C8 /* PhaseBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseBlockView.swift; sourceTree = "<group>"; };
 		2F0AFD07A8CB0082733ACB36 /* SleepRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepRecord.swift; sourceTree = "<group>"; };
 		30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureConversion.swift; sourceTree = "<group>"; };
 		3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sleepypod.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SanitizeIPTests.swift; sourceTree = "<group>"; };
 		THRMTST001THRMTST001THRM /* ThermalBedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalBedTests.swift; sourceTree = "<group>"; };
 		PZSWTST001PZSWTST001PZSW /* PiezoSweepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoSweepTests.swift; sourceTree = "<group>"; };
 		43F0D2022B6D8AF6E35D4562 /* MockClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockClient.swift; sourceTree = "<group>"; };
@@ -151,6 +160,7 @@
 		50BD72013CAB411F125A77BC /* RawDataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawDataSheet.swift; sourceTree = "<group>"; };
 		537D551820017038203719E1 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		54A9B04A9B5323F03B9F3CFD /* SleepypodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodApp.swift; sourceTree = "<group>"; };
+		5CCC78B5D75C00C87626CA24 /* StartupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupTests.swift; sourceTree = "<group>"; };
 		5EB30F6B5F7F58639454A71E /* SleepCurve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepCurve.swift; sourceTree = "<group>"; };
 		677BD56179BBE15ACC5E97C1 /* DeviceSettingsCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSettingsCardView.swift; sourceTree = "<group>"; };
 		68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
@@ -164,8 +174,6 @@
 		7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoWaveformView.swift; sourceTree = "<group>"; };
 		THRMBED001THRMBED001THRM /* ThermalBedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalBedView.swift; sourceTree = "<group>"; };
 		PZSWEEP001PZSWEEP001PZSW /* PiezoSweep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoSweep.swift; sourceTree = "<group>"; };
-		BEDTEMPTV001BEDTEMPTV001 /* BedTempTrendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedTempTrendView.swift; sourceTree = "<group>"; };
-		RUNONCEBANNER01RUNONCE /* RunOnceActiveBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunOnceActiveBanner.swift; sourceTree = "<group>"; };
 		7E2FC5FEF1954A73556633CF /* Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Schedule.swift; sourceTree = "<group>"; };
 		81EF4CCF024C14C6F5034605 /* SensorStreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorStreamService.swift; sourceTree = "<group>"; };
 		83EF454801FB06154522C928 /* StatusScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusScreen.swift; sourceTree = "<group>"; };
@@ -181,15 +189,18 @@
 		9C23ED1E696702811954A0DA /* DataPipelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPipelineView.swift; sourceTree = "<group>"; };
 		9E902CB9201C2AE527A6C49F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleManager.swift; sourceTree = "<group>"; };
+		A20D1974B2E3BAF1AB09CDAB /* RunOnceActiveBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunOnceActiveBanner.swift; sourceTree = "<group>"; };
 		A22017869B6697F13244EF76 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		A42ACA637081CABD4502D011 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
 		A4464A41F150702F0C25D231 /* PiezoAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoAnalyzer.swift; sourceTree = "<group>"; };
+		A4B9728437117BA2D2E88EAC /* SleepypodUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SleepypodUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A9FF9D7BA24408A31A5A650C /* DaySelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaySelectorView.swift; sourceTree = "<group>"; };
 		AB34C326BB9C97E9A3E686C6 /* CalibrationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationSheet.swift; sourceTree = "<group>"; };
+		AB9D4912797C4F2688E60E8A /* BedTempTrendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedTempTrendView.swift; sourceTree = "<group>"; };
 		AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InternetToggleTests.swift; sourceTree = "<group>"; };
 		AD6E2D8EB06314CC264F24D1 /* ServiceCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceCategoryView.swift; sourceTree = "<group>"; };
 		B15950D49CE8BFE7FF628BDB /* SleepStagesTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepStagesTimelineView.swift; sourceTree = "<group>"; };
-		B31B3D5B917F4A4D5DD9E99D /* SleepypodTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SleepypodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B31B3D5B917F4A4D5DD9E99D /* SleepypodTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SleepypodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B377B20C619D8127CE16AEF7 /* AICurvePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICurvePromptView.swift; sourceTree = "<group>"; };
 		B7ADF7C27937207223FDBAD9 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B7C94AEB5A7EF2FE53231869 /* VitalsRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsRecord.swift; sourceTree = "<group>"; };
@@ -212,6 +223,7 @@
 		D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCardView.swift; sourceTree = "<group>"; };
 		DE0553DF9686966CDE7AF58B /* CalibrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationTests.swift; sourceTree = "<group>"; };
 		DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAnalyzerTests.swift; sourceTree = "<group>"; };
+		E152E058D4B193B3FD0F1D0D /* FirstBootTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstBootTests.swift; sourceTree = "<group>"; };
 		E6BD6BAE3E54FDA3CB065EAA /* PresenceHeatmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceHeatmapView.swift; sourceTree = "<group>"; };
 		EA55E7C1AA8D071C2D7FACA9 /* TemperatureDialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureDialView.swift; sourceTree = "<group>"; };
 		ED53C388A9A1BE8B0FB0382E /* SideSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideSelectorView.swift; sourceTree = "<group>"; };
@@ -271,6 +283,7 @@
 			children = (
 				F06D1ECEA61B274469CE703A /* Sleepypod */,
 				CB1F0598BD16F0631EF16962 /* SleepypodTests */,
+				F1E22FC9A1CAD07AD1718C18 /* SleepypodUITests */,
 				5AB86CD34B74128771C1B77A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -280,6 +293,7 @@
 			children = (
 				3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */,
 				B31B3D5B917F4A4D5DD9E99D /* SleepypodTests.xctest */,
+				A4B9728437117BA2D2E88EAC /* SleepypodUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -302,7 +316,7 @@
 			isa = PBXGroup;
 			children = (
 				77A6653DA02CC01836DB61EA /* BedSensorScreen.swift */,
-				BEDTEMPTV001BEDTEMPTV001 /* BedTempTrendView.swift */,
+				AB9D4912797C4F2688E60E8A /* BedTempTrendView.swift */,
 				9C23ED1E696702811954A0DA /* DataPipelineView.swift */,
 				948F9BAA88B81D25AA9E0B6F /* FirmwareLogConsoleView.swift */,
 				7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */,
@@ -358,10 +372,11 @@
 				DA2F416C6569A20CE25E7736 /* ScheduleEndActionTests.swift */,
 				AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */,
 				1BA5BFA567D7FBA54153B602 /* MockAPIClient.swift */,
+				2E3176EB2A6FF2F190D09EC5 /* SanitizeIPTests.swift */,
 				DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */,
-				3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */,
 				THRMTST001THRMTST001THRM /* ThermalBedTests.swift */,
 				PZSWTST001PZSWTST001PZSW /* PiezoSweepTests.swift */,
+				5CCC78B5D75C00C87626CA24 /* StartupTests.swift */,
 			);
 			path = SleepypodTests;
 			sourceTree = "<group>";
@@ -374,7 +389,7 @@
 				2EFD212CB1C1A249CAD940C8 /* PhaseBlockView.swift */,
 				D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */,
 				2B3120820F4ED5A63AAF30A6 /* RangeSlider.swift */,
-				RUNONCEBANNER01RUNONCE /* RunOnceActiveBanner.swift */,
+				A20D1974B2E3BAF1AB09CDAB /* RunOnceActiveBanner.swift */,
 				00032A1688C27E11B0BF64CC /* ScheduleScreen.swift */,
 				987F4C796A69FBEA5B834DEF /* SetPointEditor.swift */,
 				0FCC5EA8D41BF91BCCFDEA6D /* SleepTimeCardView.swift */,
@@ -432,9 +447,35 @@
 			path = Sleepypod;
 			sourceTree = "<group>";
 		};
+		F1E22FC9A1CAD07AD1718C18 /* SleepypodUITests */ = {
+			isa = PBXGroup;
+			children = (
+				E152E058D4B193B3FD0F1D0D /* FirstBootTests.swift */,
+			);
+			path = SleepypodUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		BF06DBF6CAB62C58B7AECD55 /* SleepypodUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAAB90935EA08656E2347DF9 /* Build configuration list for PBXNativeTarget "SleepypodUITests" */;
+			buildPhases = (
+				368B2FF0A8017E61A9F9D69C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				610EE67DFD328B8721CF92E5 /* PBXTargetDependency */,
+			);
+			name = SleepypodUITests;
+			packageProductDependencies = (
+			);
+			productName = SleepypodUITests;
+			productReference = A4B9728437117BA2D2E88EAC /* SleepypodUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		D8808AABD4784645491292FA /* SleepypodTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4E7EF6C754BDAAD73E3D3CCA /* Build configuration list for PBXNativeTarget "SleepypodTests" */;
@@ -447,6 +488,8 @@
 				62711B6C4B544A5E5A0FCFBE /* PBXTargetDependency */,
 			);
 			name = SleepypodTests;
+			packageProductDependencies = (
+			);
 			productName = SleepypodTests;
 			productReference = B31B3D5B917F4A4D5DD9E99D /* SleepypodTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -463,6 +506,8 @@
 			dependencies = (
 			);
 			name = Sleepypod;
+			packageProductDependencies = (
+			);
 			productName = Sleepypod;
 			productReference = 3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */;
 			productType = "com.apple.product-type.application";
@@ -474,8 +519,11 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2600;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
+					BF06DBF6CAB62C58B7AECD55 = {
+						TestTargetID = DA66F8DC293B6B7F9BDC21B5;
+					};
 					DA66F8DC293B6B7F9BDC21B5 = {
 						DevelopmentTeam = ZUR2343J7S;
 						ProvisioningStyle = Automatic;
@@ -492,12 +540,12 @@
 			);
 			mainGroup = 3B37E02D8C926F0693D831AD;
 			minimizedProjectReferenceProxies = 1;
-			productRefGroup = 5AB86CD34B74128771C1B77A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				DA66F8DC293B6B7F9BDC21B5 /* Sleepypod */,
 				D8808AABD4784645491292FA /* SleepypodTests */,
+				BF06DBF6CAB62C58B7AECD55 /* SleepypodUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -525,10 +573,19 @@
 				CA8A50DDD41F09B8AEA62585 /* ScheduleEndActionTests.swift in Sources */,
 				BC37EEEE2AD3A4072D8141B0 /* InternetToggleTests.swift in Sources */,
 				E14081657D38C6E39C493746 /* MockAPIClient.swift in Sources */,
+				6363D9DF1E8F01CF5B5D7B88 /* SanitizeIPTests.swift in Sources */,
 				CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */,
-				C0264F041E3EDCEB719883ED /* SanitizeIPTests.swift in Sources */,
 				THRMTST002THRMTST002THRM /* ThermalBedTests.swift in Sources */,
 				PZSWTST002PZSWTST002PZSW /* PiezoSweepTests.swift in Sources */,
+				CC96C885B1F06EF7B0288588 /* StartupTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		368B2FF0A8017E61A9F9D69C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C410FCBED61138E4165AAB43 /* FirstBootTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -542,6 +599,7 @@
 				8DDF8FDD9FE7688543CA8831 /* APIError.swift in Sources */,
 				A3BC5A89B6475BD1E789D8B3 /* AdaptiveSimulator.swift in Sources */,
 				747C5B670447290DEE8D9218 /* BedSensorScreen.swift in Sources */,
+				89AD7DED764ACC27468103F0 /* BedTempTrendView.swift in Sources */,
 				47254DC4322FC4F3DE0DA3EC /* BetaModels.swift in Sources */,
 				DACBAF12C6747C2C8CBDE0B7 /* CalibrationSheet.swift in Sources */,
 				A58005D4A053A4021C7782D8 /* CurveGenerator.swift in Sources */,
@@ -568,8 +626,6 @@
 				59D63C6FB621C08C2D068AA7 /* NotificationRelay.swift in Sources */,
 				F43BB4E4BD6341C7700A6480 /* PhaseBlockView.swift in Sources */,
 				874862C240D71E13B2FE3722 /* PiezoAnalyzer.swift in Sources */,
-				BEDTEMPTV002BEDTEMPTV002 /* BedTempTrendView.swift in Sources */,
-				RUNONCEBANNER02RUNONCE /* RunOnceActiveBanner.swift in Sources */,
 				0911824544AF401433A9DC43 /* PiezoWaveformView.swift in Sources */,
 				THRMBED002THRMBED002THRM /* ThermalBedView.swift in Sources */,
 				PZSWEEP002PZSWEEP002PZSW /* PiezoSweep.swift in Sources */,
@@ -579,6 +635,7 @@
 				A723A40EBCB30E4352F9D4B1 /* ProfilePickerView.swift in Sources */,
 				56087F2DD514F7DAFD5F4C60 /* RangeSlider.swift in Sources */,
 				783B095FE1D933AE14D94C97 /* RawDataSheet.swift in Sources */,
+				92B1607F8D33BC281B15AAAE /* RunOnceActiveBanner.swift in Sources */,
 				89CC786871A5B3B08D0EC3C4 /* Schedule.swift in Sources */,
 				4B76AE90EF4105BC911F5102 /* ScheduleManager.swift in Sources */,
 				0B484FB88EA2286B4B2B83EB /* ScheduleScreen.swift in Sources */,
@@ -627,6 +684,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		610EE67DFD328B8721CF92E5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA66F8DC293B6B7F9BDC21B5 /* Sleepypod */;
+			targetProxy = E95BD1DB06475207E57911F1 /* PBXContainerItemProxy */;
+		};
 		62711B6C4B544A5E5A0FCFBE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DA66F8DC293B6B7F9BDC21B5 /* Sleepypod */;
@@ -645,11 +707,13 @@
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = sleepypod;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads your sleep schedule to set bedtime and wake temperatures automatically";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "sleepypod writes sleep session data including duration, heart rate, and sleep stages to Health";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads your sleep schedule to set bedtime and wake temperatures automatically.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "sleepypod writes sleep session data including duration, heart rate, and sleep stages to Health.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -665,6 +729,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -718,6 +783,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -735,11 +801,13 @@
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = sleepypod;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads your sleep schedule to set bedtime and wake temperatures automatically";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "sleepypod writes sleep session data including duration, heart rate, and sleep stages to Health";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads your sleep schedule to set bedtime and wake temperatures automatically.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "sleepypod writes sleep session data including duration, heart rate, and sleep stages to Health.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -771,6 +839,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -831,6 +900,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -854,6 +924,38 @@
 			};
 			name = Debug;
 		};
+		E09F7308499003756A7D31AC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Sleepypod;
+			};
+			name = Release;
+		};
+		FB11071E91404B690F129380 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Sleepypod;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -871,6 +973,15 @@
 			buildConfigurations = (
 				4C5EDF391D34517E65590363 /* Debug */,
 				009A48EEF9A3B3949123150A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AAAB90935EA08656E2347DF9 /* Build configuration list for PBXNativeTarget "SleepypodUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FB11071E91404B690F129380 /* Debug */,
+				E09F7308499003756A7D31AC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -402,12 +402,12 @@ private struct EnvironmentInfoView: View {
                 }
             }
 
-            if let light = ambientLight {
+            if let lux = ambientLight?.lux {
                 HStack(spacing: 6) {
-                    Image(systemName: light.lux < 10 ? "moon.fill" : "sun.max.fill")
+                    Image(systemName: lux < 10 ? "moon.fill" : "sun.max.fill")
                         .font(.caption)
-                        .foregroundColor(light.lux < 10 ? Theme.purple : Theme.amber)
-                    Text("\(Int(light.lux)) lux")
+                        .foregroundColor(lux < 10 ? Theme.purple : Theme.amber)
+                    Text("\(Int(lux)) lux")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                 }

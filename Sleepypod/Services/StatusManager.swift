@@ -209,18 +209,10 @@ final class StatusManager {
         if let cooldown = internetCooldownUntil, Date() < cooldown { return }
         internetCooldownUntil = nil
         do {
-            struct InternetStatus: Decodable { var blocked: Bool }
-            let result: InternetStatus = try await {
-                let base = UserDefaults.standard.string(forKey: "podIPAddress") ?? ""
-                guard !base.isEmpty,
-                      let url = URL(string: "http://\(base):3000/api/trpc/system.internetStatus?input=%7B%22json%22%3A%7B%7D%7D") else { return InternetStatus(blocked: false) }
-                let (data, _) = try await URLSession.shared.data(from: url)
-                struct E<T: Decodable>: Decodable { let result: R<T> }
-                struct R<T: Decodable>: Decodable { let data: D<T> }
-                struct D<T: Decodable>: Decodable { let json: T }
-                return try JSONDecoder().decode(E<InternetStatus>.self, from: data).result.data.json
-            }()
-            isInternetBlocked = result.blocked
+            let blocked = try await api.getInternetStatus()
+            // A toggle may have started while the query was in flight.
+            guard internetCooldownUntil == nil, !Task.isCancelled else { return }
+            isInternetBlocked = blocked
         } catch {
             // Keep previous value
         }

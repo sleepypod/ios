@@ -90,9 +90,8 @@ private func decodeTRPCOptional<T: Decodable>(_ name: String, as type: T.Type) t
 // MARK: - Device (may fail in CI without hardware)
 
 @Test func deviceStatusDecodesIfAvailable() throws {
-    guard let _ = try? decodeTRPCOptional("device-status", as: DeviceStatusJSON.self) else {
-        return // Skip if fixture is null (no hardware in CI)
-    }
+    // Only an explicitly unavailable fixture may skip. Malformed non-null data fails.
+    _ = try decodeTRPCOptional("device-status", as: DeviceStatusJSON.self)
 }
 
 private struct DeviceStatusJSON: Codable {
@@ -102,8 +101,8 @@ private struct DeviceStatusJSON: Codable {
     var isPriming: Bool
 }
 private struct SideJSON: Codable {
-    var currentTemperature: Double
-    var targetTemperature: Double
+    var currentTemperature: Double?
+    var targetTemperature: Double?
     var heatingDuration: Int
 }
 
@@ -115,9 +114,9 @@ private struct SideJSON: Codable {
         var sensorType: String
     }
     struct CalibrationStatus: Codable {
-        var capacitance: CalibrationSensor
-        var piezo: CalibrationSensor
-        var temperature: CalibrationSensor
+        var capacitance: CalibrationSensor?
+        var piezo: CalibrationSensor?
+        var temperature: CalibrationSensor?
     }
-    _ = try? decodeTRPCOptional("calibration-left", as: CalibrationStatus.self)
+    _ = try decodeTRPCOptional("calibration-left", as: CalibrationStatus.self)
 }

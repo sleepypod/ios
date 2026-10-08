@@ -62,7 +62,7 @@ struct WaterLevelAlert: Decodable, Sendable, Identifiable {
 
 struct AmbientLightReading: Decodable, Sendable {
     let id: Int?
-    let lux: Double
+    let lux: Double?
     let timestamp: String?  // ISO8601
 }
 

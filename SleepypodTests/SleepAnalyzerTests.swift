@@ -70,13 +70,13 @@ struct SleepAnalyzerTests {
     @MainActor
     func deepSleepThreshold() {
         let analyzer = SleepAnalyzer()
-        // Average HR ~65, so HR=58 gives hrRatio ~0.89 < 0.92 → deep
+        // Five epochs isolate classification from the separate rolling outlier
+        // filter. Mean HR is 61.4: 56 / 61.4 ≈ 0.912, below 0.92 but above 0.90.
         let vitals = [
             makeVital(hr: 65, hrv: 40),
             makeVital(hr: 65, hrv: 40),
-            makeVital(hr: 65, hrv: 40),
-            makeVital(hr: 58, hrv: 50),  // should be deep
-            makeVital(hr: 58, hrv: 50),  // should be deep
+            makeVital(hr: 56, hrv: 50),
+            makeVital(hr: 56, hrv: 50),
             makeVital(hr: 65, hrv: 40),
         ]
         analyzer.analyze(vitals: vitals)

@@ -35,6 +35,19 @@ jobs:
           SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
           -quiet
 
+      - name: Unit and transport regression tests
+        run: |
+          IOS_SIM_ID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          matches = [d["udid"] for runtime, group in sorted(devices.items(), reverse=True)
+                     if ".iOS-26-" in runtime for d in group if d["name"].startswith("iPhone")]
+          if not matches: sys.exit("No iOS 26 iPhone simulator installed")
+          print(matches[0])')
+          xcodebuild test -project Sleepypod.xcodeproj -scheme Sleepypod \
+            -destination "platform=iOS Simulator,id=$IOS_SIM_ID" \
+            -only-testing:SleepypodTests CODE_SIGNING_ALLOWED=NO -quiet
+
   lint:
     runs-on: macos-15
     steps:
@@ -57,6 +70,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sleepypod/core
+          ref: dev
           path: core-checkout
 
       - name: Copy iOS model files into Swift package
@@ -102,6 +116,8 @@ jobs:
           cd core-checkout && bash ../contract-tests/scripts/seed-test-data.sh
 
       - name: Snapshot API responses
+        env:
+          ALLOW_UNAVAILABLE_DEVICE: '1'
         run: bash contract-tests/scripts/snapshot-responses.sh
 
       - name: Run Swift contract tests

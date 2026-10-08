@@ -8,6 +8,7 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
 
     // MARK: - Mutable State
 
+    private var internetBlocked = false
     private var leftOn = true
     private var rightOn = true
     private var leftTargetF = 72
@@ -347,8 +348,10 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
         // no-op in demo
     }
 
+    func getInternetStatus() async throws -> Bool { internetBlocked }
+
     func setInternetAccess(blocked: Bool) async throws {
-        // no-op in demo
+        internetBlocked = blocked
     }
 
     // MARK: - Calibration

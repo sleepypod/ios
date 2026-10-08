@@ -31,6 +31,7 @@ final class DeviceManager {
     private var pollingTask: Task<Void, Never>?
     private var pendingUpdate: DeviceStatusUpdate?
     private var isSendingMutation = false
+    private var statusRequestID = UUID()
 
     init(api: SleepypodProtocol) {
         self.api = api
@@ -40,23 +41,35 @@ final class DeviceManager {
         // is actually reachable — otherwise stale cache could mask an outage.
         if let cached = Self.loadCachedStatus() {
             self.deviceStatus = cached
-            self.isConnected = true
         }
     }
 
     /// Becomes true after the first successful network fetch since launch.
     /// Used to prevent stale cache from indefinitely claiming "connected".
     private var hasLiveFetched = false
+    private var liveEndpoint: String?
 
     private static let cacheKey = "cachedDeviceStatus"
 
+    private struct CachedStatus: Codable {
+        let endpoint: String
+        let status: DeviceStatus
+    }
+
+    private static var endpointIdentity: String {
+        "\(APIBackend.current.rawValue)|\(UserDefaults.standard.string(forKey: "podIPAddress") ?? "")"
+    }
+
     private static func loadCachedStatus() -> DeviceStatus? {
-        guard let data = UserDefaults.standard.data(forKey: cacheKey) else { return nil }
-        return try? JSONDecoder().decode(DeviceStatus.self, from: data)
+        guard let data = UserDefaults.standard.data(forKey: cacheKey),
+              let cached = try? JSONDecoder().decode(CachedStatus.self, from: data),
+              cached.endpoint == endpointIdentity else { return nil }
+        return cached.status
     }
 
     private func cacheStatus(_ status: DeviceStatus) {
-        guard let data = try? JSONEncoder().encode(status) else { return }
+        let cached = CachedStatus(endpoint: Self.endpointIdentity, status: status)
+        guard let data = try? JSONEncoder().encode(cached) else { return }
         UserDefaults.standard.set(data, forKey: Self.cacheKey)
     }
 
@@ -69,7 +82,7 @@ final class DeviceManager {
 
     var currentOffset: Int {
         guard let status = currentSideStatus else { return 0 }
-        return TemperatureConversion.tempFToOffset(status.targetTemperatureF)
+        return TemperatureConversion.tempFToOffset(status.targetTemperatureF ?? TemperatureConversion.baseTempF)
     }
 
     var isOn: Bool {
@@ -92,8 +105,10 @@ final class DeviceManager {
 
     func switchBackend(_ newClient: SleepypodProtocol) {
         stopPolling()
+        statusRequestID = UUID()
         api = newClient
         deviceStatus = nil
+        hasLiveFetched = false
         isConnected = false
         retryCount = 0
         error = nil
@@ -106,8 +121,15 @@ final class DeviceManager {
     /// Accept a device status frame from WebSocket, replacing HTTP poll data.
     func applyWebSocketStatus(_ frame: DeviceStatusFrame) {
         let newStatus = frame.toDeviceStatus(preserving: deviceStatus)
-        deviceStatus = newStatus
-        cacheStatus(newStatus)
+        acceptStatus(newStatus)
+    }
+
+    /// Publish a verified snapshot, invalidating older requests that may still finish.
+    func acceptStatus(_ status: DeviceStatus) {
+        liveEndpoint = Self.endpointIdentity
+        statusRequestID = UUID()
+        deviceStatus = status
+        cacheStatus(status)
         hasLiveFetched = true
         isConnected = true
         isConnecting = false
@@ -122,7 +144,7 @@ final class DeviceManager {
         pollingTask?.cancel()
         // If we already have a status snapshot (startConnection just fetched), skip
         // the first immediate poll to avoid a redundant round trip on cold start.
-        var skipFirst = deviceStatus != nil
+        var skipFirst = hasLiveFetched
         pollingTask = Task {
             while !Task.isCancelled {
                 if skipFirst {
@@ -143,20 +165,30 @@ final class DeviceManager {
     }
 
     func fetchStatus() async {
+        if liveEndpoint != Self.endpointIdentity {
+            liveEndpoint = Self.endpointIdentity
+            hasLiveFetched = false
+            isConnected = false
+            isReceivingWebSocket = false
+            deviceStatus = Self.loadCachedStatus()
+        }
+        let requestID = UUID()
+        statusRequestID = requestID
+        let address = UserDefaults.standard.string(forKey: "podIPAddress")
+        defer {
+            if statusRequestID == requestID { isConnecting = false }
+        }
         if !isConnected && retryCount < 3 {
             isConnecting = true
         }
         do {
             let status = try await api.getDeviceStatus()
-            deviceStatus = status
-            cacheStatus(status)
-            hasLiveFetched = true
-            isConnected = true
-            isConnecting = false
-            retryCount = 0
-            error = nil
-            lastUpdated = Date()
+            guard !Task.isCancelled, statusRequestID == requestID,
+                  UserDefaults.standard.string(forKey: "podIPAddress") == address else { return }
+            acceptStatus(status)
         } catch {
+            guard !Task.isCancelled, statusRequestID == requestID,
+                  UserDefaults.standard.string(forKey: "podIPAddress") == address else { return }
             // Until we've had a live fetch this session, treat failure as
             // disconnected — stale cache shouldn't mask a real outage. After
             // a confirmed live fetch, keep showing last-known on transient
@@ -181,7 +213,7 @@ final class DeviceManager {
 
     func adjustOffset(by delta: Int) {
         guard let status = currentSideStatus else { return }
-        let currentOffset = TemperatureConversion.tempFToOffset(status.targetTemperatureF)
+        let currentOffset = TemperatureConversion.tempFToOffset(status.targetTemperatureF ?? TemperatureConversion.baseTempF)
         let newOffset = max(TemperatureConversion.minOffset,
                            min(TemperatureConversion.maxOffset, currentOffset + delta))
         let newTempF = TemperatureConversion.offsetToTempF(newOffset)
@@ -247,19 +279,12 @@ final class DeviceManager {
 
     func stopAlarm() {
         guard let side = alarmSide else { return }
-        var update = DeviceStatusUpdate()
-        let sideUpdate = SideStatusUpdate(targetTemperatureF: nil, isOn: false)
-        switch side {
-        case .left: update.left = sideUpdate
-        case .right: update.right = sideUpdate
-        }
-
         // Optimistic update
         updateLocalAlarm(false, for: side)
 
         Task {
             do {
-                try await api.updateDeviceStatus(update)
+                try await api.clearAlarm(side: side)
             } catch {
                 self.error = error.localizedDescription
                 await fetchStatus()

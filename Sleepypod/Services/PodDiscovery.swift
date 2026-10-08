@@ -17,10 +17,13 @@ final class PodDiscovery {
         case resolving(String)    // device name
         case connected(String)    // IP
         case failed
+        case permissionRequired
     }
 
     private var browser: NWBrowser?
-    private var autoConnecting = false
+    private var connectionGeneration = UUID()
+    private var browseTimeout: Task<Void, Never>?
+    private var browseGeneration = UUID()
 
     struct DiscoveredPod: Identifiable, Sendable {
         let id: String
@@ -32,8 +35,9 @@ final class PodDiscovery {
     // MARK: - Browse
 
     func startBrowsing() {
-        browser?.cancel()
-        browser = nil
+        stopBrowsing()
+        let generation = UUID()
+        browseGeneration = generation
         isSearching = true
         status = .scanning
         discoveredPods = []
@@ -45,21 +49,15 @@ final class PodDiscovery {
 
         browser.stateUpdateHandler = { [weak self] state in
             Task { @MainActor in
-                guard let self else { return }
-                switch state {
-                case .ready:
-                    self.isSearching = true
-                case .failed, .cancelled:
-                    self.isSearching = false
-                default:
-                    break
-                }
+                guard let self, self.browseGeneration == generation else { return }
+                self.handleBrowserState(state)
             }
         }
 
         browser.browseResultsChangedHandler = { [weak self] results, _ in
             Task { @MainActor in
-                self?.handleResults(results)
+                guard let self, self.browseGeneration == generation else { return }
+                self.handleResults(results)
             }
         }
 
@@ -67,9 +65,9 @@ final class PodDiscovery {
         self.browser = browser
 
         // Auto-stop after 15 seconds
-        Task {
-            try? await Task.sleep(for: .seconds(15))
-            if self.isSearching {
+        browseTimeout = Task {
+            do { try await Task.sleep(for: .seconds(15)) } catch { return }
+            if self.browseGeneration == generation && self.isSearching {
                 self.browser?.cancel()
                 self.browser = nil
                 self.isSearching = false
@@ -81,7 +79,30 @@ final class PodDiscovery {
         }
     }
 
+    func handleBrowserState(_ state: NWBrowser.State) {
+        switch state {
+        case .ready:
+            isSearching = true
+            if status == .permissionRequired { status = .scanning }
+        case .waiting(let error), .failed(let error):
+            // kDNSServiceErr_PolicyDenied from dns_sd.h: Local Network access denied.
+            if error == .dns(-65570) {
+                status = .permissionRequired
+                isSearching = false
+            } else if case .failed = state {
+                status = .failed
+                isSearching = false
+            }
+        case .cancelled:
+            isSearching = false
+        default: break
+        }
+    }
+
     func stopBrowsing() {
+        browseGeneration = UUID()
+        browseTimeout?.cancel()
+        browseTimeout = nil
         browser?.cancel()
         browser = nil
         isSearching = false
@@ -112,197 +133,254 @@ final class PodDiscovery {
 
     // MARK: - Auto Connect
 
+    func cancelAutoConnect() {
+        connectionGeneration = UUID()
+        stopBrowsing()
+        status = .idle
+    }
+
     func autoConnect(settingsManager: SettingsManager, deviceManager: DeviceManager) async -> String? {
-        guard !autoConnecting else { return nil }
-        autoConnecting = true
-        defer { autoConnecting = false }
-
-        // Try twice — first attempt may be blocked by the Local Network permission
-        // prompt on fresh install. By the second attempt the permission is granted.
-        for attempt in 1...2 {
-            startBrowsing()
-
-            // Wait up to 10 seconds for a device to appear
-            for _ in 0..<20 {
-                try? await Task.sleep(for: .milliseconds(500))
-                if let pod = discoveredPods.first {
-                    stopBrowsing()
-                    status = .resolving(pod.name)
-                    if let ip = await resolve(pod) {
-                        Log.discovery.info("Resolved \(pod.name) → \(ip)")
-                        Haptics.medium()
-                        status = .connected(ip)
-                        connectedPodName = pod.name
-                        settingsManager.podIP = ip
-                        deviceManager.retryConnection()
-                        return ip
-                    } else {
-                        Log.discovery.error("Failed to resolve \(pod.name)")
-                        Haptics.heavy()
-                        status = .failed
-                    }
-                    return nil
+        cancelAutoConnect()
+        let generation = connectionGeneration
+        let savedAddress = settingsManager.podIP
+        let backend = APIBackend.current
+        var candidates: [Task<Void, Never>] = []
+        var ready: [(ip: String, name: String, status: DeviceStatus)] = []
+        var savedProbeFinished = savedAddress.isEmpty
+        defer {
+            candidates.forEach { $0.cancel() }
+            if connectionGeneration == generation {
+                stopBrowsing()
+                switch status {
+                case .connected, .failed, .permissionRequired: break
+                default: status = .idle
                 }
             }
-            stopBrowsing()
+        }
 
-            if attempt == 1 {
-                Log.discovery.info("First scan found nothing — retrying (permission may have just been granted)")
-                status = .scanning
-                try? await Task.sleep(for: .seconds(1))
+        if !savedAddress.isEmpty {
+            let savedProbe = Task {
+                defer { savedProbeFinished = true }
+                if let snapshot = await probe(savedAddress, backend: backend), !Task.isCancelled {
+                    ready.append((savedAddress, savedAddress, snapshot))
+                }
             }
-        }
-        // Fallback: try resolving eight-pod.local directly (works when
-        // multicast is blocked but unicast mDNS resolution succeeds)
-        Log.discovery.info("Bonjour browse failed — trying eight-pod.local fallback")
-        if let ip = await resolveHostname("eight-pod.local") {
-            Log.discovery.info("Fallback resolved eight-pod.local → \(ip)")
-            Haptics.medium()
-            status = .connected(ip)
-            connectedPodName = "sleepypod"
-            settingsManager.podIP = ip
-            deviceManager.retryConnection()
-            return ip
+            candidates.append(savedProbe)
+            candidates.append(Task {
+                // Preserve the saved pod's priority on multi-pod networks, but
+                // bound a dead address while discovery proceeds in parallel.
+                do { try await Task.sleep(for: .seconds(3)) } catch { return }
+                savedProbe.cancel()
+            })
         }
 
-        Log.discovery.warning("No devices found after 2 scan attempts + hostname fallback")
-        if status == .scanning { status = .failed }
+        for _ in 1...2 {
+            startBrowsing()
+            var attempted = Set<String>()
+            // Probe the fallback and each Bonjour result independently. A stale
+            // advertisement cannot hold up a reachable candidate.
+            candidates.append(Task {
+                if let ip = await resolveHostname("eight-pod.local"),
+                   let snapshot = await probe(ip, backend: backend), !Task.isCancelled {
+                    ready.append((ip, "sleepypod", snapshot))
+                }
+            })
+            let deadline = ContinuousClock.now + .seconds(10)
+            while ContinuousClock.now < deadline {
+                guard !Task.isCancelled, connectionGeneration == generation,
+                      settingsManager.podIP == savedAddress, APIBackend.current == backend else { return nil }
+                if savedProbeFinished,
+                   let winner = ready.first(where: { $0.ip == savedAddress }) ?? ready.first {
+                    // Persist only a verified endpoint, without exposing temporary
+                    // candidates to the app's other requests or manual entry.
+                    settingsManager.podIP = winner.ip
+                    deviceManager.acceptStatus(winner.status)
+                    connectedPodName = winner.name
+                    status = .connected(winner.ip)
+                    Haptics.medium()
+                    return winner.ip
+                }
+                for pod in discoveredPods where !attempted.contains(pod.id) {
+                    attempted.insert(pod.id)
+                    status = .resolving(pod.name)
+                    candidates.append(Task {
+                        if let ip = await resolve(pod),
+                           let snapshot = await probe(ip, backend: backend), !Task.isCancelled {
+                            ready.append((ip, pod.name, snapshot))
+                        }
+                    })
+                }
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return nil }
+            }
+            candidates.forEach { $0.cancel() }
+            stopBrowsing()
+        }
+        if status != .permissionRequired { status = .failed }
         return nil
+    }
+
+    private func probe(_ ip: String, backend: APIBackend) async -> DeviceStatus? {
+        guard !Task.isCancelled, let url = URL(string: "http://\(ip):3000") else { return nil }
+        let client: SleepypodProtocol
+        switch backend {
+        case .sleepypodCore: client = SleepypodCoreClient(baseURL: url)
+        case .freeSleep: client = FreeSleepClient(baseURL: url)
+        case .demo: return nil
+        }
+        return try? await client.getDeviceStatus()
     }
 
     /// Resolve a .local hostname to an IP via NWConnection.
     private func resolveHostname(_ hostname: String) async -> String? {
-        await withCheckedContinuation { continuation in
-            let host = NWEndpoint.Host(hostname)
-            let connection = NWConnection(host: host, port: 3000, using: .tcp)
-            let once = OnceFlag()
+        let host = NWEndpoint.Host(hostname)
+        let connection = NWConnection(host: host, port: 3000, using: .tcp)
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let once = OnceFlag()
 
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    if let endpoint = connection.currentPath?.remoteEndpoint,
-                       case .hostPort(let host, _) = endpoint {
-                        let ip = "\(host)"
-                        // Strip IPv6 brackets/prefix if present
-                        let cleaned = ip.replacingOccurrences(of: "[", with: "")
-                            .replacingOccurrences(of: "]", with: "")
-                        if once.fire() {
+                connection.stateUpdateHandler = { state in
+                    switch state {
+                    case .ready:
+                        if let endpoint = connection.currentPath?.remoteEndpoint,
+                           case .hostPort(let host, _) = endpoint {
+                            let ip = "\(host)"
+                            // Strip IPv6 brackets/prefix if present
+                            let cleaned = ip.replacingOccurrences(of: "[", with: "")
+                                .replacingOccurrences(of: "]", with: "")
+                            if once.fire() {
+                                connection.cancel()
+                                continuation.resume(returning: cleaned)
+                            }
+                        } else if once.fire() {
                             connection.cancel()
-                            continuation.resume(returning: cleaned)
+                            continuation.resume(returning: nil)
                         }
-                    } else if once.fire() {
+                    case .failed, .cancelled:
+                        if once.fire() {
+                            continuation.resume(returning: nil)
+                        }
+                    default:
+                        break
+                    }
+                }
+                if Task.isCancelled {
+                    if once.fire() { continuation.resume(returning: nil) }
+                    connection.cancel()
+                    return
+                }
+                connection.start(queue: .main)
+
+                // Timeout
+                Task {
+                    try? await Task.sleep(for: .seconds(5))
+                    if once.fire() {
                         connection.cancel()
                         continuation.resume(returning: nil)
                     }
-                case .failed, .cancelled:
-                    if once.fire() {
-                        continuation.resume(returning: nil)
-                    }
-                default:
-                    break
                 }
             }
-            connection.start(queue: .main)
-
-            // Timeout
-            Task {
-                try? await Task.sleep(for: .seconds(5))
-                if once.fire() {
-                    connection.cancel()
-                    continuation.resume(returning: nil)
-                }
-            }
+        } onCancel: {
+            connection.cancel()
         }
     }
 
     // MARK: - Resolve
 
     func resolve(_ pod: DiscoveredPod) async -> String? {
-        await withCheckedContinuation { continuation in
-            let endpoint = NWEndpoint.service(
-                name: pod.name,
-                type: "_sleepypod._tcp",
-                domain: "local.",
-                interface: nil
-            )
-            let params = NWParameters.tcp
-            // Prefer IPv4 — some networks have flaky IPv6 that stalls resolution
-            params.requiredInterfaceType = .wifi
-            if let ip = params.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options {
-                ip.version = .v4
-            }
-            let connection = NWConnection(to: endpoint, using: params)
-            let once = OnceFlag()
+        let endpoint = NWEndpoint.service(
+            name: pod.name,
+            type: "_sleepypod._tcp",
+            domain: "local.",
+            interface: nil
+        )
+        let params = NWParameters.tcp
+        // Prefer IPv4 — some networks have flaky IPv6 that stalls resolution
+        params.requiredInterfaceType = .wifi
+        if let ip = params.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options {
+            ip.version = .v4
+        }
+        let connection = NWConnection(to: endpoint, using: params)
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let once = OnceFlag()
 
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    if let path = connection.currentPath,
-                       let endpoint = path.remoteEndpoint,
-                       case .hostPort(let host, _) = endpoint {
-                        let hostString: String
-                        switch host {
-                        case .ipv4(let addr):
-                            hostString = "\(addr)"
-                        case .ipv6(let addr):
-                            // Strip zone ID (%en0) and convert IPv4-mapped IPv6 to plain IPv4
-                            var raw = "\(addr)"
-                            // Remove zone ID (e.g., "%en0", "%%en0")
-                            if let pct = raw.firstIndex(of: "%") {
-                                raw = String(raw[raw.startIndex..<pct])
-                            }
-                            // Convert ::ffff:192.168.1.88 → 192.168.1.88
-                            if raw.hasPrefix("::ffff:") {
-                                raw = String(raw.dropFirst(7))
-                            }
-                            hostString = raw
-                        case .name(let name, _):
-                            // Got hostname (e.g. "eight-pod.local") — resolve to IPv4 on background thread
-                            Task {
-                                if let resolved = await resolveHostnameToIPv4(name), isValidIPv4(resolved) {
-                                    if once.fire() {
-                                        connection.cancel()
-                                        continuation.resume(returning: sanitizeIP(resolved))
-                                    }
-                                } else {
-                                    // Resolution failed or returned non-IPv4 — don't store bare hostname
-                                    if once.fire() {
-                                        connection.cancel()
-                                        continuation.resume(returning: nil)
+                connection.stateUpdateHandler = { state in
+                    switch state {
+                    case .ready:
+                        if let path = connection.currentPath,
+                           let endpoint = path.remoteEndpoint,
+                           case .hostPort(let host, _) = endpoint {
+                            let hostString: String
+                            switch host {
+                            case .ipv4(let addr):
+                                hostString = "\(addr)"
+                            case .ipv6(let addr):
+                                // Strip zone ID (%en0) and convert IPv4-mapped IPv6 to plain IPv4
+                                var raw = "\(addr)"
+                                // Remove zone ID (e.g., "%en0", "%%en0")
+                                if let pct = raw.firstIndex(of: "%") {
+                                    raw = String(raw[raw.startIndex..<pct])
+                                }
+                                // Convert ::ffff:192.168.1.88 → 192.168.1.88
+                                if raw.hasPrefix("::ffff:") {
+                                    raw = String(raw.dropFirst(7))
+                                }
+                                hostString = raw
+                            case .name(let name, _):
+                                // Got hostname (e.g. "eight-pod.local") — resolve to IPv4 on background thread
+                                Task {
+                                    if let resolved = await resolveHostnameToIPv4(name), isValidIPv4(resolved) {
+                                        if once.fire() {
+                                            connection.cancel()
+                                            continuation.resume(returning: sanitizeIP(resolved))
+                                        }
+                                    } else {
+                                        // Resolution failed or returned non-IPv4 — don't store bare hostname
+                                        if once.fire() {
+                                            connection.cancel()
+                                            continuation.resume(returning: nil)
+                                        }
                                     }
                                 }
+                                return
+                            @unknown default:
+                                hostString = "\(host)"
                             }
-                            return
-                        @unknown default:
-                            hostString = "\(host)"
+                            if once.fire() {
+                                connection.cancel()
+                                continuation.resume(returning: sanitizeIP(hostString))
+                            }
+                        } else {
+                            if once.fire() {
+                                connection.cancel()
+                                continuation.resume(returning: nil)
+                            }
                         }
+                    case .failed, .cancelled:
                         if once.fire() {
-                            connection.cancel()
-                            continuation.resume(returning: sanitizeIP(hostString))
-                        }
-                    } else {
-                        if once.fire() {
-                            connection.cancel()
                             continuation.resume(returning: nil)
                         }
+                    default:
+                        break
                     }
-                case .failed, .cancelled:
+                }
+
+                if Task.isCancelled {
+                    if once.fire() { continuation.resume(returning: nil) }
+                    connection.cancel()
+                    return
+                }
+                connection.start(queue: .main)
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                     if once.fire() {
+                        connection.cancel()
                         continuation.resume(returning: nil)
                     }
-                default:
-                    break
                 }
             }
-
-            connection.start(queue: .main)
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                if once.fire() {
-                    connection.cancel()
-                    continuation.resume(returning: nil)
-                }
-            }
+        } onCancel: {
+            connection.cancel()
         }
     }
 

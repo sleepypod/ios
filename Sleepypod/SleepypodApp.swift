@@ -43,8 +43,13 @@ struct SleepypodApp: App {
                 .environment(notificationRelay)
                 .preferredColorScheme(.dark)
                 .task {
-                    await notificationRelay.requestPermission()
                     sensorStream.notificationRelay = notificationRelay
+                }
+                .task(id: deviceManager.isConnected) {
+                    // Keep first-install setup focused on local network access.
+                    if deviceManager.isConnected && !APIBackend.current.isDemo {
+                        await notificationRelay.requestPermission()
+                    }
                 }
         }
     }
@@ -168,7 +173,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: sensorStream.latestDeviceStatus?.ts) { _, _ in
-            if let status = sensorStream.latestDeviceStatus {
+            if let status = sensorStream.latestDeviceStatus, sensorStream.isCurrentPod {
                 deviceManager.applyWebSocketStatus(status)
                 deviceManager.isReceivingWebSocket = true
             }
@@ -183,30 +188,9 @@ struct ContentView: View {
     // MARK: - Connection Flow
 
     private func startConnection() async {
-        if !settingsManager.podIP.isEmpty {
-            Haptics.light()
-            podDiscovery.status = .found("Saved: \(settingsManager.podIP)")
-            podDiscovery.connectedPodName = settingsManager.podIP
-
-            Haptics.light()
-            podDiscovery.status = .resolving(settingsManager.podIP)
-            await deviceManager.fetchStatus()
-
-            if deviceManager.isConnected {
-                Haptics.medium()
-                podDiscovery.status = .connected(settingsManager.podIP)
-                return
-            }
-            Haptics.heavy()
-            podDiscovery.status = .failed
-        }
-
-        // Saved IP failed or empty — try mDNS
-        if let ip = await podDiscovery.autoConnect(settingsManager: settingsManager, deviceManager: deviceManager) {
-            // autoConnect found and saved an IP — fetch status to confirm connection
-            Log.discovery.info("autoConnect resolved to \(ip), fetching status...")
-            await deviceManager.fetchStatus()
-        }
+        // Probe the saved address alongside discovery so a DHCP change doesn't
+        // cost a full request timeout before we can find the pod again.
+        _ = await podDiscovery.autoConnect(settingsManager: settingsManager, deviceManager: deviceManager)
     }
 
     private func enterDemoMode() {
@@ -325,6 +309,7 @@ struct DemoModeBanner: View {
 }
 
 struct DisconnectedTabView: View {
+    @Environment(\.openURL) private var openURL
     let tab: String
     var selectedTab: Binding<String>?
     @Environment(DeviceManager.self) private var deviceManager
@@ -344,7 +329,7 @@ struct DisconnectedTabView: View {
     private var statusText: String {
         switch podDiscovery.status {
         case .idle:
-            return "Connecting..."
+            return deviceManager.isConnecting ? "Connecting..." : "Connect to your pod"
         case .scanning:
             return "Scanning network..."
         case .found:
@@ -358,6 +343,8 @@ struct DisconnectedTabView: View {
             return "Connecting to \(ip)..."
         case .failed:
             return "Could not find pod"
+        case .permissionRequired:
+            return "Allow Local Network access in Settings"
         }
     }
 
@@ -365,7 +352,7 @@ struct DisconnectedTabView: View {
         switch podDiscovery.status {
         case .idle: return Theme.textMuted
         case .scanning, .found, .resolving, .connected: return Theme.textSecondary
-        case .failed: return Theme.error
+        case .failed, .permissionRequired: return Theme.error
         }
     }
 
@@ -412,12 +399,13 @@ struct DisconnectedTabView: View {
                     .frame(width: 80, height: 80)
                     .scaleEffect(ringScale)
 
-                // Arc spinner — always visible (auto-connecting)
-                Circle()
-                    .trim(from: 0, to: 0.3)
-                    .stroke(Theme.accent.opacity(0.6), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 100, height: 100)
-                    .rotationEffect(.degrees(phase))
+                if isActive {
+                    Circle()
+                        .trim(from: 0, to: 0.3)
+                        .stroke(Theme.accent.opacity(0.6), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .frame(width: 100, height: 100)
+                        .rotationEffect(.degrees(phase))
+                }
             }
 
             // Status text
@@ -431,8 +419,15 @@ struct DisconnectedTabView: View {
 
             // Actions
             VStack(spacing: 12) {
-                // Retry — only after failure
-                if podDiscovery.status == .failed {
+                if podDiscovery.status == .permissionRequired {
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }
+                    .foregroundColor(Theme.accent)
+                }
+
+                // Retry after a failed search or changed network permission.
+                if podDiscovery.status == .failed || podDiscovery.status == .permissionRequired {
                     Button {
                         Haptics.light()
                         Task {
@@ -477,6 +472,7 @@ struct DisconnectedTabView: View {
 
                         Button {
                             Haptics.medium()
+                            podDiscovery.cancelAutoConnect()
                             deviceManager.retryConnection()
                         } label: {
                             Image(systemName: "arrow.right.circle.fill")

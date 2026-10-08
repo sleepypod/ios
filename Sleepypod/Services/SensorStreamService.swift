@@ -88,6 +88,7 @@ final class SensorStreamService {
     var notificationRelay: NotificationRelay?
 
     private var webSocketTask: URLSessionWebSocketTask?
+    private var streamURL: URL?
     private var receiveTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
@@ -118,6 +119,11 @@ final class SensorStreamService {
         return URL(string: "ws://\(ip):3001")
     }
 
+    var isCurrentPod: Bool {
+        if APIBackend.current.isDemo { return demoTask != nil }
+        return podURL != nil && streamURL == podURL
+    }
+
     func connect() {
         // Demo mode — generate fake sensor data instead of connecting WS
         if APIBackend.current.isDemo {
@@ -126,8 +132,7 @@ final class SensorStreamService {
             return
         }
 
-        guard !isConnected else { return
-        }
+        guard !isConnected || !isCurrentPod else { return }
 
         guard let url = podURL else { error = "No pod IP"; return }
         disconnect()
@@ -135,6 +140,7 @@ final class SensorStreamService {
         let session = URLSession(configuration: .default)
         let ws = session.webSocketTask(with: url)
         self.webSocketTask = ws
+        streamURL = url
         ws.resume()
         error = nil
 
@@ -145,7 +151,7 @@ final class SensorStreamService {
 
         pingTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(15))
+                do { try await Task.sleep(for: .seconds(15)) } catch { return }
                 self.webSocketTask?.sendPing { _ in }
             }
         }
@@ -158,14 +164,16 @@ final class SensorStreamService {
 
     /// Fetch last hour of bed temp from tRPC to pre-populate the trend chart.
     private func seedTempHistory() async {
-        guard !tempHistorySeeded else { return }
+        guard !tempHistorySeeded, isCurrentPod else { return }
+        let requestedURL = podURL
         do {
             let end = Date()
             let start = end.addingTimeInterval(-3600)
             let readings = try await APIBackend.current.createClient().getBedTempHistory(
                 start: start, end: end, limit: maxTempHistory, unit: "F"
             )
-            guard !readings.isEmpty, !tempHistorySeeded else { return }
+            guard !readings.isEmpty, !tempHistorySeeded,
+                  requestedURL == podURL, isCurrentPod else { return }
             tempHistorySeeded = true
 
             // tRPC returns descending — reverse for chronological
@@ -194,6 +202,7 @@ final class SensorStreamService {
         reconnectTask?.cancel(); reconnectTask = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
+        streamURL = nil
         isConnected = false
         latestDeviceStatus = nil
     }
@@ -378,6 +387,12 @@ final class SensorStreamService {
         do {
             while !Task.isCancelled {
                 let message = try await ws.receive()
+                guard !Task.isCancelled, webSocketTask === ws else { return }
+                guard isCurrentPod else {
+                    disconnect()
+                    connect()
+                    return
+                }
                 if !isConnected { isConnected = true }
                 switch message {
                 case .string(let text):
@@ -388,7 +403,7 @@ final class SensorStreamService {
                 }
             }
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, webSocketTask === ws else { return }
             self.isConnected = false
             self.error = "Disconnected"
             scheduleReconnect()

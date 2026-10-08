@@ -12,7 +12,6 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     // Track delays to simulate slow responses
     var responseDelay: TimeInterval = 0
 
-    func getLogSources() async throws -> [LogSource] { [] }
     func getDeviceStatus() async throws -> DeviceStatus { throw APIError.noBaseURL }
     func updateDeviceStatus(_ update: DeviceStatusUpdate) async throws {}
     func getSettings() async throws -> PodSettings { throw APIError.noBaseURL }
@@ -44,6 +43,8 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     func startRunOnce(side: Side, setPoints: [RunOnceSetPoint], wakeTime: String) async throws -> RunOnceStartResponse { RunOnceStartResponse(sessionId: 0, expiresAt: 0) }
     func getActiveRunOnce(side: Side) async throws -> RunOnceSession? { nil }
     func cancelRunOnce(side: Side) async throws {}
+
+    func getInternetStatus() async throws -> Bool { internetBlocked }
 
     func setInternetAccess(blocked: Bool) async throws {
         if responseDelay > 0 { try? await Task.sleep(for: .seconds(responseDelay)) }

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:3000}"
-FIXTURES_DIR="$(cd "$(dirname "$0")/../Tests/ContractTests/Fixtures" && pwd)"
+FIXTURES_DIR="$(cd "$(dirname "$0")/.." && pwd)/Tests/ContractTests/Fixtures"
 EMPTY='{"json":{}}'
 EMPTY_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$EMPTY'))")
 
@@ -14,10 +14,21 @@ trpc_query() {
   local procedure="$2"
   local input="${3:-$EMPTY_ENC}"
   echo "  -> $name ($procedure)"
-  if ! curl -sf "${BASE_URL}/api/trpc/${procedure}?input=${input}" -o "${FIXTURES_DIR}/${name}.json" 2>/dev/null; then
-    echo "     WARN: $procedure failed — writing empty fixture"
-    echo '{"result":{"data":{"json":null}}}' > "${FIXTURES_DIR}/${name}.json"
+  local code
+  code=$(curl --max-time 15 -sS -w '%{http_code}' \
+    "${BASE_URL}/api/trpc/${procedure}?input=${input}" -o "${FIXTURES_DIR}/${name}.json")
+  if [[ "$code" == 200 ]]; then
+    return
   fi
+  # Hardware-free CI may explicitly allow a device I/O error. Missing procedures,
+  # transport failures, and errors from every other endpoint remain failures.
+  if [[ "$procedure" == device.getStatus && "$code" == 500 && "${ALLOW_UNAVAILABLE_DEVICE:-0}" == 1 ]]; then
+    echo "     Device unavailable in hardware-free CI (HTTP 500)"
+    echo '{"result":{"data":{"json":null}}}' > "${FIXTURES_DIR}/${name}.json"
+    return
+  fi
+  echo "ERROR: $procedure returned HTTP $code" >&2
+  return 1
 }
 
 echo "Snapshotting tRPC API responses..."
@@ -43,7 +54,6 @@ trpc_query wifi-status system.wifiStatus
 
 # Biometrics (need Date meta for date params)
 SIDE_LEFT=$(python3 -c "import urllib.parse; print(urllib.parse.quote('{\"json\":{\"side\":\"left\"}}'))")
-trpc_query processing-status biometrics.getProcessingStatus
 
 # Calibration
 trpc_query calibration-left calibration.getStatus "$SIDE_LEFT"

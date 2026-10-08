@@ -55,3 +55,25 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod.tests
+
+  SleepypodUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: SleepypodUITests
+    dependencies:
+      - target: Sleepypod
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.ios.sleepypod.uitests
+        TEST_TARGET_NAME: Sleepypod
+
+schemes:
+  Sleepypod:
+    build:
+      targets:
+        Sleepypod: all
+    test:
+      targets:
+        - SleepypodTests
+        - SleepypodUITests

@@ -2,8 +2,8 @@ import Foundation
 
 struct SideStatus: Codable, Sendable {
     var currentTemperatureLevel: Int
-    var currentTemperatureF: Int
-    var targetTemperatureF: Int
+    var currentTemperatureF: Int?
+    var targetTemperatureF: Int?
     var secondsRemaining: Int
     var isOn: Bool
     var isAlarmVibrating: Bool

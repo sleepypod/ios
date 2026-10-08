@@ -17,6 +17,7 @@ protocol SleepypodProtocol: Sendable {
     func triggerAlarm(_ alarm: AlarmJob) async throws
     func clearAlarm(side: Side) async throws
     func reboot() async throws
+    func getInternetStatus() async throws -> Bool
     func setInternetAccess(blocked: Bool) async throws
     func getCalibrationStatus(side: Side) async throws -> CalibrationStatus
     func getDiskUsage() async throws -> DiskUsage

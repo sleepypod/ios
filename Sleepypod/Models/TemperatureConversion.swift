@@ -86,6 +86,50 @@ enum TempColor {
     }
 }
 
+// MARK: - Temperature Ramp
+
+/// One ramp colours every absolute temperature (dial, thermal bed) so the eye learns it once.
+/// Ported from sleepypod-core's TEMP_RAMP: cool blue, the mattress cover's grey at the middle, warm amber.
+enum TempRamp {
+    static let stops: [(f: Double, r: Double, g: Double, b: Double)] = [
+        (64, 60, 105, 165),
+        (80.5, 78, 82, 92),
+        (97, 180, 108, 60)
+    ]
+
+    /// 0...1 RGB, linear between the stops and clamped at the ends; no reading is the middle grey.
+    static func rgb(_ f: Double?) -> (r: Double, g: Double, b: Double) {
+        let mid = stops[1]
+        guard let f, f.isFinite else { return (mid.r / 255, mid.g / 255, mid.b / 255) }
+        let first = stops[0], last = stops[stops.count - 1]
+        if f <= first.f { return (first.r / 255, first.g / 255, first.b / 255) }
+        if f >= last.f { return (last.r / 255, last.g / 255, last.b / 255) }
+        for i in 0..<(stops.count - 1) where f <= stops[i + 1].f {
+            let a = stops[i], b = stops[i + 1]
+            let t = (f - a.f) / (b.f - a.f)
+            return ((a.r + (b.r - a.r) * t) / 255, (a.g + (b.g - a.g) * t) / 255, (a.b + (b.b - a.b) * t) / 255)
+        }
+        return (mid.r / 255, mid.g / 255, mid.b / 255)
+    }
+
+    static func color(_ f: Double?) -> Color {
+        let c = rgb(f)
+        return Color(red: c.r, green: c.g, blue: c.b)
+    }
+
+    static func color(_ f: Int) -> Color { color(Double(f)) }
+
+    /// The ramp colour lifted toward white so numerals stay readable on the dark background.
+    static func labelColor(_ f: Int) -> Color {
+        let c = rgb(Double(f))
+        let lift = 0.45
+        return Color(red: c.r + (1 - c.r) * lift, green: c.g + (1 - c.g) * lift, blue: c.b + (1 - c.b) * lift)
+    }
+
+    static var minF: Double { stops[0].f }
+    static var maxF: Double { stops[stops.count - 1].f }
+}
+
 // MARK: - Theme Colors
 
 enum Theme {

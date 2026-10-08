@@ -49,6 +49,9 @@ struct BedSensorScreen: View {
                 // Data pipeline DAG
                 DataPipelineView()
 
+                // Thermal bed (3D surface temps)
+                ThermalBedCard()
+
                 // Sensor matrix (cap + temp)
                 sensorMatrixCard
 

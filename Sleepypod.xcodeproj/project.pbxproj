@@ -11,6 +11,8 @@
 		041D6F2AA0D299253FFA1B27 /* Services.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8F3BFDBBA72B77A16C8606 /* Services.swift */; };
 		0888B106CC86FB2F3C652F8D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B7ADF7C27937207223FDBAD9 /* PrivacyInfo.xcprivacy */; };
 		0911824544AF401433A9DC43 /* PiezoWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */; };
+		THRMBED002THRMBED002THRM /* ThermalBedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = THRMBED001THRMBED001THRM /* ThermalBedView.swift */; };
+		PZSWEEP002PZSWEEP002PZSW /* PiezoSweep.swift in Sources */ = {isa = PBXBuildFile; fileRef = PZSWEEP001PZSWEEP001PZSW /* PiezoSweep.swift */; };
 		BEDTEMPTV002BEDTEMPTV002 /* BedTempTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEDTEMPTV001BEDTEMPTV001 /* BedTempTrendView.swift */; };
 		RUNONCEBANNER02RUNONCE /* RunOnceActiveBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = RUNONCEBANNER01RUNONCE /* RunOnceActiveBanner.swift */; };
 		0B484FB88EA2286B4B2B83EB /* ScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00032A1688C27E11B0BF64CC /* ScheduleScreen.swift */; };
@@ -80,6 +82,8 @@
 		BC37EEEE2AD3A4072D8141B0 /* InternetToggleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */; };
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
 		C0264F041E3EDCEB719883ED /* SanitizeIPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */; };
+		THRMTST002THRMTST002THRM /* ThermalBedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = THRMTST001THRMTST001THRM /* ThermalBedTests.swift */; };
+		PZSWTST002PZSWTST002PZSW /* PiezoSweepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = PZSWTST001PZSWTST001PZSW /* PiezoSweepTests.swift */; };
 		C4D7F73C779F1ED2B685A770 /* DataPipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C23ED1E696702811954A0DA /* DataPipelineView.swift */; };
 		C92D44C303EF1CBE9D6B8F3A /* SmartCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883B7737894F367125F721FF /* SmartCurveView.swift */; };
 		CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */; };
@@ -135,6 +139,8 @@
 		30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureConversion.swift; sourceTree = "<group>"; };
 		3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sleepypod.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SanitizeIPTests.swift; sourceTree = "<group>"; };
+		THRMTST001THRMTST001THRM /* ThermalBedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalBedTests.swift; sourceTree = "<group>"; };
+		PZSWTST001PZSWTST001PZSW /* PiezoSweepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoSweepTests.swift; sourceTree = "<group>"; };
 		43F0D2022B6D8AF6E35D4562 /* MockClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockClient.swift; sourceTree = "<group>"; };
 		452905BE65E698AC3C3419A6 /* MovementCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementCardView.swift; sourceTree = "<group>"; };
 		489B1791FCB967E58E8D40F6 /* SensorFrames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorFrames.swift; sourceTree = "<group>"; };
@@ -155,6 +161,8 @@
 		7A89CDBBC9BF2AAE10BA0302 /* SleepProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepProfile.swift; sourceTree = "<group>"; };
 		7B4A78F7220A8976E8047BF2 /* TempControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempControlsView.swift; sourceTree = "<group>"; };
 		7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoWaveformView.swift; sourceTree = "<group>"; };
+		THRMBED001THRMBED001THRM /* ThermalBedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalBedView.swift; sourceTree = "<group>"; };
+		PZSWEEP001PZSWEEP001PZSW /* PiezoSweep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoSweep.swift; sourceTree = "<group>"; };
 		BEDTEMPTV001BEDTEMPTV001 /* BedTempTrendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedTempTrendView.swift; sourceTree = "<group>"; };
 		RUNONCEBANNER01RUNONCE /* RunOnceActiveBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunOnceActiveBanner.swift; sourceTree = "<group>"; };
 		7E2FC5FEF1954A73556633CF /* Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Schedule.swift; sourceTree = "<group>"; };
@@ -296,6 +304,8 @@
 				9C23ED1E696702811954A0DA /* DataPipelineView.swift */,
 				948F9BAA88B81D25AA9E0B6F /* FirmwareLogConsoleView.swift */,
 				7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */,
+				THRMBED001THRMBED001THRM /* ThermalBedView.swift */,
+				PZSWEEP001PZSWEEP001PZSW /* PiezoSweep.swift */,
 				E6BD6BAE3E54FDA3CB065EAA /* PresenceHeatmapView.swift */,
 			);
 			path = Sensor;
@@ -347,6 +357,8 @@
 				1BA5BFA567D7FBA54153B602 /* MockAPIClient.swift */,
 				DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */,
 				3EBFFAA5F176842190082A2F /* SanitizeIPTests.swift */,
+				THRMTST001THRMTST001THRM /* ThermalBedTests.swift */,
+				PZSWTST001PZSWTST001PZSW /* PiezoSweepTests.swift */,
 			);
 			path = SleepypodTests;
 			sourceTree = "<group>";
@@ -511,6 +523,8 @@
 				E14081657D38C6E39C493746 /* MockAPIClient.swift in Sources */,
 				CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */,
 				C0264F041E3EDCEB719883ED /* SanitizeIPTests.swift in Sources */,
+				THRMTST002THRMTST002THRM /* ThermalBedTests.swift in Sources */,
+				PZSWTST002PZSWTST002PZSW /* PiezoSweepTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -553,6 +567,8 @@
 				BEDTEMPTV002BEDTEMPTV002 /* BedTempTrendView.swift in Sources */,
 				RUNONCEBANNER02RUNONCE /* RunOnceActiveBanner.swift in Sources */,
 				0911824544AF401433A9DC43 /* PiezoWaveformView.swift in Sources */,
+				THRMBED002THRMBED002THRM /* ThermalBedView.swift in Sources */,
+				PZSWEEP002PZSWEEP002PZSW /* PiezoSweep.swift in Sources */,
 				AF368CE52344A599C020EA68 /* PodDiscovery.swift in Sources */,
 				1C1212D4AE1E9773A795BCD8 /* PresenceHeatmapView.swift in Sources */,
 				D45FD73FE3DE25E49C9FAD2D /* PrimingIndicator.swift in Sources */,

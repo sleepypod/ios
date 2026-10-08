@@ -115,9 +115,7 @@ struct TempScreen: View {
     private var ambientColor: Color {
         guard deviceManager.isConnected, deviceManager.isOn else { return .clear }
         let status = deviceManager.currentSideStatus
-        let target = status?.targetTemperatureF ?? 80
-        let current = status?.currentTemperatureF ?? 80
-        return TempColor.forDelta(target: target, current: current)
+        return TempRamp.color(status?.targetTemperatureF ?? 80)
     }
 
     var body: some View {

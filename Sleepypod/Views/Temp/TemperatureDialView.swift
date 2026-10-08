@@ -42,17 +42,18 @@ struct TemperatureDialView: View {
 
     private var ringColor: Color {
         guard isOn else { return Color(hex: "333333") }
-        return TempColor.forDelta(target: targetTempF, current: currentTempF)
+        return TempRamp.color(targetTempF)
     }
 
     private var tempColor: Color {
         guard isOn else { return Theme.textMuted }
-        return TempColor.forDelta(target: targetTempF, current: currentTempF)
+        return TempRamp.labelColor(targetTempF)
     }
 
     private var glowColor: Color {
         guard isOn else { return Color.gray.opacity(0.2) }
-        return TempColor.glowForDelta(target: targetTempF, current: currentTempF)
+        let intensity = min(abs(Double(targetTempF - currentTempF)) / 8.0, 1.0) * 0.8
+        return TempRamp.color(targetTempF).opacity(max(intensity, 0.3))
     }
 
     private var directionLabel: (text: String, icon: String, color: Color)? {

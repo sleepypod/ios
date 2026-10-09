@@ -198,7 +198,9 @@ struct HealthSyncLifecycleTests {
         service.enabled = true
         await service.syncRecent(api: api, podID: "test-pod", side: .left, demo: false)
         #expect(!store.batches.isEmpty)
-        #expect(service.receipts.values.allSatisfy { $0.signature == HealthSyncService.receiptSignature(service.preferences) })
+        // Mock nights are relative to the clock, so the latest may still be open and keep its legacy receipt.
+        let rewritten = service.receipts.values.filter { $0.signature == HealthSyncService.receiptSignature(service.preferences) }
+        #expect(rewritten.count == store.batches.count)
     }
 
     @Test func excludedRecordsAreRemovedFromHealthOnlyIfPreviouslyWritten() async throws {

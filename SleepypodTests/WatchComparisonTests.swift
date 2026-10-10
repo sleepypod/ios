@@ -25,6 +25,38 @@ struct WatchComparisonTests {
         #expect(result.disagreements == [WatchComparison.Disagreement(ours: .deep, watch: .light, seconds: 60)])
     }
 
+    @Test func confusionCellsCoverMatchesAndMismatches() {
+        let epochs = [epoch(0, .light), epoch(1, .light), epoch(2, .deep), epoch(3, .deep), epoch(4, .rem)]
+        let samples = [watch(0, 3, .light), watch(3, 4, .deep), watch(4, 5, .light)]
+        let result = WatchComparison.stageAgreement(epochs: epochs, watch: samples)
+        #expect(result.seconds(ours: .light, watch: .light) == 120)
+        #expect(result.seconds(ours: .deep, watch: .light) == 60)
+        #expect(result.seconds(ours: .deep, watch: .deep) == 60)
+        #expect(result.seconds(ours: .rem, watch: .light) == 60)
+        #expect(result.seconds(ours: .wake, watch: .wake) == 0)
+        let cells: [SleepAnalyzer.SleepStage] = [.wake, .rem, .light, .deep]
+        #expect(cells.flatMap { ours in cells.map { result.seconds(ours: ours, watch: $0) } }.reduce(0, +) == result.comparedSeconds)
+    }
+
+    @Test func touchedMinuteReadsStageAndNearestReading() {
+        let samples = [watch(0, 3, .light), watch(3, 4, .deep)]
+        #expect(WatchComparison.stage(at: Date(timeIntervalSince1970: 150), in: samples) == .light)
+        #expect(WatchComparison.stage(at: Date(timeIntervalSince1970: 180), in: samples) == .deep)
+        #expect(WatchComparison.stage(at: Date(timeIntervalSince1970: 240), in: samples) == nil)
+        let readings = [0, 600, 1800].map { WatchComparison.Reading(date: Date(timeIntervalSince1970: Double($0)), value: Double($0)) }
+        #expect(WatchComparison.nearest(readings, to: Date(timeIntervalSince1970: 500), within: 300)?.value == 600)
+        #expect(WatchComparison.nearest(readings, to: Date(timeIntervalSince1970: 1200), within: 300) == nil)
+    }
+
+    @Test func seriesAreKeptSortedForCharts() {
+        let late = WatchComparison.Reading(date: Date(timeIntervalSince1970: 600), value: 50)
+        let early = WatchComparison.Reading(date: Date(timeIntervalSince1970: 0), value: 40)
+        let comparison = WatchComparison.build(epochs: [], vitals: [], watchStages: [], watchHeartRate: [],
+                                               watchHRV: [late, early], watchBreathing: [late, early])
+        #expect(comparison.watchHRV.map(\.value) == [40, 50])
+        #expect(comparison.watchBreathing.map(\.value) == [40, 50])
+    }
+
     @Test func adjacentWatchSamplesMergeForDrawing() {
         let merged = WatchComparison.merged([watch(0, 1, .light), watch(1, 2, .light), watch(2, 3, .deep), watch(20, 21, .deep)])
         #expect(merged == [watch(0, 2, .light), watch(2, 3, .deep), watch(20, 21, .deep)])
@@ -92,5 +124,6 @@ struct WatchComparisonTests {
         #expect(!a.stages.disagreements.isEmpty)
         #expect(!a.heartRate.isEmpty)
         #expect(a.hrv.watch != nil && a.breathing.watch != nil)
+        #expect(a.watchBreathing.count > 1)
     }
 }

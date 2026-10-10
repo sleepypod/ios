@@ -23,7 +23,14 @@ struct WatchComparison: Sendable {
         let comparedSeconds: TimeInterval
         let matchedSeconds: TimeInterval
         let disagreements: [Disagreement]
+        var matchedByStage: [SleepAnalyzer.SleepStage: TimeInterval] = [:]
         var percent: Double? { comparedSeconds > 0 ? matchedSeconds / comparedSeconds * 100 : nil }
+
+        /// One cell of the confusion table: minutes sleepypod called `ours` while the Watch called `watch`.
+        func seconds(ours: SleepAnalyzer.SleepStage, watch: SleepAnalyzer.SleepStage) -> TimeInterval {
+            ours == watch ? matchedByStage[ours] ?? 0
+                : disagreements.first { $0.ours == ours && $0.watch == watch }?.seconds ?? 0
+        }
     }
     struct HeartRatePair: Identifiable, Sendable {
         var id: Date { date }
@@ -44,6 +51,8 @@ struct WatchComparison: Sendable {
     let stages: StageAgreement
     let heartRate: [HeartRatePair]
     let watchHeartRate: [Reading]
+    var watchHRV: [Reading] = []
+    var watchBreathing: [Reading] = []
     let hrv: Averages
     let breathing: Averages
 
@@ -65,6 +74,8 @@ struct WatchComparison: Sendable {
             stages: stageAgreement(epochs: epochs, watch: watchStages),
             heartRate: heartRatePairs(vitals: vitals, watch: watchHeartRate, tolerance: heartRateTolerance),
             watchHeartRate: watchHeartRate.sorted { $0.date < $1.date },
+            watchHRV: watchHRV.sorted { $0.date < $1.date },
+            watchBreathing: watchBreathing.sorted { $0.date < $1.date },
             hrv: Averages(ours: mean(vitals.compactMap(\.hrv)), watch: mean(watchHRV.map(\.value))),
             breathing: Averages(ours: mean(vitals.compactMap(\.breathingRate)), watch: mean(watchBreathing.map(\.value))))
     }
@@ -72,6 +83,7 @@ struct WatchComparison: Sendable {
     /// Minute-by-minute: an epoch counts only when the Watch recorded exactly one stage at its midpoint.
     static func stageAgreement(epochs: [SleepAnalyzer.SleepEpoch], watch: [StageSample]) -> StageAgreement {
         var compared: TimeInterval = 0, matched: TimeInterval = 0
+        var matchedByStage: [SleepAnalyzer.SleepStage: TimeInterval] = [:]
         var mismatches: [String: Disagreement] = [:]
         for epoch in epochs {
             let midpoint = epoch.start.addingTimeInterval(epoch.duration / 2)
@@ -80,6 +92,7 @@ struct WatchComparison: Sendable {
             compared += epoch.duration
             if theirs == epoch.stage {
                 matched += epoch.duration
+                matchedByStage[theirs, default: 0] += epoch.duration
             } else {
                 let key = "\(epoch.stage.rawValue)-\(theirs.rawValue)"
                 let seconds = (mismatches[key]?.seconds ?? 0) + epoch.duration
@@ -87,7 +100,21 @@ struct WatchComparison: Sendable {
             }
         }
         let disagreements = mismatches.values.sorted { $0.seconds == $1.seconds ? $0.id < $1.id : $0.seconds > $1.seconds }
-        return StageAgreement(comparedSeconds: compared, matchedSeconds: matched, disagreements: disagreements)
+        return StageAgreement(comparedSeconds: compared, matchedSeconds: matched, disagreements: disagreements,
+                              matchedByStage: matchedByStage)
+    }
+
+    /// The stage a source recorded at `date`, for reading a chart at the touched time.
+    static func stage(at date: Date, in samples: [StageSample]) -> SleepAnalyzer.SleepStage? {
+        samples.last { $0.start <= date && $0.end > date }?.stage
+    }
+
+    /// The reading closest to `date`, if one lies within `tolerance`. The Watch samples sparsely, so a
+    /// touched minute often has no Watch reading of its own.
+    static func nearest(_ readings: [Reading], to date: Date, within tolerance: TimeInterval) -> Reading? {
+        guard let reading = readings.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }),
+              abs(reading.date.timeIntervalSince(date)) <= tolerance else { return nil }
+        return reading
     }
 
     /// Each Watch reading pairs with the pod reading nearest in time, if one lies within the tolerance.
@@ -155,7 +182,10 @@ struct WatchComparison: Sendable {
         let hrv = stride(from: 0, to: hrvValues.count, by: max(1, hrvValues.count / 4)).map {
             Reading(date: readings[$0].date, value: hrvValues[$0] * (1.08 + (next() - 0.5) * 0.2))
         }
-        let breathing = mean(readings.compactMap(\.breathingRate)).map { [Reading(date: record.enteredBedDate, value: $0 + 0.3)] } ?? []
+        let breathing = readings.enumerated().compactMap { index, vital -> Reading? in
+            guard index % 6 == 0, let rate = vital.breathingRate else { return nil }
+            return Reading(date: vital.date.addingTimeInterval(40), value: rate + 0.3 + (next() - 0.5) * 1.2)
+        }
         return build(epochs: epochs, vitals: vitals, watchStages: stages, watchHeartRate: heartRate, watchHRV: hrv, watchBreathing: breathing)
     }
 }

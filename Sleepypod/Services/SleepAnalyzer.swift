@@ -19,6 +19,11 @@ import Observation
 @Observable
 final class SleepAnalyzer {
 
+    /// Bump whenever classification or outlier rules change. Health sync folds this into each night's
+    /// receipt, so every synced night is rewritten with the new stages. `SleepAnalyzerVersionTests` fails
+    /// on a fixture night until this is bumped and its fingerprint updated.
+    static let version = 1
+
     var stages: [SleepEpoch] = []
     var qualityScore: Int?
     var isAnalyzing = false

@@ -125,6 +125,35 @@ struct SleepAnalyzerTests {
         #expect(analyzer.stages.count == 5)
     }
 
+    /// Health sync rewrites every synced night only when `SleepAnalyzer.version` changes, so any change to
+    /// stage output on this fixed night must come with a version bump.
+    @Test("Stage output changes bump the analyzer version")
+    @MainActor
+    func stageOutputIsVersioned() throws {
+        let start = 1_760_000_000
+        let vitals = (0..<480).map { i -> VitalsRecord in
+            let cycle = sin(Double(i) / 90 * 2 * .pi)
+            let jitter = Double(i * 37 % 7) - 3
+            return VitalsRecord(id: i, heartRate: 60 + 8 * cycle + jitter, hrv: 45 - 15 * cycle + jitter,
+                                breathingRate: 14 + 2 * cycle, date: Date(timeIntervalSince1970: TimeInterval(start + i * 60)))
+        }
+        let movement = try stride(from: 0, to: 480, by: 5).map { i in
+            try JSONDecoder().decode(MovementRecord.self, from: Data("""
+            {"id":\(i),"side":"left","timestamp":\(start + i * 60),"totalMovement":\(i * 53 % 400)}
+            """.utf8))
+        }
+        let analyzer = SleepAnalyzer()
+        analyzer.analyze(vitals: vitals, movement: movement)
+        // A fixture that lands in one stage would hide most rule changes.
+        #expect(Set(analyzer.stages.map(\.stage)).count >= 3)
+        let output = analyzer.stages.map { String($0.stage.rawValue.prefix(1)) }.joined() + "-\(analyzer.qualityScore ?? -1)"
+        // FNV-1a, since Swift's hashValue is seeded per process.
+        let fingerprint = String(output.utf8.reduce(UInt64(0xcbf29ce484222325)) { ($0 ^ UInt64($1)) &* 0x100000001b3 }, radix: 16)
+        let fingerprints = [1: "1c097f8c379b7fb1"]
+        #expect(fingerprints[SleepAnalyzer.version] == fingerprint,
+                "Stage output changed (\(fingerprint)). Bump SleepAnalyzer.version and record the new fingerprint here.")
+    }
+
     private func makeVital(hr: Double, hrv: Double, br: Double = 14) -> VitalsRecord {
         // Use custom init via JSON decode
         let json = """

@@ -7,6 +7,8 @@ struct HealthAccessView: View {
     @Environment(SettingsManager.self) private var settings
     var onComplete: (() -> Void)?
     @State private var requesting = false
+    @State private var confirmRebuild = false
+    @State private var rebuildFailed = false
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 30
 
     var body: some View {
@@ -79,6 +81,11 @@ struct HealthAccessView: View {
         }
         .background(Theme.background).tint(Theme.green)
         .navigationTitle(onComplete == nil ? "Apple Health" : "").navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("Rebuild Apple Health data?", isPresented: $confirmRebuild, titleVisibility: .visible) {
+            Button("Rebuild", role: .destructive) { rebuild() }
+        } message: {
+            Text("Rewrites the last \(HealthSyncService.rebuildDays) nights from the pod with the current analysis, then deletes everything else sleepypod wrote to Health, including older nights. Apple Watch and other apps' data aren't touched. Keep the app open until it finishes.")
+        }
     }
 
     /// What actually reached Health, so a sync can be checked on a real device.
@@ -110,11 +117,40 @@ struct HealthAccessView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(health.isSyncing || !health.enabled || APIBackend.current.isDemo)
+                Button {
+                    Haptics.light()
+                    confirmRebuild = true
+                } label: {
+                    SettingsRow(rebuildTitle, icon: "arrow.counterclockwise", iconColor: Theme.amber) {
+                        if health.rebuildProgress != nil { ProgressView() }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(health.isSyncing || !health.enabled || APIBackend.current.isDemo)
+            }
+            if rebuildFailed {
+                Text("The rebuild stopped before every night was rewritten, so older Health data was kept. Fix the errors above and try again.")
+                    .font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
             }
             if APIBackend.current.isDemo {
                 Text("Demo mode never writes to Apple Health. Connect a pod to sync.")
                     .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16)
             }
+        }
+    }
+
+    private var rebuildTitle: String {
+        guard let progress = health.rebuildProgress else { return "Rebuild last \(HealthSyncService.rebuildDays) nights" }
+        return progress.total == 0 ? "Finding nights…" : "Rebuilding \(progress.done) of \(progress.total) nights…"
+    }
+
+    private func rebuild() {
+        rebuildFailed = false
+        Task {
+            let rebuilt = await health.rebuild(api: APIBackend.current.createClient(), podID: settings.podID,
+                                               side: profile.defaultSide, demo: APIBackend.current.isDemo)
+            rebuildFailed = !rebuilt
+            if rebuilt { Haptics.success() } else { Haptics.warning() }
         }
     }
 

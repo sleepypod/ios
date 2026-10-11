@@ -108,6 +108,11 @@ private final class FakeHealthStore: HealthSyncStore {
         deletes.append((deviceID, start, end, version))
         events.append("delete")
     }
+    var sweeps: [(types: Set<HKSampleType>, olderThan: Int)] = []
+    func deleteAll(types: Set<HKSampleType>, olderThan version: Int) async throws {
+        sweeps.append((types, version))
+        events.append("deleteAll")
+    }
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] { [] }
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample] { [] }
 }
@@ -223,6 +228,55 @@ struct HealthSyncLifecycleTests {
         #expect(HealthSyncService(store: store, defaults: defaults).receipts.isEmpty)
     }
 
+    @Test func rebuildRewritesEveryNightThenSweepsEverythingOlder() async throws {
+        let store = FakeHealthStore()
+        let service = HealthSyncService(store: store, defaults: UserDefaults(suiteName: "health-tests-\(UUID().uuidString)")!)
+        service.enabled = true
+        let api = MockClient()
+        await service.syncRecent(api: api, podID: "test-pod", side: .left, demo: false)
+        let nights = store.batches.count
+        #expect(nights > 0)
+        #expect(await service.rebuild(api: api, podID: "test-pod", side: .left, demo: false))
+        // Already-synced nights are written again rather than skipped by their receipts.
+        #expect(store.batches.count == nights * 2)
+        #expect(store.events.last == "deleteAll")
+        let sweep = try #require(store.sweeps.first)
+        #expect(store.batches.suffix(nights).flatMap { $0 }.allSatisfy { ($0.metadata?[HKMetadataKeySyncVersion] as? Int ?? 0) >= sweep.olderThan })
+        #expect(store.batches.prefix(nights).flatMap { $0 }.allSatisfy { ($0.metadata?[HKMetadataKeySyncVersion] as? Int ?? .max) < sweep.olderThan })
+        #expect(service.receipts.count == nights)
+        #expect(service.rebuildProgress == nil && !service.isSyncing)
+        // A type switched off since an earlier sync still gets swept.
+        service.preferences.hrv = false
+        #expect(await service.rebuild(api: api, podID: "test-pod", side: .left, demo: false))
+        #expect(store.sweeps.last?.types == Set(HealthSyncService.allWriteTypes))
+    }
+
+    @Test func failedRebuildKeepsOlderHealthData() async {
+        let store = FakeHealthStore()
+        let service = HealthSyncService(store: store, defaults: UserDefaults(suiteName: "health-tests-\(UUID().uuidString)")!)
+        service.enabled = true
+        store.failSave = true
+        #expect(await !service.rebuild(api: MockClient(), podID: "test-pod", side: .left, demo: false))
+        #expect(store.sweeps.isEmpty)
+        #expect(!service.failures.isEmpty)
+        #expect(await !service.rebuild(api: MockClient(), podID: "test-pod", side: .left, demo: true))
+    }
+
+    @Test func receiptsCarryTheAnalyzerVersion() {
+        #expect(HealthSyncService.receiptSignature(.init()).contains("-a\(SleepAnalyzer.version)-"))
+    }
+
+    @Test func longWindowsAreFetchedByWeekAndCappedWeeksByDay() async throws {
+        let api = PagedRecordsClient()
+        let end = Date()
+        let start = end.addingTimeInterval(-21 * 86400)
+        let records = try await HealthSyncService.sleepRecords(api: api, side: .left, start: start, end: end)
+        // Weeks 1 and 3 return a few nights; week 2 hits the cap and is refetched as 7 days.
+        #expect(api.requests.count == 3 + 7)
+        #expect(api.requests.allSatisfy { $0.end.timeIntervalSince($0.start) <= 7 * 86400 })
+        #expect(Set(records.map(\.id)).count == records.count)
+    }
+
     @Test func deniedWritesDoNotProduceReceipts() async {
         let store = FakeHealthStore()
         store.allowed = false
@@ -311,6 +365,26 @@ struct NightPhasesTests {
         #expect(NightPhasesStore.step(72, delta: 1, format: .fahrenheit) == 73)
         #expect(NightPhasesStore.step(72, delta: 1, format: .celsius) == 73)
         #expect(NightPhasesStore.step(110, delta: 1, format: .fahrenheit) == 110)
+    }
+}
+
+/// The second week of a three-week window returns the core's default cap; every other request returns two nights.
+private final class PagedRecordsClient: MockAPIClient, @unchecked Sendable {
+    var requests: [(start: Date, end: Date)] = []
+    private var firstWeek: Date?
+    override func getSleepRecords(side: Side?, start: Date?, end: Date?) async throws -> [SleepRecord] {
+        guard let start, let end else { return [] }
+        requests.append((start, end))
+        if firstWeek == nil { firstWeek = start }
+        let week = Int(start.timeIntervalSince(firstWeek!) / (7 * 86400))
+        let isWeek = end.timeIntervalSince(start) > 86400
+        let count = week == 1 && isWeek ? HealthSyncService.recordsPageLimit : 2
+        let base = Int(start.timeIntervalSince1970)
+        return try (0..<count).map { i in
+            try JSONDecoder().decode(SleepRecord.self, from: Data("""
+            {"id":\(base + i),"side":"left","enteredBedAt":\(base + i * 60),"leftBedAt":\(base + i * 60 + 3600),"sleepDurationSeconds":3600}
+            """.utf8))
+        }
     }
 }
 

@@ -10,6 +10,8 @@ struct WatchComparisonView: View {
     let vitals: [VitalsRecord]
     @State private var comparison: WatchComparison?
     @State private var loaded = false
+    /// The touched minute, shared so every chart marks the same moment.
+    @State private var selection: Date?
 
     private let order: [SleepAnalyzer.SleepStage] = [.wake, .rem, .light, .deep]
     private static let watchColor = Theme.text2
@@ -21,14 +23,12 @@ struct WatchComparisonView: View {
                     .font(.mono(12, relativeTo: .caption)).foregroundStyle(Theme.text2).padding(.horizontal, 4)
                 if let comparison, comparison.hasWatchData {
                     agreementCard(comparison)
-                    timelinesCard(comparison)
-                    if !comparison.stages.disagreements.isEmpty { disagreementsCard(comparison.stages) }
-                    heartRateCard(comparison)
-                    averagesLayout {
-                        averageCard("HRV", unit: "ms", icon: "waveform.path.ecg", color: Theme.cool, decimals: 0, averages: comparison.hrv)
-                        averageCard("BREATH", unit: "br/min", icon: "lungs", color: Theme.green, decimals: 1, averages: comparison.breathing)
-                    }
-                    Text("The Watch writes HRV as SDNN from a few spot readings a night, so night averages are the fair comparison. Agreement counts only minutes where the Watch recorded a stage.")
+                    stagesCard(comparison)
+                    if comparison.stages.comparedSeconds > 0 { confusionCard(comparison.stages) }
+                    vitalCard(heartRateMetric(comparison))
+                    vitalCard(hrvMetric(comparison))
+                    vitalCard(breathingMetric(comparison))
+                    Text("Touch and hold any chart to read both sources at that minute. sleepypod reports HRV as RMSSD and the Watch as SDNN from a few spot readings, so compare how they move, not their level. Agreement counts only minutes where the Watch recorded a stage.")
                         .font(.footnote).foregroundStyle(Theme.text3).fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
                 } else if loaded {
                     ContentUnavailableView("No Apple Watch data", systemImage: "applewatch",
@@ -72,170 +72,332 @@ struct WatchComparisonView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func timelinesCard(_ comparison: WatchComparison) -> some View {
-        let ours = SleepStagesTimelineView.segments(epochs)
-        let theirs = WatchComparison.merged(comparison.watchStages).map { SleepStagesTimelineView.Segment(stage: $0.stage, start: $0.start, end: $0.end) }
-        let start = min(ours.first?.start ?? record.enteredBedDate, theirs.first?.start ?? record.enteredBedDate)
-        let end = max(ours.map(\.end).max() ?? record.leftBedDate, theirs.map(\.end).max() ?? record.leftBedDate)
-        let total = max(1, end.timeIntervalSince(start))
-        return VStack(alignment: .leading, spacing: 12) {
-            lanes("SLEEPYPOD", segments: ours, start: start, total: total)
-            lanes("APPLE WATCH", segments: theirs, start: start, total: total)
-            HStack {
-                Text(start, format: .dateTime.hour().minute())
+    private var nightStart: Date {
+        min(epochs.map(\.start).min() ?? record.enteredBedDate, comparison?.watchStages.first?.start ?? record.enteredBedDate)
+    }
+    private var nightEnd: Date {
+        max(epochs.map { $0.start.addingTimeInterval($0.duration) }.max() ?? record.leftBedDate,
+            comparison?.watchStages.map(\.end).max() ?? record.leftBedDate)
+    }
+
+    /// Hypnogram lanes, deepest at the bottom.
+    private static func lane(_ stage: SleepAnalyzer.SleepStage) -> Double {
+        switch stage {
+        case .wake: 3
+        case .rem: 2
+        case .light: 1
+        case .deep: 0
+        }
+    }
+
+    /// sleepypod's stages as coloured blocks with the Watch's hypnogram drawn through them, so a line
+    /// leaving its block is a disagreement at that minute. The strip beneath marks every compared minute.
+    private func stagesCard(_ comparison: WatchComparison) -> some View {
+        let ours = SleepStagesTimelineView.segments(epochs).map { WatchComparison.StageSample(start: $0.start, end: $0.end, stage: $0.stage) }
+        let theirs = WatchComparison.merged(comparison.watchStages, maxGap: 0)
+        let agreement = agreementRuns(theirs)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Eyebrow("STAGES")
                 Spacer()
-                Text(end, format: .dateTime.hour().minute())
+                if let selection {
+                    let pod = WatchComparison.stage(at: selection, in: ours)
+                    let watch = WatchComparison.stage(at: selection, in: theirs)
+                    Text("\(selection.formatted(date: .omitted, time: .shortened))  ·  \(pod?.label ?? "—") / \(watch?.label ?? "—")")
+                        .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text1)
+                }
             }
-            .font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3).accessibilityHidden(true)
-            legend
+            Chart {
+                ForEach(Array(ours.enumerated()), id: \.offset) { _, segment in
+                    RectangleMark(xStart: .value("Start", segment.start), xEnd: .value("End", segment.end),
+                                  yStart: .value("Lane", Self.lane(segment.stage) - 0.34), yEnd: .value("Lane", Self.lane(segment.stage) + 0.34))
+                        .foregroundStyle(segment.stage.displayColor.opacity(0.75))
+                }
+                ForEach(Array(theirs.enumerated()), id: \.offset) { index, segment in
+                    LineMark(x: .value("Time", segment.start), y: .value("Lane", Self.lane(segment.stage)), series: .value("Watch", index))
+                        .foregroundStyle(Theme.text1).lineStyle(StrokeStyle(lineWidth: 1.5))
+                    LineMark(x: .value("Time", segment.end), y: .value("Lane", Self.lane(segment.stage)), series: .value("Watch", index))
+                        .foregroundStyle(Theme.text1).lineStyle(StrokeStyle(lineWidth: 1.5))
+                    if index + 1 < theirs.count, theirs[index + 1].start.timeIntervalSince(segment.end) <= 300 {
+                        RuleMark(x: .value("Time", theirs[index + 1].start),
+                                 yStart: .value("Lane", Self.lane(segment.stage)), yEnd: .value("Lane", Self.lane(theirs[index + 1].stage)))
+                            .foregroundStyle(Theme.text1).lineStyle(StrokeStyle(lineWidth: 1.5))
+                    }
+                }
+                if let selection { selectionRule(selection) }
+            }
+            .chartXScale(domain: nightStart...nightEnd)
+            .chartYScale(domain: -0.5...3.5)
+            .chartXSelection(value: $selection)
+            .chartYAxis {
+                AxisMarks(position: .leading, values: [0.0, 1, 2, 3]) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Theme.border1)
+                    AxisValueLabel {
+                        if let lane = value.as(Double.self), let stage = order.first(where: { Self.lane($0) == lane }) {
+                            Text(stage.label).font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3)
+                        }
+                    }
+                }
+            }
+            .chartXAxis { hourAxis }
+            .frame(height: 140)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Stages. sleepypod \(summary(ours)). Apple Watch \(summary(theirs)).")
+            Chart {
+                ForEach(Array(agreement.enumerated()), id: \.offset) { _, run in
+                    RectangleMark(xStart: .value("Start", run.start), xEnd: .value("End", run.end), yStart: .value("Row", 0), yEnd: .value("Row", 1))
+                        .foregroundStyle(run.matched ? Theme.green : Theme.amber)
+                }
+                if let selection { selectionRule(selection) }
+            }
+            .chartXScale(domain: nightStart...nightEnd)
+            .chartYScale(domain: 0...1)
+            .chartXAxis(.hidden).chartYAxis(.hidden)
+            .chartXSelection(value: $selection)
+            .frame(height: 8)
+            .clipShape(RoundedRectangle(cornerRadius: 2))
+            .accessibilityHidden(true)
+            stageLegend
         }
         .cardStyle()
     }
 
-    private func lanes(_ title: String, segments: [SleepStagesTimelineView.Segment], start: Date, total: TimeInterval) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Eyebrow(title, size: 10)
-            if segments.isEmpty {
-                Text("No stages recorded").font(.footnote).foregroundStyle(Theme.text2).frame(height: 68)
-            } else {
-                Canvas { context, size in
-                    for segment in segments {
-                        guard let lane = order.firstIndex(of: segment.stage) else { continue }
-                        let x = size.width * segment.start.timeIntervalSince(start) / total
-                        let width = max(2, size.width * segment.end.timeIntervalSince(segment.start) / total)
-                        let rect = CGRect(x: x, y: CGFloat(lane) * 17 + 1, width: width, height: 11)
-                        context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(segment.stage.displayColor))
-                    }
+    /// Runs of consecutive compared epochs that agreed or disagreed with the Watch. Gaps up to `maxGap`
+    /// are closed, as in the stage lanes, so sparse epochs read as a continuous strip.
+    private func agreementRuns(_ watch: [WatchComparison.StageSample], maxGap: TimeInterval = 300) -> [(start: Date, end: Date, matched: Bool)] {
+        var runs: [(start: Date, end: Date, matched: Bool)] = []
+        for epoch in epochs.sorted(by: { $0.start < $1.start }) {
+            let midpoint = epoch.start.addingTimeInterval(epoch.duration / 2)
+            guard let theirs = WatchComparison.stage(at: midpoint, in: watch) else { continue }
+            let end = epoch.start.addingTimeInterval(epoch.duration)
+            let matched = theirs == epoch.stage
+            if let last = runs.last, epoch.start.timeIntervalSince(last.end) <= maxGap {
+                if last.matched == matched {
+                    runs[runs.count - 1].end = end
+                    continue
                 }
-                .frame(height: 68)
+                runs[runs.count - 1].end = epoch.start
             }
+            runs.append((epoch.start, end, matched))
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title.capitalized) stages, \(summary(segments))")
+        return runs
     }
 
-    private func summary(_ segments: [SleepStagesTimelineView.Segment]) -> String {
+    private func summary(_ segments: [WatchComparison.StageSample]) -> String {
         segments.isEmpty ? "none recorded" : order.map { stage in
             let seconds = segments.filter { $0.stage == stage }.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
             return "\(stage.label) \(DisplayTime.duration(Int(seconds)))"
         }.joined(separator: ", ")
     }
 
-    private var legend: some View {
+    private var stageLegend: some View {
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
-            : AnyLayout(HStackLayout(spacing: 0))
+            : AnyLayout(HStackLayout(spacing: 12))
         return layout {
-            ForEach(order, id: \.self) { stage in
-                HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2).fill(stage.displayColor).frame(width: 7, height: 7)
-                    Text(stage.label)
-                }
-                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? nil : .infinity, alignment: .leading)
+            HStack(spacing: 5) {
+                RoundedRectangle(cornerRadius: 2).fill(Theme.cool.opacity(0.75)).frame(width: 12, height: 7)
+                Text("sleepypod")
+            }
+            seriesKey("Apple Watch", color: Theme.text1)
+            HStack(spacing: 5) {
+                RoundedRectangle(cornerRadius: 1).fill(Theme.green).frame(width: 7, height: 7)
+                Text("Agree")
+                RoundedRectangle(cornerRadius: 1).fill(Theme.amber).frame(width: 7, height: 7)
+                Text("Differ")
             }
         }
         .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
         .accessibilityHidden(true)
     }
 
-    private func disagreementsCard(_ stages: WatchComparison.StageAgreement) -> some View {
-        GroupedCard {
+    /// Minutes per pair of calls. Rows are sleepypod, columns the Watch; the diagonal is agreement, and a heavy
+    /// off-diagonal cell is a systematic bias worth tuning (say, sleepypod calling Light what the Watch calls Deep).
+    private func confusionCard(_ stages: WatchComparison.StageAgreement) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Eyebrow("WHERE THEY DIFFER")
-                Text("What sleepypod called, and what the Watch called for the same minutes.")
+                Eyebrow("MINUTES BY STAGE")
+                Text("Rows are what sleepypod called, columns what the Watch called for the same minutes.")
                     .font(.footnote).foregroundStyle(Theme.text2).fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 18).padding(.top, 16).padding(.bottom, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            ForEach(stages.disagreements.prefix(4)) { item in
-                HStack(spacing: 12) {
-                    HStack(spacing: 6) {
-                        stageChip(item.ours)
-                        Image(systemName: "arrow.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.text3)
-                        stageChip(item.watch)
+            Grid(horizontalSpacing: 4, verticalSpacing: 4) {
+                GridRow {
+                    Text("").gridColumnAlignment(.leading)
+                    ForEach(order, id: \.self) { watch in
+                        Text(watch.label).font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3).frame(maxWidth: .infinity)
                     }
-                    Spacer(minLength: 8)
-                    RowValue(DisplayTime.duration(Int(item.seconds)), mono: true)
                 }
-                .padding(.horizontal, 16)
-                .frame(minHeight: 48)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("sleepypod \(item.ours.label), Watch \(item.watch.label), \(DisplayTime.duration(Int(item.seconds)))")
+                ForEach(order, id: \.self) { ours in
+                    let rowTotal = order.reduce(0) { $0 + stages.seconds(ours: ours, watch: $1) }
+                    GridRow {
+                        HStack(spacing: 5) {
+                            RoundedRectangle(cornerRadius: 2).fill(ours.displayColor).frame(width: 7, height: 7)
+                            Text(ours.label).font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
+                        }
+                        ForEach(order, id: \.self) { watch in
+                            let seconds = stages.seconds(ours: ours, watch: watch)
+                            let share = rowTotal > 0 ? seconds / rowTotal : 0
+                            Text(seconds > 0 ? "\(Int((seconds / 60).rounded()))" : "·")
+                                .font(.mono(13, relativeTo: .footnote)).foregroundStyle(seconds > 0 ? Theme.text1 : Theme.text3)
+                                .frame(maxWidth: .infinity, minHeight: 34)
+                                .background(seconds > 0 ? (ours == watch ? Theme.green : Theme.amber).opacity(0.12 + 0.5 * share) : Theme.text3.opacity(0.06),
+                                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("sleepypod \(ours.label): " + order.map { watch in
+                        "Watch \(watch.label) \(Int((stages.seconds(ours: ours, watch: watch) / 60).rounded())) minutes"
+                    }.joined(separator: ", "))
+                }
             }
         }
-    }
-
-    private func stageChip(_ stage: SleepAnalyzer.SleepStage) -> some View {
-        HStack(spacing: 5) {
-            RoundedRectangle(cornerRadius: 2).fill(stage.displayColor).frame(width: 7, height: 7)
-            Text(stage.label).font(.subheadline).foregroundStyle(Theme.text1)
-        }
+        .cardStyle()
     }
 
     // MARK: Vitals
 
-    private func heartRateCard(_ comparison: WatchComparison) -> some View {
-        let ours = vitals.compactMap { v in v.heartRate.map { WatchComparison.Reading(date: v.date, value: $0) } }.sorted { $0.date < $1.date }
-        return VStack(alignment: .leading, spacing: 12) {
+    private struct Metric {
+        let title: String
+        let icon: String
+        let color: Color
+        let unit: String
+        let decimals: Int
+        let ours: [WatchComparison.Reading]
+        let watch: [WatchComparison.Reading]
+        /// How far from the touched minute a Watch reading may be and still be shown.
+        let watchTolerance: TimeInterval
+        let stat: String?
+        let accessibility: String
+        let footer: String
+    }
+
+    private func podReadings(_ value: (VitalsRecord) -> Double?) -> [WatchComparison.Reading] {
+        vitals.compactMap { v in value(v).map { WatchComparison.Reading(date: v.date, value: $0) } }.sorted { $0.date < $1.date }
+    }
+
+    private func averagesText(_ averages: WatchComparison.Averages, decimals: Int, unit: String) -> String? {
+        guard let ours = averages.ours, let watch = averages.watch else { return nil }
+        return "avg \(String(format: "%.\(decimals)f", ours)) / \(String(format: "%.\(decimals)f", watch)) \(unit)"
+    }
+
+    private func heartRateMetric(_ comparison: WatchComparison) -> Metric {
+        var stat: String?
+        if let error = comparison.heartRateError, let bias = comparison.heartRateBias {
+            stat = "±\(String(format: "%.1f", error)) · bias \(bias >= 0 ? "+" : "")\(String(format: "%.1f", bias)) bpm"
+        }
+        return Metric(title: "HEART RATE", icon: "heart", color: Theme.red, unit: "bpm", decimals: 0,
+                      ours: podReadings(\.heartRate), watch: comparison.watchHeartRate, watchTolerance: 5 * 60,
+                      stat: stat, accessibility: heartRateSummary(comparison), footer: "\(comparison.heartRate.count) matched")
+    }
+
+    private func hrvMetric(_ comparison: WatchComparison) -> Metric {
+        Metric(title: "HRV", icon: "waveform.path.ecg", color: Theme.cool, unit: "ms", decimals: 0,
+               ours: podReadings(\.hrv), watch: comparison.watchHRV, watchTolerance: 20 * 60,
+               stat: averagesText(comparison.hrv, decimals: 0, unit: "ms"),
+               accessibility: averagesSummary("HRV", comparison.hrv, decimals: 0, unit: "milliseconds"),
+               footer: "RMSSD vs SDNN")
+    }
+
+    private func breathingMetric(_ comparison: WatchComparison) -> Metric {
+        Metric(title: "BREATHING", icon: "lungs", color: Theme.green, unit: "br/min", decimals: 1,
+               ours: podReadings(\.breathingRate), watch: comparison.watchBreathing, watchTolerance: 20 * 60,
+               stat: averagesText(comparison.breathing, decimals: 1, unit: "br/min"),
+               accessibility: averagesSummary("Breathing rate", comparison.breathing, decimals: 1, unit: "breaths per minute"),
+               footer: "\(comparison.watchBreathing.count) Watch readings")
+    }
+
+    private func vitalCard(_ metric: Metric) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 HStack(spacing: 6) {
-                    Image(systemName: "heart").font(.caption).foregroundStyle(Theme.red)
-                    Eyebrow("HEART RATE")
+                    Image(systemName: metric.icon).font(.caption).foregroundStyle(metric.color)
+                    Eyebrow(metric.title)
                 }
                 Spacer()
-                if let error = comparison.heartRateError, let bias = comparison.heartRateBias {
-                    Text("±\(String(format: "%.1f", error)) · bias \(bias >= 0 ? "+" : "")\(String(format: "%.1f", bias)) bpm")
-                        .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
+                if let selection {
+                    Text(readout(metric, at: selection)).font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text1)
+                } else if let stat = metric.stat {
+                    Text(stat).font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
                 }
             }
-            if comparison.watchHeartRate.isEmpty {
-                Text("The Watch recorded no heart rate this night").font(.subheadline).foregroundStyle(Theme.text2)
+            if metric.ours.isEmpty && metric.watch.isEmpty {
+                Text("Neither source recorded this night").font(.subheadline).foregroundStyle(Theme.text2)
             } else {
                 Chart {
-                    ForEach(ours) { reading in
-                        LineMark(x: .value("Time", reading.date), y: .value("bpm", reading.value), series: .value("Source", "sleepypod"))
-                            .foregroundStyle(Theme.red).interpolationMethod(.catmullRom).lineStyle(StrokeStyle(lineWidth: 1.5))
+                    ForEach(metric.ours) { reading in
+                        LineMark(x: .value("Time", reading.date), y: .value(metric.unit, reading.value), series: .value("Source", "sleepypod"))
+                            .foregroundStyle(metric.color).interpolationMethod(.catmullRom).lineStyle(StrokeStyle(lineWidth: 1.5))
                     }
-                    ForEach(comparison.watchHeartRate) { reading in
-                        LineMark(x: .value("Time", reading.date), y: .value("bpm", reading.value), series: .value("Source", "Apple Watch"))
-                            .foregroundStyle(Self.watchColor).interpolationMethod(.catmullRom).lineStyle(StrokeStyle(lineWidth: 1.5))
-                        PointMark(x: .value("Time", reading.date), y: .value("bpm", reading.value))
-                            .foregroundStyle(Self.watchColor).symbolSize(10)
+                    ForEach(metric.watch) { reading in
+                        // Straight segments: the Watch samples sparsely, and a smoothed curve would invent values between readings.
+                        LineMark(x: .value("Time", reading.date), y: .value(metric.unit, reading.value), series: .value("Source", "Apple Watch"))
+                            .foregroundStyle(Self.watchColor).lineStyle(StrokeStyle(lineWidth: 1.5))
+                        PointMark(x: .value("Time", reading.date), y: .value(metric.unit, reading.value))
+                            .foregroundStyle(Self.watchColor).symbolSize(metric.watch.count < 20 ? 24 : 10)
+                    }
+                    if let selection {
+                        selectionRule(selection)
+                        if let pod = WatchComparison.nearest(metric.ours, to: selection, within: 120) {
+                            PointMark(x: .value("Time", pod.date), y: .value(metric.unit, pod.value))
+                                .foregroundStyle(metric.color).symbolSize(60)
+                        }
+                        if let watch = WatchComparison.nearest(metric.watch, to: selection, within: metric.watchTolerance) {
+                            PointMark(x: .value("Time", watch.date), y: .value(metric.unit, watch.value))
+                                .foregroundStyle(Theme.text1).symbolSize(60)
+                        }
                     }
                 }
+                .chartXScale(domain: nightStart...nightEnd)
                 .chartYScale(domain: .automatic(includesZero: false))
+                .chartXSelection(value: $selection)
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Theme.border1)
                         AxisValueLabel {
-                            if let bpm = value.as(Double.self) {
-                                Text("\(Int(bpm))").font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3)
+                            if let number = value.as(Double.self) {
+                                Text(String(format: "%.\(metric.decimals)f", number)).font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3)
                             }
                         }
                     }
                 }
-                .chartXAxis {
-                    AxisMarks { value in
-                        AxisValueLabel {
-                            if let date = value.as(Date.self) {
-                                Text(date, format: .dateTime.hour()).font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3)
-                            }
-                        }
-                    }
-                }
+                .chartXAxis { hourAxis }
                 .frame(height: 150)
                 .accessibilityElement()
-                .accessibilityLabel(heartRateSummary(comparison))
+                .accessibilityLabel(metric.accessibility)
                 HStack(spacing: 14) {
-                    seriesKey("sleepypod", color: Theme.red)
+                    seriesKey("sleepypod", color: metric.color)
                     seriesKey("Apple Watch", color: Self.watchColor)
                     Spacer()
-                    Text("\(comparison.heartRate.count) matched").font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text3)
+                    Text(metric.watch.isEmpty ? "No Watch readings" : metric.footer)
+                        .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text3)
                 }
                 .accessibilityHidden(true)
             }
         }
         .cardStyle()
+    }
+
+    private func readout(_ metric: Metric, at date: Date) -> String {
+        func text(_ reading: WatchComparison.Reading?) -> String {
+            reading.map { String(format: "%.\(metric.decimals)f", $0.value) } ?? "—"
+        }
+        let pod = WatchComparison.nearest(metric.ours, to: date, within: 120)
+        let watch = WatchComparison.nearest(metric.watch, to: date, within: metric.watchTolerance)
+        return "\(date.formatted(date: .omitted, time: .shortened))  ·  \(text(pod)) / \(text(watch)) \(metric.unit)"
+    }
+
+    private func selectionRule(_ date: Date) -> some ChartContent {
+        RuleMark(x: .value("Selected", date)).foregroundStyle(Theme.text3).lineStyle(StrokeStyle(lineWidth: 1))
+    }
+
+    private var hourAxis: some AxisContent {
+        AxisMarks { value in
+            AxisValueLabel {
+                if let date = value.as(Date.self) {
+                    Text(date, format: .dateTime.hour()).font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3)
+                }
+            }
+        }
     }
 
     private func heartRateSummary(_ comparison: WatchComparison) -> String {
@@ -244,41 +406,16 @@ struct WatchComparisonView: View {
             "sleepypod reads \(String(format: "%.1f", abs(bias))) \(bias >= 0 ? "higher" : "lower") than the Watch"
     }
 
+    private func averagesSummary(_ title: String, _ averages: WatchComparison.Averages, decimals: Int, unit: String) -> String {
+        func text(_ value: Double?) -> String { value.map { String(format: "%.\(decimals)f", $0) } ?? "not recorded" }
+        return "\(title), night average sleepypod \(text(averages.ours)) \(unit), Watch \(text(averages.watch)) \(unit)"
+    }
+
     private func seriesKey(_ title: String, color: Color) -> some View {
         HStack(spacing: 5) {
             Capsule().fill(color).frame(width: 12, height: 3)
             Text(title)
         }
         .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
-    }
-
-    private var averagesLayout: AnyLayout {
-        dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))
-    }
-
-    private func averageCard(_ title: String, unit: String, icon: String, color: Color, decimals: Int,
-                             averages: WatchComparison.Averages) -> some View {
-        func text(_ value: Double?) -> String { value.map { String(format: "%.\(decimals)f", $0) } ?? "—" }
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: icon).font(.caption).foregroundStyle(color)
-                Eyebrow(title, size: 10)
-            }
-            pair("sleepypod", value: text(averages.ours))
-            pair("Watch", value: text(averages.watch))
-            Text(averages.difference.map { "\($0 >= 0 ? "+" : "")\(String(format: "%.\(decimals)f", $0)) \(unit)" } ?? "Night average, \(unit)")
-                .font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3)
-        }
-        .cardStyle(radius: 18, vertical: 14, horizontal: 14)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), sleepypod \(text(averages.ours)) \(unit), Watch \(text(averages.watch)) \(unit)")
-    }
-
-    private func pair(_ label: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label).font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
-            Spacer()
-            Text(value).font(.mono(20, weight: .light, relativeTo: .title3)).foregroundStyle(Theme.text1)
-        }
     }
 }

@@ -464,7 +464,7 @@ final class HealthSyncService {
               record.leftBedDate > record.enteredBedDate else { return nil }
         let start = record.enteredBedDate, end = record.leftBedDate
         readError = nil
-        Log.health.info("Watch comparison for night \(record.id) \(start.formatted(.iso8601)) to \(end.formatted(.iso8601))")
+        Log.health.notice("Watch comparison for night \(record.id) \(start.formatted(.iso8601), privacy: .public) to \(end.formatted(.iso8601), privacy: .public)")
         let stages = preferences.readSleep ? Self.watchStages(await read("sleep") { try await store.sleepSamples(start: start, end: end) }) : []
         var heartRate: [WatchComparison.Reading] = [], hrv: [WatchComparison.Reading] = [], breathing: [WatchComparison.Reading] = []
         if preferences.readVitals {
@@ -475,7 +475,7 @@ final class HealthSyncService {
             breathing = Self.watchReadings(await read("breathing") { try await store.quantitySamples(.respiratoryRate, start: start, end: end) },
                                            unit: .count().unitDivided(by: .minute()))
         }
-        Log.health.info("Watch samples kept: \(stages.count) stages, \(heartRate.count) HR, \(hrv.count) HRV, \(breathing.count) breathing")
+        Log.health.notice("Watch samples kept: \(stages.count) stages, \(heartRate.count) HR, \(hrv.count) HRV, \(breathing.count) breathing")
         return WatchComparison.build(epochs: epochs, vitals: vitals, watchStages: stages,
                                      watchHeartRate: heartRate, watchHRV: hrv, watchBreathing: breathing)
     }
@@ -489,8 +489,9 @@ final class HealthSyncService {
     private func read<S: HKSample>(_ label: String, _ query: () async throws -> [S]) async -> [S] {
         do {
             let samples = try await query()
-            let watch = samples.filter(Self.isWatch).count
-            Log.health.info("Health read \(label): \(samples.count) samples, \(watch) from Watch; sources: \(Self.describeSources(samples), privacy: .private)")
+            let watch = samples.filter(Self.isWatch)
+            let span = watch.isEmpty ? "none" : "\(watch.map(\.startDate).min()!.formatted(.iso8601)) to \(watch.map(\.endDate).max()!.formatted(.iso8601))"
+            Log.health.notice("Health read \(label, privacy: .public): \(samples.count) samples, \(watch.count) from Watch spanning \(span, privacy: .public); sources: \(Self.describeSources(samples), privacy: .public)")
             return samples
         } catch {
             Log.health.error("Health read \(label) failed: \(error.localizedDescription, privacy: .private)")

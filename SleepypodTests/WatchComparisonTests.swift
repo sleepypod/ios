@@ -111,6 +111,27 @@ struct WatchComparisonTests {
         #expect(HealthSyncService.isWatch(fromWatch))
     }
 
+    @Test func watchNightIsMatchedToTheBedRecordWithoutRequiringOverlap() throws {
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        func sample(_ from: TimeInterval, _ to: TimeInterval) -> WatchComparison.StageSample {
+            .init(start: t0.addingTimeInterval(from), end: t0.addingTimeInterval(to), stage: .light)
+        }
+        // Two nights 20 hours apart, each made of back-to-back samples.
+        let samples = [sample(0, 1800), sample(1800, 7200), sample(72_000, 75_600), sample(75_600, 80_000)]
+        let sessions = WatchComparison.sessions(samples)
+        #expect(sessions.map(\.samples.count) == [2, 2])
+        #expect(sessions[1].start == t0.addingTimeInterval(72_000) && sessions[1].end == t0.addingTimeInterval(80_000))
+        // Overlap wins.
+        let overlapping = WatchComparison.session(for: t0.addingTimeInterval(3600), end: t0.addingTimeInterval(10_000), in: sessions)
+        #expect(overlapping == sessions[0])
+        // No overlap: the nearest night within the margin, here the second one 2 hours later.
+        let nearby = WatchComparison.session(for: t0.addingTimeInterval(60_000), end: t0.addingTimeInterval(64_800), in: sessions)
+        #expect(nearby == sessions[1])
+        // Too far from anything: nothing.
+        let far = WatchComparison.session(for: t0.addingTimeInterval(200_000), end: t0.addingTimeInterval(210_000), in: sessions)
+        #expect(far == nil)
+    }
+
     @Test func demoIsDeterministicAndDisagreesSomewhere() throws {
         let json = """
         {"id":7,"side":"left","enteredBedAt":0,"leftBedAt":28800,"sleepDurationSeconds":27000}

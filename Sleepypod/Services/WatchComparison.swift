@@ -129,6 +129,35 @@ struct WatchComparison: Sendable {
         }
     }
 
+    /// One continuous stretch of Watch sleep. The Watch and the bed need not agree on when the night began or ended.
+    struct Session: Sendable, Equatable {
+        let start: Date
+        let end: Date
+        let samples: [StageSample]
+    }
+
+    /// Watch samples grouped into nights; a gap longer than `maxGap` starts a new session.
+    static func sessions(_ samples: [StageSample], maxGap: TimeInterval = 3 * 3600) -> [Session] {
+        var result: [Session] = []
+        for sample in samples.sorted(by: { $0.start < $1.start }) {
+            if let last = result.last, sample.start.timeIntervalSince(last.end) <= maxGap {
+                result[result.count - 1] = Session(start: last.start, end: max(last.end, sample.end), samples: last.samples + [sample])
+            } else {
+                result.append(Session(start: sample.start, end: sample.end, samples: [sample]))
+            }
+        }
+        return result
+    }
+
+    /// The session that shares the most time with the bed record, or failing any overlap the nearest one within `maxDistance`.
+    static func session(for start: Date, end: Date, in sessions: [Session], maxDistance: TimeInterval = 12 * 3600) -> Session? {
+        func overlap(_ s: Session) -> TimeInterval { min(end, s.end).timeIntervalSince(max(start, s.start)) }
+        if let best = sessions.max(by: { overlap($0) < overlap($1) }), overlap(best) > 0 { return best }
+        func distance(_ s: Session) -> TimeInterval { max(s.start.timeIntervalSince(end), start.timeIntervalSince(s.end)) }
+        guard let nearest = sessions.min(by: { distance($0) < distance($1) }), distance(nearest) <= maxDistance else { return nil }
+        return nearest
+    }
+
     /// Adjacent samples of one stage collapse into a single block for drawing.
     static func merged(_ samples: [StageSample], maxGap: TimeInterval = 300) -> [StageSample] {
         var result: [StageSample] = []

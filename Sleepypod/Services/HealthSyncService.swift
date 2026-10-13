@@ -459,13 +459,28 @@ final class HealthSyncService {
                 nights.map { WatchComparison.stageAgreement(epochs: $0, watch: watch).percent })
     }
 
+    /// How far either side of the bed record the Watch's night may sit and still count as the same night.
+    static let watchSearchMargin: TimeInterval = 12 * 3600
+
     func watchComparison(record: SleepRecord, epochs: [SleepAnalyzer.SleepEpoch], vitals: [VitalsRecord]) async -> WatchComparison? {
         guard enabled, preferences.readSleep || preferences.readVitals, store.available,
               record.leftBedDate > record.enteredBedDate else { return nil }
-        let start = record.enteredBedDate, end = record.leftBedDate
         readError = nil
-        Log.health.notice("Watch comparison for night \(record.id) \(start.formatted(.iso8601), privacy: .public) to \(end.formatted(.iso8601), privacy: .public)")
-        let stages = preferences.readSleep ? Self.watchStages(await read("sleep") { try await store.sleepSamples(start: start, end: end) }) : []
+        Log.health.notice("Watch comparison for night \(record.id) \(record.enteredBedDate.formatted(.iso8601), privacy: .public) to \(record.leftBedDate.formatted(.iso8601), privacy: .public)")
+        // The Watch's night is found on its own terms, then vitals are read over whichever span is wider.
+        var stages: [WatchComparison.StageSample] = []
+        var start = record.enteredBedDate, end = record.leftBedDate
+        if preferences.readSleep {
+            let all = Self.watchStages(await read("sleep") {
+                try await store.sleepSamples(start: start.addingTimeInterval(-Self.watchSearchMargin), end: end.addingTimeInterval(Self.watchSearchMargin))
+            })
+            if let session = WatchComparison.session(for: start, end: end, in: WatchComparison.sessions(all)) {
+                stages = session.samples
+                start = min(start, session.start)
+                end = max(end, session.end)
+                Log.health.notice("Watch night \(session.start.formatted(.iso8601), privacy: .public) to \(session.end.formatted(.iso8601), privacy: .public), \(session.samples.count) samples")
+            }
+        }
         var heartRate: [WatchComparison.Reading] = [], hrv: [WatchComparison.Reading] = [], breathing: [WatchComparison.Reading] = []
         if preferences.readVitals {
             heartRate = Self.watchReadings(await read("heart rate") { try await store.quantitySamples(.heartRate, start: start, end: end) },

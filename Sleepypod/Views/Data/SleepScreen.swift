@@ -17,8 +17,10 @@ struct SleepScreen: View {
     @State private var monthRecords: [SleepRecord] = []
 
     private var calendar: Calendar { .current }
+    // A day can hold several records (naps, getting up and back in); the longest sleep is the night.
     private var record: SleepRecord? {
-        metrics.sleepRecords.first { calendar.isDate($0.enteredBedDate, inSameDayAs: selectedDate) }
+        metrics.sleepRecords.filter { calendar.isDate($0.enteredBedDate, inSameDayAs: selectedDate) }
+            .max { $0.sleepPeriodSeconds < $1.sleepPeriodSeconds }
     }
     private var vitals: [VitalsRecord] {
         guard let record else { return [] }

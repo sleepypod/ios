@@ -32,7 +32,8 @@ struct WatchComparisonView: View {
                         .font(.footnote).foregroundStyle(Theme.text3).fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
                 } else if loaded {
                     ContentUnavailableView("No Apple Watch data", systemImage: "applewatch",
-                                           description: Text("Wear your Watch to bed with Sleep tracking on, and allow sleepypod to read Sleep, Heart Rate, HRV and Respiratory Rate in Health."))
+                                           description: Text(health.readError.map { "Health read failed: \($0)" }
+                                               ?? "Wear your Watch to bed with Sleep tracking on, and allow sleepypod to read Sleep, Heart Rate, HRV and Respiratory Rate in Health."))
                 } else {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
                 }

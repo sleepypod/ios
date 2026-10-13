@@ -12,8 +12,8 @@ protocol HealthSyncStore {
     func save(_ samples: [HKSample]) async throws
     func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws
     func deleteAll(types: Set<HKSampleType>, olderThan version: Int) async throws
-    func sleepSamples(start: Date, end: Date) async -> [HKCategorySample]
-    func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample]
+    func sleepSamples(start: Date, end: Date) async throws -> [HKCategorySample]
+    func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async throws -> [HKQuantitySample]
 }
 
 @MainActor
@@ -51,11 +51,11 @@ final class SystemHealthSyncStore: HealthSyncStore {
             _ = try await store.deleteObjects(of: type, predicate: predicate)
         }
     }
-    func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] {
-        await HealthSyncService.querySleepSamples(store: store, start: start, end: end)
+    func sleepSamples(start: Date, end: Date) async throws -> [HKCategorySample] {
+        try await HealthSyncService.querySamples(store: store, type: HKCategoryType(.sleepAnalysis), start: start, end: end)
     }
-    func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample] {
-        await HealthSyncService.querySamples(store: store, type: HKQuantityType(type), start: start, end: end)
+    func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async throws -> [HKQuantitySample] {
+        try await HealthSyncService.querySamples(store: store, type: HKQuantityType(type), start: start, end: end)
     }
 }
 
@@ -100,6 +100,8 @@ final class HealthSyncService {
     private(set) var isSyncing = false
     private(set) var rebuildProgress: (done: Int, total: Int)?
     var authorizationError: String?
+    /// The last HealthKit read failure, so the Watch page can say why it is empty instead of showing a generic message.
+    private(set) var readError: String?
     private let store: any HealthSyncStore
     private let persistence: UserDefaults
 
@@ -422,9 +424,19 @@ final class HealthSyncService {
     }
 
     // Only what the Watch itself recorded counts; sleepypod's own writes are never compared against themselves.
+    // The source's productType is the usual tell, but some samples carry it only on the device.
     static func isWatch(_ sample: HKSample) -> Bool {
-        sample.sourceRevision.productType?.hasPrefix("Watch") == true
-            && sample.sourceRevision.source.bundleIdentifier != Bundle.main.bundleIdentifier
+        guard sample.sourceRevision.source.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
+        return sample.sourceRevision.productType?.hasPrefix("Watch") == true
+            || sample.device?.model == "Watch"
+            || sample.device?.hardwareVersion?.hasPrefix("Watch") == true
+    }
+
+    static func describeSources(_ samples: [HKSample]) -> String {
+        let keys = Set(samples.map {
+            "\($0.sourceRevision.source.name)/\($0.sourceRevision.productType ?? "-")/\($0.device?.model ?? "-")"
+        })
+        return keys.sorted().joined(separator: ", ")
     }
 
     static func watchStages(_ samples: [HKCategorySample]) -> [WatchComparison.StageSample] {
@@ -442,7 +454,7 @@ final class HealthSyncService {
         let all = nights.flatMap { $0 }
         guard enabled, preferences.readSleep, let start = all.map(\.start).min(),
               let end = all.map({ $0.start.addingTimeInterval($0.duration) }).max() else { return (nil, nights.map { _ in nil }) }
-        let watch = Self.watchStages(await store.sleepSamples(start: start, end: end))
+        let watch = Self.watchStages(await read("sleep") { try await store.sleepSamples(start: start, end: end) })
         return (WatchComparison.stageAgreement(epochs: all, watch: watch).percent,
                 nights.map { WatchComparison.stageAgreement(epochs: $0, watch: watch).percent })
     }
@@ -451,24 +463,44 @@ final class HealthSyncService {
         guard enabled, preferences.readSleep || preferences.readVitals, store.available,
               record.leftBedDate > record.enteredBedDate else { return nil }
         let start = record.enteredBedDate, end = record.leftBedDate
-        let stages = preferences.readSleep ? Self.watchStages(await store.sleepSamples(start: start, end: end)) : []
+        readError = nil
+        Log.health.info("Watch comparison for night \(record.id) \(start.formatted(.iso8601)) to \(end.formatted(.iso8601))")
+        let stages = preferences.readSleep ? Self.watchStages(await read("sleep") { try await store.sleepSamples(start: start, end: end) }) : []
         var heartRate: [WatchComparison.Reading] = [], hrv: [WatchComparison.Reading] = [], breathing: [WatchComparison.Reading] = []
         if preferences.readVitals {
-            heartRate = Self.watchReadings(await store.quantitySamples(.heartRate, start: start, end: end), unit: .count().unitDivided(by: .minute()))
-            hrv = Self.watchReadings(await store.quantitySamples(.heartRateVariabilitySDNN, start: start, end: end), unit: .secondUnit(with: .milli))
-            breathing = Self.watchReadings(await store.quantitySamples(.respiratoryRate, start: start, end: end), unit: .count().unitDivided(by: .minute()))
+            heartRate = Self.watchReadings(await read("heart rate") { try await store.quantitySamples(.heartRate, start: start, end: end) },
+                                           unit: .count().unitDivided(by: .minute()))
+            hrv = Self.watchReadings(await read("HRV") { try await store.quantitySamples(.heartRateVariabilitySDNN, start: start, end: end) },
+                                     unit: .secondUnit(with: .milli))
+            breathing = Self.watchReadings(await read("breathing") { try await store.quantitySamples(.respiratoryRate, start: start, end: end) },
+                                           unit: .count().unitDivided(by: .minute()))
         }
+        Log.health.info("Watch samples kept: \(stages.count) stages, \(heartRate.count) HR, \(hrv.count) HRV, \(breathing.count) breathing")
         return WatchComparison.build(epochs: epochs, vitals: vitals, watchStages: stages,
                                      watchHeartRate: heartRate, watchHRV: hrv, watchBreathing: breathing)
     }
 
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] {
         guard enabled, preferences.readSleep else { return [] }
-        return await store.sleepSamples(start: start, end: end)
+        return await read("sleep") { try await store.sleepSamples(start: start, end: end) }
+    }
+
+    /// Runs one Health read, logging what came back and keeping the first failure for the UI.
+    private func read<S: HKSample>(_ label: String, _ query: () async throws -> [S]) async -> [S] {
+        do {
+            let samples = try await query()
+            let watch = samples.filter(Self.isWatch).count
+            Log.health.info("Health read \(label): \(samples.count) samples, \(watch) from Watch; sources: \(Self.describeSources(samples), privacy: .private)")
+            return samples
+        } catch {
+            Log.health.error("Health read \(label) failed: \(error.localizedDescription, privacy: .private)")
+            if readError == nil { readError = error.localizedDescription }
+            return []
+        }
     }
 
     static func queryScheduleTimes(store: HKHealthStore, start: Date, end: Date) async -> (bed: Date, wake: Date)? {
-        let samples = await querySleepSamples(store: store, start: start, end: end)
+        let samples = (try? await querySleepSamples(store: store, start: start, end: end)) ?? []
         return scheduleTimes(from: samples)
     }
 
@@ -492,19 +524,19 @@ final class HealthSyncService {
 
     func inferredSchedule() async -> (bed: Date, wake: Date)? {
         guard enabled, preferences.readSleep else { return nil }
-        let samples = await store.sleepSamples(start: Date().addingTimeInterval(-7 * 86400), end: Date())
+        let samples = await read("sleep") { try await store.sleepSamples(start: Date().addingTimeInterval(-7 * 86400), end: Date()) }
         return Self.scheduleTimes(from: samples)
     }
 
-    static func querySleepSamples(store: HKHealthStore, start: Date, end: Date) async -> [HKCategorySample] {
-        await querySamples(store: store, type: HKCategoryType(.sleepAnalysis), start: start, end: end)
+    static func querySleepSamples(store: HKHealthStore, start: Date, end: Date) async throws -> [HKCategorySample] {
+        try await querySamples(store: store, type: HKCategoryType(.sleepAnalysis), start: start, end: end)
     }
 
-    static func querySamples<S: HKSample>(store: HKHealthStore, type: HKSampleType, start: Date, end: Date) async -> [S] {
-        await withCheckedContinuation { continuation in
+    static func querySamples<S: HKSample>(store: HKHealthStore, type: HKSampleType, start: Date, end: Date) async throws -> [S] {
+        try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(sampleType: type, predicate: HKQuery.predicateForSamples(withStart: start, end: end),
-                limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]) { _, samples, _ in
-                    continuation.resume(returning: samples as? [S] ?? [])
+                limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]) { _, samples, error in
+                    if let error { continuation.resume(throwing: error) } else { continuation.resume(returning: samples as? [S] ?? []) }
                 }
             store.execute(query)
         }

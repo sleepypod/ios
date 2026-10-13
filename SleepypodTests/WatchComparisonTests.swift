@@ -104,6 +104,11 @@ struct WatchComparisonTests {
                                       start: Date(), end: Date().addingTimeInterval(60))
         #expect(!HealthSyncService.isWatch(sample))
         #expect(HealthSyncService.watchStages([sample]).isEmpty)
+        let device = HKDevice(name: "Apple Watch", manufacturer: "Apple Inc.", model: "Watch", hardwareVersion: "Watch7,1",
+                              firmwareVersion: nil, softwareVersion: nil, localIdentifier: nil, udiDeviceIdentifier: nil)
+        let fromWatch = HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                                         start: Date(), end: Date().addingTimeInterval(60), device: device, metadata: nil)
+        #expect(HealthSyncService.isWatch(fromWatch))
     }
 
     @Test func demoIsDeterministicAndDisagreesSomewhere() throws {

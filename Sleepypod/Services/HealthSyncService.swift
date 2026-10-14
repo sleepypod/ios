@@ -476,8 +476,15 @@ final class HealthSyncService {
             })
             if let session = WatchComparison.session(for: start, end: end, in: WatchComparison.sessions(all)) {
                 stages = session.samples
-                start = min(start, session.start)
-                end = max(end, session.end)
+                // Vitals come from the Watch's night, joined with the bed span only when the two actually overlap,
+                // so a night matched at a distance never pulls in daytime readings.
+                if session.start < end && session.end > start {
+                    start = min(start, session.start)
+                    end = max(end, session.end)
+                } else {
+                    start = session.start
+                    end = session.end
+                }
                 Log.health.notice("Watch night \(session.start.formatted(.iso8601), privacy: .private) to \(session.end.formatted(.iso8601), privacy: .private), \(session.samples.count) samples")
             }
         }

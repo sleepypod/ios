@@ -437,8 +437,11 @@ struct SleepScreen: View {
         } else {
             (agreement, nightly) = (nil, [])
         }
-        nightlyAgreement = Dictionary(zip(nights.map { calendar.startOfDay(for: $0.record.enteredBedDate) }, nightly)
-            .compactMap { day, value in value.map { (day, $0) } }, uniquingKeysWith: { first, _ in first })
+        // Keyed by day; the day's longest record is the night, matching what the Night view shows.
+        let byDay = Dictionary(grouping: zip(nights, nightly).map { ($0.record, $1) }) { calendar.startOfDay(for: $0.0.enteredBedDate) }
+        nightlyAgreement = byDay.compactMapValues { entries in
+            entries.max { $0.0.sleepPeriodSeconds < $1.0.sleepPeriodSeconds }?.1
+        }
         if DebugRoute.current == "watch", record != nil, !showWatch { showWatch = true }
     }
 }

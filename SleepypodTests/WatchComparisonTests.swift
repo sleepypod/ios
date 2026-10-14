@@ -109,6 +109,11 @@ struct WatchComparisonTests {
         let fromWatch = HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
                                          start: Date(), end: Date().addingTimeInterval(60), device: device, metadata: nil)
         #expect(HealthSyncService.isWatch(fromWatch))
+        let lowercase = HKDevice(name: "Apple Watch", manufacturer: "Apple Inc.", model: nil, hardwareVersion: "watch2,4",
+                                 firmwareVersion: nil, softwareVersion: nil, localIdentifier: nil, udiDeviceIdentifier: nil)
+        let olderWatch = HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                                          start: Date(), end: Date().addingTimeInterval(60), device: lowercase, metadata: nil)
+        #expect(HealthSyncService.isWatch(olderWatch))
     }
 
     @Test func watchNightIsMatchedToTheBedRecordWithoutRequiringOverlap() throws {

@@ -427,9 +427,9 @@ final class HealthSyncService {
     // The source's productType is the usual tell, but some samples carry it only on the device.
     static func isWatch(_ sample: HKSample) -> Bool {
         guard sample.sourceRevision.source.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
-        return sample.sourceRevision.productType?.hasPrefix("Watch") == true
+        return sample.sourceRevision.productType?.lowercased().hasPrefix("watch") == true
             || sample.device?.model == "Watch"
-            || sample.device?.hardwareVersion?.hasPrefix("Watch") == true
+            || sample.device?.hardwareVersion?.lowercased().hasPrefix("watch") == true
     }
 
     static func describeSources(_ samples: [HKSample]) -> String {
@@ -466,7 +466,7 @@ final class HealthSyncService {
         guard enabled, preferences.readSleep || preferences.readVitals, store.available,
               record.leftBedDate > record.enteredBedDate else { return nil }
         readError = nil
-        Log.health.notice("Watch comparison for night \(record.id) \(record.enteredBedDate.formatted(.iso8601), privacy: .public) to \(record.leftBedDate.formatted(.iso8601), privacy: .public)")
+        Log.health.notice("Watch comparison for night \(record.id) \(record.enteredBedDate.formatted(.iso8601), privacy: .private) to \(record.leftBedDate.formatted(.iso8601), privacy: .private)")
         // The Watch's night is found on its own terms, then vitals are read over whichever span is wider.
         var stages: [WatchComparison.StageSample] = []
         var start = record.enteredBedDate, end = record.leftBedDate
@@ -478,7 +478,7 @@ final class HealthSyncService {
                 stages = session.samples
                 start = min(start, session.start)
                 end = max(end, session.end)
-                Log.health.notice("Watch night \(session.start.formatted(.iso8601), privacy: .public) to \(session.end.formatted(.iso8601), privacy: .public), \(session.samples.count) samples")
+                Log.health.notice("Watch night \(session.start.formatted(.iso8601), privacy: .private) to \(session.end.formatted(.iso8601), privacy: .private), \(session.samples.count) samples")
             }
         }
         var heartRate: [WatchComparison.Reading] = [], hrv: [WatchComparison.Reading] = [], breathing: [WatchComparison.Reading] = []
@@ -506,7 +506,7 @@ final class HealthSyncService {
             let samples = try await query()
             let watch = samples.filter(Self.isWatch)
             let span = watch.isEmpty ? "none" : "\(watch.map(\.startDate).min()!.formatted(.iso8601)) to \(watch.map(\.endDate).max()!.formatted(.iso8601))"
-            Log.health.notice("Health read \(label, privacy: .public): \(samples.count) samples, \(watch.count) from Watch spanning \(span, privacy: .public); sources: \(Self.describeSources(samples), privacy: .public)")
+            Log.health.notice("Health read \(label, privacy: .public): \(samples.count) samples, \(watch.count) from Watch spanning \(span, privacy: .private); sources: \(Self.describeSources(samples), privacy: .private)")
             return samples
         } catch {
             Log.health.error("Health read \(label) failed: \(error.localizedDescription, privacy: .private)")

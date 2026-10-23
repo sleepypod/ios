@@ -29,6 +29,10 @@ final class SnoreCaptureService {
     private var saveTask: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
     private var restarting = false
+    /// Set while waiting for microphone permission, so a second tap can't start a second tap on bus 0.
+    private(set) var starting = false
+    /// Set when a session file couldn't be written or excluded from backup.
+    private(set) var saveError: String?
 
     static let detectorVersion = "apple-sound-classifier-v1+hysteresis-0.6-0.4"
 
@@ -42,6 +46,7 @@ final class SnoreCaptureService {
         self.source = source
         self.permission = permission
         self.clock = clock
+        Self.recoverUnfinished(in: self.directory)
         lastSession = Self.sessions(in: self.directory).first
         observe(notifications)
     }
@@ -50,7 +55,9 @@ final class SnoreCaptureService {
 
     /// Starts listening, asking for microphone access first if needed.
     func start() async {
-        guard !machine.isActive else { return }
+        guard !machine.isActive, !starting else { return }
+        starting = true
+        defer { starting = false }
         if !permission.isGranted {
             let granted = permission.isDenied ? false : await permission.request()
             guard granted else {
@@ -202,9 +209,13 @@ final class SnoreCaptureService {
             document.coverage.append(TimeInterval64(startMs: open, endMs: clock()))
         }
         do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            try SnoreSessionDocument.encoder().encode(document).write(to: url(for: document.captureId), options: .atomic)
+            try Self.prepareDirectory(directory)
+            var file = url(for: document.captureId)
+            try SnoreSessionDocument.encoder().encode(document).write(to: file, options: .atomic)
+            try Self.excludeFromBackup(&file)
+            saveError = nil
         } catch {
+            saveError = error.localizedDescription
             Log.general.error("snore session save failed: \(error.localizedDescription, privacy: .public)")
         }
     }
@@ -220,12 +231,54 @@ final class SnoreCaptureService {
                 }
             }
         })
-        observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.routeChanged() }
+        observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
+            let restart = Self.routeChangeNeedsRestart(note.userInfo)
+            MainActor.assumeIsolated { if restart { self?.routeChanged() } }
         })
         observers.append(center.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.terminate() }
         })
+    }
+
+    /// Only an input device appearing or going away needs a restart. Other reasons, such as the category
+    /// change that setting `.record` itself posts, would otherwise loop interrupt-and-restart.
+    nonisolated static func routeChangeNeedsRestart(_ userInfo: [AnyHashable: Any]?) -> Bool {
+        guard let raw = userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: raw) else { return false }
+        return reason == .oldDeviceUnavailable || reason == .newDeviceAvailable
+    }
+
+    /// Creates the session directory and keeps it out of iCloud and computer backups: nothing here may leave the iPhone.
+    nonisolated static func prepareDirectory(_ directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var url = directory
+        try excludeFromBackup(&url)
+    }
+
+    nonisolated static func excludeFromBackup(_ url: inout URL) throws {
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try url.setResourceValues(values)
+    }
+
+    /// A session whose file has no end was cut short with the app not running (for example, iOS ended it
+    /// overnight). It ends where its last listening span ended.
+    nonisolated static func recoverUnfinished(in directory: URL) {
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        for file in files where file.lastPathComponent.hasPrefix("snore-") && file.pathExtension == "json" {
+            guard var document = try? JSONDecoder().decode(SnoreSessionDocument.self, from: Data(contentsOf: file)),
+                  document.endMs == nil else { continue }
+            document.endMs = document.coverage.map(\.endMs).max() ?? document.startMs
+            document.stopReason = "app not running"
+            for index in document.interruptions.indices where document.interruptions[index].endMs == nil {
+                document.interruptions[index].endMs = document.endMs
+            }
+            do {
+                try SnoreSessionDocument.encoder().encode(document).write(to: file, options: .atomic)
+            } catch {
+                Log.general.error("snore session recovery failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     enum InterruptionAction: Equatable { case pause, resume, none }

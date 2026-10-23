@@ -173,7 +173,11 @@ private struct FakePermission: MicrophonePermission {
     var isGranted: Bool
     var isDenied = false
     var answer = true
-    func request() async -> Bool { answer }
+    var delay: Duration = .zero
+    func request() async -> Bool {
+        if delay > .zero { try? await Task.sleep(for: delay) }
+        return answer
+    }
 }
 
 private final class FakeClock: @unchecked Sendable {
@@ -258,11 +262,87 @@ struct SnoreCaptureServiceTests {
         await service.start()
         center.post(name: AVAudioSession.interruptionNotification, object: nil,
                     userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue])
-        center.post(name: AVAudioSession.routeChangeNotification, object: nil)
+        center.post(name: AVAudioSession.routeChangeNotification, object: nil,
+                    userInfo: [AVAudioSessionRouteChangeReasonKey: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue])
         center.post(name: UIApplication.willTerminateNotification, object: nil)
         for _ in 0..<50 where service.isActive { try? await Task.sleep(for: .milliseconds(20)) }
         #expect(!service.isActive)
         #expect(SnoreCaptureService.sessions(in: dir).first?.stopReason == "app terminated")
+    }
+
+    @Test func aSecondTapWhileAskingForPermissionDoesNotStartTwice() async {
+        let (service, source, _, _, _) = make(permission: FakePermission(isGranted: false, answer: true, delay: .milliseconds(100)))
+        async let first: Void = service.start()
+        async let second: Void = service.start()
+        _ = await (first, second)
+        #expect(source.starts == 1)
+        #expect(!service.starting)
+    }
+
+    @Test func routeChangesRestartOnlyWhenAnInputComesOrGoes() {
+        typealias S = SnoreCaptureService
+        let key = AVAudioSessionRouteChangeReasonKey
+        #expect(S.routeChangeNeedsRestart([key: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue]))
+        #expect(S.routeChangeNeedsRestart([key: AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue]))
+        #expect(!S.routeChangeNeedsRestart([key: AVAudioSession.RouteChangeReason.categoryChange.rawValue]))
+        #expect(!S.routeChangeNeedsRestart([key: AVAudioSession.RouteChangeReason.override.rawValue]))
+        #expect(!S.routeChangeNeedsRestart(nil))
+    }
+
+    @Test func aCategoryChangeNotificationDoesNotInterrupt() async {
+        let (service, source, _, _, center) = make()
+        await service.start()
+        center.post(name: AVAudioSession.routeChangeNotification, object: nil,
+                    userInfo: [AVAudioSessionRouteChangeReasonKey: AVAudioSession.RouteChangeReason.categoryChange.rawValue])
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(service.status == .recording)
+        #expect(source.starts == 1)
+        #expect(source.stops == 0)
+        service.stop()
+    }
+
+    @Test func sessionFilesAreExcludedFromBackup() async throws {
+        let (service, _, _, dir, _) = make()
+        await service.start()
+        service.stop()
+        let file = try #require(service.lastSession.map { service.url(for: $0.captureId) })
+        #expect(try file.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+        #expect(try dir.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+        #expect(service.saveError == nil)
+    }
+
+    @Test func anUnfinishedSessionIsClosedAtLaunch() async throws {
+        let (service, _, clock, dir, _) = make()
+        await service.start()
+        clock.now += 90_000
+        service.interrupt("audio interruption") // saved with an open interruption and no end, as if iOS then killed the app
+        let orphan = try #require(SnoreCaptureService.sessions(in: dir).first)
+        #expect(orphan.endMs == nil)
+        let older = SnoreSessionDocument(captureId: "older", device: "iPhone", osVersion: "iOS", appVersion: "1", timeZone: "UTC",
+                                         startMs: 1, endMs: 2, detectorVersion: "v",
+                                         classifier: .init(windowSeconds: 3, overlapFactor: 0.5, onThreshold: 0.6, offThreshold: 0.4))
+        try SnoreSessionDocument.encoder().encode(older).write(to: dir.appendingPathComponent("snore-older.json"))
+        try Data("not json".utf8).write(to: dir.appendingPathComponent("snore-broken.json"))
+        let relaunched = SnoreCaptureService(directory: dir, source: FakeSource(), permission: FakePermission(isGranted: true),
+                                             clock: { 0 }, notifications: NotificationCenter())
+        let recovered = try #require(relaunched.lastSession)
+        #expect(recovered.captureId == orphan.captureId)
+        #expect(recovered.stopReason == "app not running")
+        #expect(recovered.endMs == 1_090_000)
+        #expect(orphan.coverage.map(\.endMs).max() == 1_090_000)
+        #expect(recovered.interruptions.allSatisfy { $0.endMs != nil })
+        #expect(SnoreCaptureService.sessions(in: dir).count == 2)
+    }
+
+    @Test func aSessionWithNoCoverageEndsWhereItStarted() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("snore-\(UUID().uuidString)")
+        try SnoreCaptureService.prepareDirectory(dir)
+        let bare = SnoreSessionDocument(captureId: "bare", device: "iPhone", osVersion: "iOS", appVersion: "1", timeZone: "UTC",
+                                        startMs: 500, detectorVersion: "v",
+                                        classifier: .init(windowSeconds: 3, overlapFactor: 0.5, onThreshold: 0.6, offThreshold: 0.4))
+        try SnoreSessionDocument.encoder().encode(bare).write(to: dir.appendingPathComponent("snore-bare.json"))
+        SnoreCaptureService.recoverUnfinished(in: dir)
+        #expect(SnoreCaptureService.sessions(in: dir).first?.endMs == 500)
     }
 
     @Test func terminationSavesWhatExists() async {

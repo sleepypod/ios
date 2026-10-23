@@ -16,7 +16,7 @@ Snore detection). It implements section 2 of the training repository's
   stay ≥ 0.4, and closes after two quieter windows. Events less than 3 s apart merge. An
   event's confidence is its peak classifier score, which is not a calibrated probability.
 - Calls, alarms and other audio interruptions pause listening, with the gap recorded.
-  Route changes restart the engine. App termination saves what exists. Denied or
+  An input device appearing or going away restarts the engine. App termination saves what exists. Denied or
   revoked microphone access stops capture with a pointer to Settings.
 
 Raw audio, transcripts and embeddings are never written or sent. Nothing is uploaded;
@@ -25,7 +25,7 @@ the user exports a session file with the share sheet.
 ## Session file
 
 `Application Support/Snore/snore-<captureId>.json`, saved every minute while listening
-and on stop. All times are Unix milliseconds.
+and on stop. The folder and files are excluded from iCloud and computer backups. All times are Unix milliseconds.
 
 | Field | Meaning |
 | --- | --- |
@@ -33,7 +33,7 @@ and on stop. All times are Unix milliseconds.
 | `captureId` | random UUID for this session |
 | `source` | `iphone-microphone` |
 | `device`, `osVersion`, `appVersion`, `timeZone` | provenance |
-| `startMs`, `endMs`, `stopReason` | session bounds; `stopReason` is `user`, `app terminated` or `failed: …` |
+| `startMs`, `endMs`, `stopReason` | session bounds; `stopReason` is `user`, `app terminated`, `failed: …`, or `app not running` when iOS ended the app mid-session and the next launch closed the file at the end of its last listening span |
 | `sampleRate`, `channelCount` | microphone input format |
 | `detectorVersion` | classifier plus thresholds, `apple-sound-classifier-v1+hysteresis-0.6-0.4` |
 | `classifier` | identifier, label, window seconds, overlap, on/off thresholds |

@@ -77,6 +77,11 @@ final class MicrophoneSnoreSource: NSObject, SnoreAudioSource, SNResultsObservin
         } catch {
             throw SnoreCaptureError.engine(error.localizedDescription)
         }
+        // Any failure from here on must release the record session it just activated.
+        var started = false
+        defer {
+            if !started { try? session.setActive(false, options: .notifyOthersOnDeactivation) }
+        }
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { throw SnoreCaptureError.noInput }
@@ -108,6 +113,7 @@ final class MicrophoneSnoreSource: NSObject, SnoreAudioSource, SNResultsObservin
             input.removeTap(onBus: 0)
             throw SnoreCaptureError.engine(error.localizedDescription)
         }
+        started = true
         return SnoreAudioFormat(sampleRate: format.sampleRate, channelCount: Int(format.channelCount),
                                 windowSeconds: request.windowDuration.seconds, overlapFactor: request.overlapFactor)
     }

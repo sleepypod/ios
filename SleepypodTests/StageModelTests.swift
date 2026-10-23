@@ -227,9 +227,13 @@ struct StageModelTests {
         let twoDeep = RuleClassifier { $0["nightFraction"]! >= 0.4 ? 2 : 1 }
         analyzer.analyze(vitals: vitals, movement: [], calibrationQuality: 1,
                          model: .init(classifier: twoDeep, contract: .challenger, enteredBed: t0, leftBed: t0.addingTimeInterval(1500)))
-        #expect(analyzer.stages.map(\.stage).filter { $0 == .deep }.count == 15)
+        // Separate values keep the #expect macro cheap to type-check on CI.
+        let deepBlocks: Int = analyzer.stages.filter { $0.stage == .deep }.count
+        #expect(deepBlocks == 15)
         // Light sits between the first light and deep already, so transition constraints change nothing here.
-        #expect(analyzer.stages[9].stage == .light && analyzer.stages[10].stage == .deep)
+        let ninth: SleepAnalyzer.SleepStage = analyzer.stages[9].stage, tenth: SleepAnalyzer.SleepStage = analyzer.stages[10].stage
+        #expect(ninth == .light)
+        #expect(tenth == .deep)
     }
 
     @Test func analyzerFallsBackToRulesWhenTheModelFailsOrCalibrationIsPoor() {

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		00F44793F97313509F4C9400 /* APIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBB2DEABE79587F398DEB17 /* APIEndpoint.swift */; };
+		02D5C680D2D21663F139A5A7 /* SnoreCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC0A1FB1702D69EB31D18CC1 /* SnoreCaptureService.swift */; };
 		03A8B62F816C9F0B1118838A /* StageComparisonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE2308170B9DEF607E4CD1F /* StageComparisonTests.swift */; };
 		041D6F2AA0D299253FFA1B27 /* Services.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8F3BFDBBA72B77A16C8606 /* Services.swift */; };
 		045E97110258DF6B3BA9904A /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFB77E8BC025FA94E17FEF34 /* SettingsSheet.swift */; };
@@ -41,6 +42,7 @@
 		3A2577F0D2E4A4016C79CE92 /* TempStepperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E892BAEF931F34E8C5FA9A /* TempStepperView.swift */; };
 		3D73A737D4F03B61D50F5185 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537D551820017038203719E1 /* Settings.swift */; };
 		3F3CA68DBFC6398C218DB8D0 /* MovementRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9604F6662B2AB6363AECF42A /* MovementRecord.swift */; };
+		3FDEA7E7C1D5BD62229D22ED /* SnoreCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7653371E594A80B611C049E /* SnoreCaptureTests.swift */; };
 		415E9841EFC783DCF6A4588A /* SetPointEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 987F4C796A69FBEA5B834DEF /* SetPointEditor.swift */; };
 		44664352D73C4A1AD9CC123A /* ModernizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F548261B6FA017552631862C /* ModernizationTests.swift */; };
 		447572489568CC64C469DBB1 /* stage-model-logistic.json in Resources */ = {isa = PBXBuildFile; fileRef = 0C0E9B65F03DBAB993E99FFD /* stage-model-logistic.json */; };
@@ -62,6 +64,7 @@
 		5F7EBA60B0C02EBF2B9C8770 /* StageLanesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF755316550B89052F80058 /* StageLanesTests.swift */; };
 		61223F858260C7EB346D5602 /* TempBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB9B2C20054DF2DEFE406E5 /* TempBackdrop.swift */; };
 		61486540A0C3AE98AD371595 /* StageLanes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2962AFAD738050DFD79C86CC /* StageLanes.swift */; };
+		62967FA9ACEFE8467A65B1B9 /* SnoreCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A4C83F31E096F7C52FDED6 /* SnoreCaptureView.swift */; };
 		62A880105648B6EC58ED7CFA /* StageFeatureParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CEE8733293904F78BD28CD9 /* StageFeatureParityTests.swift */; };
 		6363D9DF1E8F01CF5B5D7B88 /* SanitizeIPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3176EB2A6FF2F190D09EC5 /* SanitizeIPTests.swift */; };
 		650EC4F1527BA82FBF187755 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */; };
@@ -86,6 +89,7 @@
 		8030C166E58528EDCFD2868C /* FirmwareLogConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 948F9BAA88B81D25AA9E0B6F /* FirmwareLogConsoleView.swift */; };
 		80473DBF0C206E692C09E07B /* StatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F4EAF0885B4206D02501DC8 /* StatusManager.swift */; };
 		8267672B7C3A060FF4D8AB52 /* HealthMetricsGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04710A8ABCD6BE865AA7E37E /* HealthMetricsGridView.swift */; };
+		85D8C73360526E90CAD56598 /* SnoreAudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CE0B091E8A6DFD8147F871 /* SnoreAudioCapture.swift */; };
 		874862C240D71E13B2FE3722 /* PiezoAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4464A41F150702F0C25D231 /* PiezoAnalyzer.swift */; };
 		89AD7DED764ACC27468103F0 /* BedTempTrendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB9D4912797C4F2688E60E8A /* BedTempTrendView.swift */; };
 		89CC786871A5B3B08D0EC3C4 /* Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2FC5FEF1954A73556633CF /* Schedule.swift */; };
@@ -129,6 +133,7 @@
 		C234367C2067A4180E150C1F /* SleepypodWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C8D0A8FB2F4BBBA27661F94F /* SleepypodWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C410FCBED61138E4165AAB43 /* FirstBootTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E152E058D4B193B3FD0F1D0D /* FirstBootTests.swift */; };
 		C4D7F73C779F1ED2B685A770 /* DataPipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C23ED1E696702811954A0DA /* DataPipelineView.swift */; };
+		C8A7D7FBBE5A153276BF1E09 /* SnoreDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A16C51CB0698898E68365C17 /* SnoreDetection.swift */; };
 		C92D44C303EF1CBE9D6B8F3A /* SmartCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883B7737894F367125F721FF /* SmartCurveView.swift */; };
 		CA5C2DE49D249EC0E268DD06 /* WatchMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18955C84857254C0B05ACDF6 /* WatchMotionTests.swift */; };
 		CA8A50DDD41F09B8AEA62585 /* ScheduleEndActionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2F416C6569A20CE25E7736 /* ScheduleEndActionTests.swift */; };
@@ -296,6 +301,7 @@
 		9CEE8733293904F78BD28CD9 /* StageFeatureParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageFeatureParityTests.swift; sourceTree = "<group>"; };
 		9E902CB9201C2AE527A6C49F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleManager.swift; sourceTree = "<group>"; };
+		A16C51CB0698898E68365C17 /* SnoreDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoreDetection.swift; sourceTree = "<group>"; };
 		A182F7D23DCC1F6F92576932 /* SleepypodWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodWatchApp.swift; sourceTree = "<group>"; };
 		A20D1974B2E3BAF1AB09CDAB /* RunOnceActiveBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunOnceActiveBanner.swift; sourceTree = "<group>"; };
 		A22017869B6697F13244EF76 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
@@ -320,8 +326,10 @@
 		B7C94AEB5A7EF2FE53231869 /* VitalsRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsRecord.swift; sourceTree = "<group>"; };
 		B881147C7D2F0ADEBAD1AD02 /* openapi.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = openapi.json; sourceTree = "<group>"; };
 		B89A040B405BEF4117A8324F /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
+		B9A4C83F31E096F7C52FDED6 /* SnoreCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoreCaptureView.swift; sourceTree = "<group>"; };
 		BACCA7BD3D78B0D77B37A536 /* BothSidesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BothSidesView.swift; sourceTree = "<group>"; };
 		BED50F23F24049CF0324CF1B /* DeviceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatus.swift; sourceTree = "<group>"; };
+		C0CE0B091E8A6DFD8147F871 /* SnoreAudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoreAudioCapture.swift; sourceTree = "<group>"; };
 		C1287F50609E837343ABE038 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C1C013D953D18958F2C4B435 /* AdaptiveSimulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveSimulator.swift; sourceTree = "<group>"; };
 		C436BD3DAD2E930203CCB620 /* StageFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageFeatures.swift; sourceTree = "<group>"; };
@@ -341,6 +349,7 @@
 		D50354E2A686DB482A2A0BDA /* Onboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding.swift; sourceTree = "<group>"; };
 		D6C912771F382B78E930512C /* AdaptiveSimulatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveSimulatorTests.swift; sourceTree = "<group>"; };
 		D70A40AFFB3AAD37B22CE373 /* ProfilePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePickerView.swift; sourceTree = "<group>"; };
+		D7653371E594A80B611C049E /* SnoreCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoreCaptureTests.swift; sourceTree = "<group>"; };
 		D7A651EEB721EF0EFD1B2D16 /* MetricsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsManager.swift; sourceTree = "<group>"; };
 		D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCardView.swift; sourceTree = "<group>"; };
 		DA2F416C6569A20CE25E7736 /* ScheduleEndActionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleEndActionTests.swift; sourceTree = "<group>"; };
@@ -353,6 +362,7 @@
 		E6BD6BAE3E54FDA3CB065EAA /* PresenceHeatmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceHeatmapView.swift; sourceTree = "<group>"; };
 		EA55E7C1AA8D071C2D7FACA9 /* TemperatureDialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureDialView.swift; sourceTree = "<group>"; };
 		EAC584FE4474921B48DF9078 /* StageComparison.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageComparison.swift; sourceTree = "<group>"; };
+		EC0A1FB1702D69EB31D18CC1 /* SnoreCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoreCaptureService.swift; sourceTree = "<group>"; };
 		ED53C388A9A1BE8B0FB0382E /* SideSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideSelectorView.swift; sourceTree = "<group>"; };
 		EF96D1D98331EFFC47B48C65 /* StageModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageModelStore.swift; sourceTree = "<group>"; };
 		F3313CC2AC5F797597D9D9D4 /* StageChallenger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageChallenger.swift; sourceTree = "<group>"; };
@@ -384,6 +394,16 @@
 				76EDADBFA471AB6D43021528 /* WeekNavigatorView.swift */,
 			);
 			path = Data;
+			sourceTree = "<group>";
+		};
+		22184B802D01D265FF6CFF0A /* Snore */ = {
+			isa = PBXGroup;
+			children = (
+				C0CE0B091E8A6DFD8147F871 /* SnoreAudioCapture.swift */,
+				EC0A1FB1702D69EB31D18CC1 /* SnoreCaptureService.swift */,
+				A16C51CB0698898E68365C17 /* SnoreDetection.swift */,
+			);
+			path = Snore;
 			sourceTree = "<group>";
 		};
 		2C71D92385A8AC35C8BC1668 /* StageModel */ = {
@@ -560,6 +580,7 @@
 				2E3176EB2A6FF2F190D09EC5 /* SanitizeIPTests.swift */,
 				DA2F416C6569A20CE25E7736 /* ScheduleEndActionTests.swift */,
 				DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */,
+				D7653371E594A80B611C049E /* SnoreCaptureTests.swift */,
 				1680E783C6BA23F08E39895C /* StageChallengerTests.swift */,
 				2BE2308170B9DEF607E4CD1F /* StageComparisonTests.swift */,
 				9CEE8733293904F78BD28CD9 /* StageFeatureParityTests.swift */,
@@ -628,6 +649,7 @@
 				9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */,
 				D23E9157B3CA17789A8FEBE5 /* WatchComparison.swift */,
 				C5F8E3677668F3709EFC4ADD /* WatchMotionReceiver.swift */,
+				22184B802D01D265FF6CFF0A /* Snore */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -639,6 +661,7 @@
 				71D9F9BB5117870F21D58DE2 /* HapticsTestView.swift */,
 				6594CE3CD551E70CDB9A70A6 /* HealthAccessView.swift */,
 				CFB77E8BC025FA94E17FEF34 /* SettingsSheet.swift */,
+				B9A4C83F31E096F7C52FDED6 /* SnoreCaptureView.swift */,
 				CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */,
 				D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */,
 				9AA7286021C48AD5A6B7E3D9 /* WatchMotionView.swift */,
@@ -871,6 +894,7 @@
 				6363D9DF1E8F01CF5B5D7B88 /* SanitizeIPTests.swift in Sources */,
 				CA8A50DDD41F09B8AEA62585 /* ScheduleEndActionTests.swift in Sources */,
 				CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */,
+				3FDEA7E7C1D5BD62229D22ED /* SnoreCaptureTests.swift in Sources */,
 				750927CAA6954B27EED19DB5 /* StageChallengerTests.swift in Sources */,
 				03A8B62F816C9F0B1118838A /* StageComparisonTests.swift in Sources */,
 				62A880105648B6EC58ED7CFA /* StageFeatureParityTests.swift in Sources */,
@@ -989,6 +1013,10 @@
 				A0711D54FE9EF5E664D13E9C /* SleepypodCoreClient.swift in Sources */,
 				7225E391367AFFDAA7450354 /* SleepypodProtocol.swift in Sources */,
 				C92D44C303EF1CBE9D6B8F3A /* SmartCurveView.swift in Sources */,
+				85D8C73360526E90CAD56598 /* SnoreAudioCapture.swift in Sources */,
+				02D5C680D2D21663F139A5A7 /* SnoreCaptureService.swift in Sources */,
+				62967FA9ACEFE8467A65B1B9 /* SnoreCaptureView.swift in Sources */,
+				C8A7D7FBBE5A153276BF1E09 /* SnoreDetection.swift in Sources */,
 				4C246C2258249AC5125AADAC /* StageChallenger.swift in Sources */,
 				447C11C4377FF915603C4FC3 /* StageComparison.swift in Sources */,
 				AC7B9B6415D74C6173E03546 /* StageComparisonView.swift in Sources */,

@@ -143,6 +143,7 @@ struct AllSettingsScreen: View {
     @Environment(StatusManager.self) private var status
     @Environment(UpdateChecker.self) private var updates
     @Environment(HealthSyncService.self) private var health
+    @Environment(SnoreCaptureService.self) private var snore
     @State private var showWater = false
 
     private var allHealthy: Bool { status.totalCount > 0 && status.healthyCount == status.totalCount }
@@ -188,6 +189,11 @@ struct AllSettingsScreen: View {
                         }
                         NavigationLink { AnalysisInventoryView() } label: {
                             SettingsRow("On-device analysis", icon: "cpu", tile: true, chevron: true)
+                        }
+                        NavigationLink { SnoreCaptureView() } label: {
+                            SettingsRow("Snore detection", icon: "waveform.badge.mic", tile: true, chevron: true) {
+                                RowValue(snore.isActive ? "Listening" : "Beta")
+                            }
                         }
                     }
                     Text("Your Health data stays on this iPhone. sleepypod has no server: nothing is uploaded to the pod, to iCloud or to anyone else.")

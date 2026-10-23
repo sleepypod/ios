@@ -15,6 +15,7 @@ struct SleepypodApp: App {
     @State private var healthSync: HealthSyncService
     @State private var stageModels: StageModelStore
     @State private var watchMotion = WatchMotionReceiver()
+    @State private var snoreCapture = SnoreCaptureService()
 
     init() {
         let client = APIBackend.current.createClient()
@@ -54,6 +55,7 @@ struct SleepypodApp: App {
                 .environment(healthSync)
                 .environment(stageModels)
                 .environment(watchMotion)
+                .environment(snoreCapture)
                 .preferredColorScheme(userProfile.appearance.colorScheme)
                 .foregroundStyle(Theme.text1)
                 .tint(Theme.text1)

@@ -19,6 +19,7 @@
 		0E1D5B93D3953CAFF96C82E2 /* ThermalBedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE7EB6DCF180386BD8174D1 /* ThermalBedView.swift */; };
 		1201459B0B50A7E1250D248B /* openapi.json in Resources */ = {isa = PBXBuildFile; fileRef = B881147C7D2F0ADEBAD1AD02 /* openapi.json */; };
 		14213FE824632EF617773E36 /* IBMPlexMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5C8D4D424A4CEC3378E85D58 /* IBMPlexMono-Medium.ttf */; };
+		148DFAE07760ED2F88A712F5 /* MotionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25144B52B22AB54483983387 /* MotionRecorder.swift */; };
 		1558A064C84FC3F65897D129 /* TemperatureConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */; };
 		170ABA1BFA94168BFBC36E28 /* HealthSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B707F5F934F822B7D3D2C1 /* HealthSyncService.swift */; };
 		178824588D3CC952F0517CAC /* SleepRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0AFD07A8CB0082733ACB36 /* SleepRecord.swift */; };
@@ -26,6 +27,7 @@
 		1A9A73E1A4CB9DA72F492877 /* HapticsTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71D9F9BB5117870F21D58DE2 /* HapticsTestView.swift */; };
 		1B0058BB0B3DBF7669A2AF6E /* SleepCurve.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EB30F6B5F7F58639454A71E /* SleepCurve.swift */; };
 		1C1212D4AE1E9773A795BCD8 /* PresenceHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6BD6BAE3E54FDA3CB065EAA /* PresenceHeatmapView.swift */; };
+		1D47C1C23CC1F89056477831 /* WatchMotionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA7286021C48AD5A6B7E3D9 /* WatchMotionView.swift */; };
 		1F1DB7FE924C1EC257BE8FE1 /* VitalsRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C94AEB5A7EF2FE53231869 /* VitalsRecord.swift */; };
 		22F4C7CA1D9F91A639905C8B /* HealthScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0370A4FF64B61475AC0C1125 /* HealthScreen.swift */; };
 		2312033184B39DF0FD083920 /* SleepAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7609963B2396D197BA589466 /* SleepAnalyzer.swift */; };
@@ -45,13 +47,17 @@
 		447C11C4377FF915603C4FC3 /* StageComparison.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAC584FE4474921B48DF9078 /* StageComparison.swift */; };
 		4537E75A1A5822042DB9C8A2 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060906F2618180E4E45E29F3 /* Log.swift */; };
 		47254DC4322FC4F3DE0DA3EC /* BetaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7398AC2DDAE6E48A52F7C413 /* BetaModels.swift */; };
+		4AF19000D28A42DA513268E0 /* RecordingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A6FF64E72F4ED36D4A05386 /* RecordingController.swift */; };
 		4B76AE90EF4105BC911F5102 /* ScheduleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */; };
 		4C246C2258249AC5125AADAC /* StageChallenger.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3313CC2AC5F797597D9D9D4 /* StageChallenger.swift */; };
+		4F5BEB28BF7E5F3C71CF3E31 /* WatchMotionFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F63D97596C1E062CB7C4917A /* WatchMotionFile.swift */; };
 		53581400686FE861A24087AE /* CalibrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE0553DF9686966CDE7AF58B /* CalibrationTests.swift */; };
+		539F5AFD46F4BBFC1BB1EDC3 /* WatchMotionFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F63D97596C1E062CB7C4917A /* WatchMotionFile.swift */; };
 		56087F2DD514F7DAFD5F4C60 /* RangeSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3120820F4ED5A63AAF30A6 /* RangeSlider.swift */; };
 		59D63C6FB621C08C2D068AA7 /* NotificationRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B44F02B272682A83840CA4 /* NotificationRelay.swift */; };
 		5C3DD83F9E27810788A9C7A1 /* TemperatureCurve.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0F14C7A4B6C837B173C5EFA /* TemperatureCurve.swift */; };
 		5D6566441668D7E70CE84F29 /* FreeSleepClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */; };
+		5F52E018DFF7AA79E98AB53E /* SleepypodWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A182F7D23DCC1F6F92576932 /* SleepypodWatchApp.swift */; };
 		5F58632442748EC2A7862CB1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9E902CB9201C2AE527A6C49F /* Assets.xcassets */; };
 		5F7EBA60B0C02EBF2B9C8770 /* StageLanesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF755316550B89052F80058 /* StageLanesTests.swift */; };
 		61223F858260C7EB346D5602 /* TempBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB9B2C20054DF2DEFE406E5 /* TempBackdrop.swift */; };
@@ -120,14 +126,17 @@
 		BAF1104FA0A43D228909155C /* HealthBackgroundSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BC5C59E43F3180AD07E5304 /* HealthBackgroundSyncTests.swift */; };
 		BC37EEEE2AD3A4072D8141B0 /* InternetToggleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */; };
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
+		C234367C2067A4180E150C1F /* SleepypodWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C8D0A8FB2F4BBBA27661F94F /* SleepypodWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C410FCBED61138E4165AAB43 /* FirstBootTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E152E058D4B193B3FD0F1D0D /* FirstBootTests.swift */; };
 		C4D7F73C779F1ED2B685A770 /* DataPipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C23ED1E696702811954A0DA /* DataPipelineView.swift */; };
 		C92D44C303EF1CBE9D6B8F3A /* SmartCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883B7737894F367125F721FF /* SmartCurveView.swift */; };
+		CA5C2DE49D249EC0E268DD06 /* WatchMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18955C84857254C0B05ACDF6 /* WatchMotionTests.swift */; };
 		CA8A50DDD41F09B8AEA62585 /* ScheduleEndActionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2F416C6569A20CE25E7736 /* ScheduleEndActionTests.swift */; };
 		CA9D9A4FA299AD4C47BD59E4 /* MarketingTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D7A6E0B1458A3D80DFDC3C /* MarketingTour.swift */; };
 		CC96C885B1F06EF7B0288588 /* StartupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CCC78B5D75C00C87626CA24 /* StartupTests.swift */; };
 		CD014B9CEE2C262CDD2637B5 /* SleepAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5C25057170EC9CC2049440 /* SleepAnalyzerTests.swift */; };
 		D45FD73FE3DE25E49C9FAD2D /* PrimingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E5DFA72720A6968DE3369C /* PrimingIndicator.swift */; };
+		D4E15DA7B269D87F0CCB9DBF /* WatchMotionReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F8E3677668F3709EFC4ADD /* WatchMotionReceiver.swift */; };
 		D5D9989913D7AC299A9531E4 /* SleepProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A89CDBBC9BF2AAE10BA0302 /* SleepProfile.swift */; };
 		D6E26F612A74B9A7BE28C232 /* IBMPlexMono-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC39EA7DCB2E1133715215F0 /* IBMPlexMono-Light.ttf */; };
 		D81EAE0FD3DA1C07FC06B43F /* DeviceSettingsCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677BD56179BBE15ACC5E97C1 /* DeviceSettingsCardView.swift */; };
@@ -170,7 +179,28 @@
 			remoteGlobalIDString = DA66F8DC293B6B7F9BDC21B5;
 			remoteInfo = Sleepypod;
 		};
+		E9F3817EBF7BDA21E6262065 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D367879AC27A1F41611261E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FE325996E9C6510FD9FA4A2A;
+			remoteInfo = SleepypodWatch;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B340ABE72DD7257496CEAA50 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				C234367C2067A4180E150C1F /* SleepypodWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		00032A1688C27E11B0BF64CC /* ScheduleScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleScreen.swift; sourceTree = "<group>"; };
@@ -189,8 +219,10 @@
 		11D7A6E0B1458A3D80DFDC3C /* MarketingTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingTour.swift; sourceTree = "<group>"; };
 		1458956B4751A13CE39D3C2C /* WaterLevelSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterLevelSheet.swift; sourceTree = "<group>"; };
 		1680E783C6BA23F08E39895C /* StageChallengerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageChallengerTests.swift; sourceTree = "<group>"; };
+		18955C84857254C0B05ACDF6 /* WatchMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMotionTests.swift; sourceTree = "<group>"; };
 		1BA5BFA567D7FBA54153B602 /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		1BBB2DEABE79587F398DEB17 /* APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpoint.swift; sourceTree = "<group>"; };
+		25144B52B22AB54483983387 /* MotionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionRecorder.swift; sourceTree = "<group>"; };
 		287A88B1C75E35CE5B9C219C /* StageTrainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageTrainer.swift; sourceTree = "<group>"; };
 		2941CA088FC1C77B69F36D60 /* DeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManager.swift; sourceTree = "<group>"; };
 		295C867DF528905A55668F52 /* APIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIBackend.swift; sourceTree = "<group>"; };
@@ -241,6 +273,7 @@
 		7609963B2396D197BA589466 /* SleepAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAnalyzer.swift; sourceTree = "<group>"; };
 		76EDADBFA471AB6D43021528 /* WeekNavigatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekNavigatorView.swift; sourceTree = "<group>"; };
 		77A6653DA02CC01836DB61EA /* BedSensorScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedSensorScreen.swift; sourceTree = "<group>"; };
+		7A6FF64E72F4ED36D4A05386 /* RecordingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingController.swift; sourceTree = "<group>"; };
 		7A89CDBBC9BF2AAE10BA0302 /* SleepProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepProfile.swift; sourceTree = "<group>"; };
 		7B4A78F7220A8976E8047BF2 /* TempControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempControlsView.swift; sourceTree = "<group>"; };
 		7BC90983ABD4505D2BE197D8 /* PiezoWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoWaveformView.swift; sourceTree = "<group>"; };
@@ -257,11 +290,13 @@
 		970CD9734D4BC3ACBE225328 /* FreeSleepClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeSleepClient.swift; sourceTree = "<group>"; };
 		97C4FF2FF166CD9D12DEEBD0 /* WatchComparisonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComparisonTests.swift; sourceTree = "<group>"; };
 		987F4C796A69FBEA5B834DEF /* SetPointEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPointEditor.swift; sourceTree = "<group>"; };
+		9AA7286021C48AD5A6B7E3D9 /* WatchMotionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMotionView.swift; sourceTree = "<group>"; };
 		9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		9C23ED1E696702811954A0DA /* DataPipelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPipelineView.swift; sourceTree = "<group>"; };
 		9CEE8733293904F78BD28CD9 /* StageFeatureParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageFeatureParityTests.swift; sourceTree = "<group>"; };
 		9E902CB9201C2AE527A6C49F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleManager.swift; sourceTree = "<group>"; };
+		A182F7D23DCC1F6F92576932 /* SleepypodWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepypodWatchApp.swift; sourceTree = "<group>"; };
 		A20D1974B2E3BAF1AB09CDAB /* RunOnceActiveBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunOnceActiveBanner.swift; sourceTree = "<group>"; };
 		A22017869B6697F13244EF76 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		A42ACA637081CABD4502D011 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
@@ -291,8 +326,10 @@
 		C1C013D953D18958F2C4B435 /* AdaptiveSimulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveSimulator.swift; sourceTree = "<group>"; };
 		C436BD3DAD2E930203CCB620 /* StageFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageFeatures.swift; sourceTree = "<group>"; };
 		C5A1999947F6DB7202489B6C /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		C5F8E3677668F3709EFC4ADD /* WatchMotionReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMotionReceiver.swift; sourceTree = "<group>"; };
 		C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyBarChartView.swift; sourceTree = "<group>"; };
 		C803665AE72E33B8B50730E9 /* PodDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodDiscovery.swift; sourceTree = "<group>"; };
+		C8D0A8FB2F4BBBA27661F94F /* SleepypodWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SleepypodWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB85BC15DC6D3030C728B6FC /* Side.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Side.swift; sourceTree = "<group>"; };
 		CCB9B2C20054DF2DEFE406E5 /* TempBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempBackdrop.swift; sourceTree = "<group>"; };
 		CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapGestureConfigView.swift; sourceTree = "<group>"; };
@@ -320,6 +357,7 @@
 		EF96D1D98331EFFC47B48C65 /* StageModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageModelStore.swift; sourceTree = "<group>"; };
 		F3313CC2AC5F797597D9D9D4 /* StageChallenger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageChallenger.swift; sourceTree = "<group>"; };
 		F548261B6FA017552631862C /* ModernizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModernizationTests.swift; sourceTree = "<group>"; };
+		F63D97596C1E062CB7C4917A /* WatchMotionFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMotionFile.swift; sourceTree = "<group>"; };
 		F6ECF94ACBCB10401F9F8FF7 /* NightPhases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightPhases.swift; sourceTree = "<group>"; };
 		F9EC58AFC994E2BF0036D0D8 /* ServerStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStatus.swift; sourceTree = "<group>"; };
 		FB15777D66DAF4DC889F469C /* NightPhasesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightPhasesStore.swift; sourceTree = "<group>"; };
@@ -391,11 +429,21 @@
 		3B37E02D8C926F0693D831AD = {
 			isa = PBXGroup;
 			children = (
+				854495BCFE82EEE911176CB7 /* Shared */,
 				F06D1ECEA61B274469CE703A /* Sleepypod */,
 				CB1F0598BD16F0631EF16962 /* SleepypodTests */,
 				F1E22FC9A1CAD07AD1718C18 /* SleepypodUITests */,
+				F0FBBB58B1E099DB9410481F /* SleepypodWatch */,
 				5AB86CD34B74128771C1B77A /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		3F5BC6DFFE5EA07A0C000B24 /* WatchMotion */ = {
+			isa = PBXGroup;
+			children = (
+				F63D97596C1E062CB7C4917A /* WatchMotionFile.swift */,
+			);
+			path = WatchMotion;
 			sourceTree = "<group>";
 		};
 		5AB86CD34B74128771C1B77A /* Products */ = {
@@ -404,6 +452,7 @@
 				3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */,
 				B31B3D5B917F4A4D5DD9E99D /* SleepypodTests.xctest */,
 				A4B9728437117BA2D2E88EAC /* SleepypodUITests.xctest */,
+				C8D0A8FB2F4BBBA27661F94F /* SleepypodWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -435,6 +484,14 @@
 				2BE7EB6DCF180386BD8174D1 /* ThermalBedView.swift */,
 			);
 			path = Sensor;
+			sourceTree = "<group>";
+		};
+		854495BCFE82EEE911176CB7 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				3F5BC6DFFE5EA07A0C000B24 /* WatchMotion */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		8697000FCAFDD383B67A51B1 /* Fonts */ = {
@@ -511,6 +568,7 @@
 				5CCC78B5D75C00C87626CA24 /* StartupTests.swift */,
 				3F6C0F4048FF9E24D4B5CD54 /* ThermalBedTests.swift */,
 				97C4FF2FF166CD9D12DEEBD0 /* WatchComparisonTests.swift */,
+				18955C84857254C0B05ACDF6 /* WatchMotionTests.swift */,
 				ED1DFFE1FE17140FDECFA256 /* Fixtures */,
 			);
 			path = SleepypodTests;
@@ -569,6 +627,7 @@
 				4F4EAF0885B4206D02501DC8 /* StatusManager.swift */,
 				9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */,
 				D23E9157B3CA17789A8FEBE5 /* WatchComparison.swift */,
+				C5F8E3677668F3709EFC4ADD /* WatchMotionReceiver.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -582,6 +641,7 @@
 				CFB77E8BC025FA94E17FEF34 /* SettingsSheet.swift */,
 				CCFDA266C4BF7ADCBDE06689 /* TapGestureConfigView.swift */,
 				D7B2551BCDFC624E3EA1BA7A /* UpdateCardView.swift */,
+				9AA7286021C48AD5A6B7E3D9 /* WatchMotionView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -624,6 +684,16 @@
 				9F7E609E4276392477DB71CB /* Views */,
 			);
 			path = Sleepypod;
+			sourceTree = "<group>";
+		};
+		F0FBBB58B1E099DB9410481F /* SleepypodWatch */ = {
+			isa = PBXGroup;
+			children = (
+				25144B52B22AB54483983387 /* MotionRecorder.swift */,
+				7A6FF64E72F4ED36D4A05386 /* RecordingController.swift */,
+				A182F7D23DCC1F6F92576932 /* SleepypodWatchApp.swift */,
+			);
+			path = SleepypodWatch;
 			sourceTree = "<group>";
 		};
 		F1E22FC9A1CAD07AD1718C18 /* SleepypodUITests */ = {
@@ -682,16 +752,35 @@
 			buildPhases = (
 				9114BFFE24BA7F166D5D7F99 /* Sources */,
 				4948B4B486767F9346B69D79 /* Resources */,
+				B340ABE72DD7257496CEAA50 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B92A1E2DCA86BC201137A425 /* PBXTargetDependency */,
 			);
 			name = Sleepypod;
 			packageProductDependencies = (
 			);
 			productName = Sleepypod;
 			productReference = 3E42AF9CF86F91B8ED2C55BD /* Sleepypod.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FE325996E9C6510FD9FA4A2A /* SleepypodWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 56D73CAFBE09467E0A30EDAE /* Build configuration list for PBXNativeTarget "SleepypodWatch" */;
+			buildPhases = (
+				5ABAB828E8CF1A4244519C40 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SleepypodWatch;
+			packageProductDependencies = (
+			);
+			productName = SleepypodWatch;
+			productReference = C8D0A8FB2F4BBBA27661F94F /* SleepypodWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -707,6 +796,10 @@
 						TestTargetID = DA66F8DC293B6B7F9BDC21B5;
 					};
 					DA66F8DC293B6B7F9BDC21B5 = {
+						DevelopmentTeam = ZUR2343J7S;
+						ProvisioningStyle = Automatic;
+					};
+					FE325996E9C6510FD9FA4A2A = {
 						DevelopmentTeam = ZUR2343J7S;
 						ProvisioningStyle = Automatic;
 					};
@@ -729,6 +822,7 @@
 				DA66F8DC293B6B7F9BDC21B5 /* Sleepypod */,
 				D8808AABD4784645491292FA /* SleepypodTests */,
 				BF06DBF6CAB62C58B7AECD55 /* SleepypodUITests */,
+				FE325996E9C6510FD9FA4A2A /* SleepypodWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -785,6 +879,7 @@
 				CC96C885B1F06EF7B0288588 /* StartupTests.swift in Sources */,
 				78A0334C5FE90674DFAF5A57 /* ThermalBedTests.swift in Sources */,
 				B69F31ED0A8F9F53BCA75DBB /* WatchComparisonTests.swift in Sources */,
+				CA5C2DE49D249EC0E268DD06 /* WatchMotionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -795,6 +890,17 @@
 				C410FCBED61138E4165AAB43 /* FirstBootTests.swift in Sources */,
 				CA9D9A4FA299AD4C47BD59E4 /* MarketingTour.swift in Sources */,
 				44664352D73C4A1AD9CC123A /* ModernizationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5ABAB828E8CF1A4244519C40 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				148DFAE07760ED2F88A712F5 /* MotionRecorder.swift in Sources */,
+				4AF19000D28A42DA513268E0 /* RecordingController.swift in Sources */,
+				5F52E018DFF7AA79E98AB53E /* SleepypodWatchApp.swift in Sources */,
+				539F5AFD46F4BBFC1BB1EDC3 /* WatchMotionFile.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -912,6 +1018,9 @@
 				E6661819B24B1F3364F913AF /* VitalsReport.swift in Sources */,
 				FC646DE2F3CD273C015FA1E4 /* WatchComparison.swift in Sources */,
 				DD93EC2F6B715DA64823B351 /* WatchComparisonView.swift in Sources */,
+				4F5BEB28BF7E5F3C71CF3E31 /* WatchMotionFile.swift in Sources */,
+				D4E15DA7B269D87F0CCB9DBF /* WatchMotionReceiver.swift in Sources */,
+				1D47C1C23CC1F89056477831 /* WatchMotionView.swift in Sources */,
 				183555484763CDB6368F4063 /* WaterLevelSheet.swift in Sources */,
 				2D211849929D856169991F7B /* WeekNavigatorView.swift in Sources */,
 				BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */,
@@ -930,6 +1039,11 @@
 			isa = PBXTargetDependency;
 			target = DA66F8DC293B6B7F9BDC21B5 /* Sleepypod */;
 			targetProxy = 523D6D71DD140D3B5CED0C82 /* PBXContainerItemProxy */;
+		};
+		B92A1E2DCA86BC201137A425 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FE325996E9C6510FD9FA4A2A /* SleepypodWatch */;
+			targetProxy = E9F3817EBF7BDA21E6262065 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1014,11 +1128,29 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		38AFD56A464A5C6A1963E06F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZUR2343J7S;
+				INFOPLIST_KEY_CFBundleDisplayName = sleepypod;
+				INFOPLIST_KEY_NSMotionUsageDescription = "sleepypod records wrist movement overnight on this Watch and sends it only to your iPhone, as movement labels for training.";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.jonathanng.com.ios.sleepypod;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.watchkitapp;
+				PRODUCT_NAME = SleepypodWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Release;
 		};
@@ -1061,6 +1193,24 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sleepypod.app/Sleepypod";
 			};
 			name = Release;
+		};
+		9670DA9A4FDEBDF4DB82379B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZUR2343J7S;
+				INFOPLIST_KEY_CFBundleDisplayName = sleepypod;
+				INFOPLIST_KEY_NSMotionUsageDescription = "sleepypod records wrist movement overnight on this Watch and sends it only to your iPhone, as movement labels for training.";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.jonathanng.com.ios.sleepypod;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.watchkitapp;
+				PRODUCT_NAME = SleepypodWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
 		};
 		A48A67AB9766ABD38F92DC04 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1125,11 +1275,11 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
 		};
@@ -1189,6 +1339,15 @@
 			buildConfigurations = (
 				C1861796BE35E81451617FC6 /* Debug */,
 				7DE7394826C9E32059965B09 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		56D73CAFBE09467E0A30EDAE /* Build configuration list for PBXNativeTarget "SleepypodWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9670DA9A4FDEBDF4DB82379B /* Debug */,
+				38AFD56A464A5C6A1963E06F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

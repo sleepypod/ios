@@ -56,6 +56,9 @@ struct SettingsSheet: View {
                                 RowValue(health.enabled ? "On" : "Off")
                             }
                         }
+                        NavigationLink { WatchMotionView() } label: {
+                            SettingsRow("Watch movement", icon: "applewatch", iconColor: Theme.text1, chevron: true)
+                        }
                         TempControlMenu(selection: $profile.tempControl, iconColor: Theme.text1, tile: false)
                         if APIBackend.current.isDemo {
                             Button {

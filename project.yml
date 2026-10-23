@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.jonathanng.com.ios.sleepypod
   deploymentTarget:
     iOS: "26.0"
+    watchOS: "26.0"
   xcodeVersion: "26"
   createIntermediateGroups: true
   defaultConfig: Debug
@@ -26,6 +27,9 @@ targets:
     platform: iOS
     sources:
       - path: Sleepypod
+      - path: Shared
+    dependencies:
+      - target: SleepypodWatch
     entitlements:
       path: Sleepypod/Sleepypod.entitlements
       properties:
@@ -43,6 +47,25 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ZUR2343J7S
         PRODUCT_NAME: Sleepypod
+
+  SleepypodWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: SleepypodWatch
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.com.ios.sleepypod.watchkitapp
+        PRODUCT_NAME: SleepypodWatch
+        INFOPLIST_KEY_CFBundleDisplayName: sleepypod
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.jonathanng.com.ios.sleepypod
+        INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: false
+        INFOPLIST_KEY_NSMotionUsageDescription: "sleepypod records wrist movement overnight on this Watch and sends it only to your iPhone, as movement labels for training."
+        TARGETED_DEVICE_FAMILY: 4
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ZUR2343J7S
+        SKIP_INSTALL: true
 
   SleepypodTests:
     type: bundle.unit-test

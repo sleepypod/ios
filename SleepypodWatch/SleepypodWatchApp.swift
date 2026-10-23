@@ -28,7 +28,7 @@ struct RecorderView: View {
                     Text("\(controller.hours.formatted(.number.precision(.fractionLength(1)))) h")
                 }
                 Button("Record tonight") { controller.recordTonight() }
-                    .disabled(!controller.availability.isEmpty && controller.availability.hasPrefix("Recording isn't"))
+                    .disabled(!controller.canRecord)
                 Toggle("Include raw 50 Hz", isOn: $controller.includeRaw).font(.footnote)
                 Button(controller.busy ? "Sending…" : "Send to iPhone") {
                     Task { await controller.send() }

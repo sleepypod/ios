@@ -38,7 +38,20 @@ final class RecordingController: NSObject {
         }
     }
 
+    /// Recording needs the sensor and Motion & Fitness permission (or a prompt still to come).
+    var canRecord: Bool {
+        guard source.isAvailable else { return false }
+        switch source.authorization {
+        case .denied, .restricted: return false
+        case .notDetermined, .authorized: return true
+        }
+    }
+
     func recordTonight(now: Date = .now) {
+        guard canRecord else {
+            status = availability
+            return
+        }
         let next = RecordingPlan(start: now, hours: hours)
         source.record(duration: next.duration)
         plan = next

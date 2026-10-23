@@ -1144,6 +1144,7 @@
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_KEY_CFBundleDisplayName = sleepypod;
 				INFOPLIST_KEY_NSMotionUsageDescription = "sleepypod records wrist movement overnight on this Watch and sends it only to your iPhone, as movement labels for training.";
+				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.jonathanng.com.ios.sleepypod;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.watchkitapp;
@@ -1202,6 +1203,7 @@
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_KEY_CFBundleDisplayName = sleepypod;
 				INFOPLIST_KEY_NSMotionUsageDescription = "sleepypod records wrist movement overnight on this Watch and sends it only to your iPhone, as movement labels for training.";
+				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.jonathanng.com.ios.sleepypod;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod.watchkitapp;

@@ -60,6 +60,7 @@ targets:
         PRODUCT_NAME: SleepypodWatch
         INFOPLIST_KEY_CFBundleDisplayName: sleepypod
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.jonathanng.com.ios.sleepypod
+        INFOPLIST_KEY_WKApplication: true
         INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: false
         INFOPLIST_KEY_NSMotionUsageDescription: "sleepypod records wrist movement overnight on this Watch and sends it only to your iPhone, as movement labels for training."
         TARGETED_DEVICE_FAMILY: 4

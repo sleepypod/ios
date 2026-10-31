@@ -24,7 +24,7 @@ struct HealthAccessView: View {
                     Text("Sync with Apple Health").font(.system(size: titleSize, weight: .bold)).tracking(-0.5)
                     Text("Each morning, last night's sleep and vitals are written to Health. Stage analysis runs on this iPhone.")
                         .font(.subheadline).foregroundStyle(Theme.text2).lineSpacing(3)
-                    Text("Your Health data stays on this iPhone. sleepypod has no server: nothing you allow here is uploaded to the pod, to iCloud or to anyone else. The pod's own readings are fetched to this iPhone for the comparison.")
+                    Text("Your Health data stays on this iPhone unless you send your Apple Watch readings to your own pod below, over your home network. sleepypod has no server: nothing goes to iCloud or anyone else.")
                         .font(.footnote).foregroundStyle(Theme.text2).lineSpacing(3)
                 }
                 .padding(.horizontal, 8)
@@ -56,6 +56,7 @@ struct HealthAccessView: View {
                     }
                     if health.authorizationDenied { deniedNote } else { allowButton.padding(.top, 8) }
                     syncStatus
+                    podUpload
                     if let error = health.authorizationError {
                         Text(error).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
                     }
@@ -125,6 +126,49 @@ struct HealthAccessView: View {
                     .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16)
             }
         }
+    }
+
+    /// Opt-in: the Watch's own stages and vitals go to the pod, which scores its staging against them.
+    private var podUpload: some View {
+        @Bindable var health = health
+        return GroupedSection("SEND TO POD") {
+            GroupedCard {
+                SettingsRow("Send Watch data each morning", subtitle: "Stages, heart rate, HRV and breathing", height: 56) {
+                    Toggle("Send Watch data each morning", isOn: $health.preferences.sendWatchToPod).labelsHidden()
+                }
+                Button {
+                    Haptics.light()
+                    Task {
+                        let report = await health.sendWatchData(api: APIBackend.current.createClient(), side: profile.defaultSide,
+                                                                days: HealthSyncService.podUploadDays)
+                        if report != nil { Haptics.success() } else { Haptics.warning() }
+                    }
+                } label: {
+                    SettingsRow(health.isSendingToPod ? "Sending…" : "Send last \(HealthSyncService.podUploadDays) days now",
+                                icon: "arrow.up.circle") {
+                        if health.isSendingToPod { ProgressView() }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(health.isSendingToPod || !health.enabled || APIBackend.current.isDemo)
+                if let last = health.lastPodUpload {
+                    SettingsRow("Last sent", subtitle: podUploadSummary(last.report), icon: "clock", height: 56) {
+                        RowValue(last.date.formatted(date: .omitted, time: .shortened), mono: true)
+                    }
+                }
+            }
+            if let error = health.podUploadError {
+                Text(error).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
+            }
+            Text("Only what your Apple Watch recorded is sent, to the pod at your saved address for this iPhone's side (\(settings.sideName(for: profile.defaultSide))), so the pod can compare its own staging with the Watch. Resending is safe: the pod skips what it already has.")
+                .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func podUploadSummary(_ report: PodWatchUpload.Report) -> String {
+        var parts = ["\(report.stages) stages", "\(report.heartRate) HR", "\(report.hrv) HRV", "\(report.breathing) breathing new"]
+        if report.rejectedNights > 0 { parts.append("\(report.rejectedNights) nights already on the pod differ") }
+        return parts.joined(separator: " · ")
     }
 
     private var rebuildTitle: String {

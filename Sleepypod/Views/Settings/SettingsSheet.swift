@@ -196,7 +196,7 @@ struct AllSettingsScreen: View {
                             }
                         }
                     }
-                    Text("Your Health data stays on this iPhone. sleepypod has no server: nothing is uploaded to the pod, to iCloud or to anyone else.")
+                    Text("Your Health data stays on this iPhone unless you choose to send Apple Watch readings to your own pod. sleepypod has no server: nothing goes to iCloud or anyone else.")
                         .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16).fixedSize(horizontal: false, vertical: true)
                 }
 

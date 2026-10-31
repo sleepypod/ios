@@ -52,6 +52,12 @@ protocol SleepypodProtocol: Sendable {
     func getSleepStages(side: Side, sleepRecordId: Int) async throws -> PodSleepStages
     // The personal stage model stored on the pod for a side, trained on a Mac (sleepypod-core sleepStages.getModel)
     func getStageModel(side: Side) async throws -> PodStageModelResponse
+
+    // Apple Watch reference readings, sent from Health on this iPhone (sleepypod-core biometrics.importReference*).
+    // Each returns the rows the pod newly stored; repeats are skipped there.
+    func importReferenceStages(side: Side, segments: [PodWatchUpload.Segment]) async throws -> Int
+    func importReferenceVitals(side: Side, heartRate: [PodWatchUpload.Sample]) async throws -> Int
+    func importReferenceSamples(side: Side, metric: PodWatchUpload.Metric, samples: [PodWatchUpload.Sample]) async throws -> Int
 }
 
 struct CalibrationTriggerResponse: Decodable, Sendable {
@@ -75,4 +81,9 @@ extension SleepypodProtocol {
     }
     func getSleepStages(side: Side, sleepRecordId: Int) async throws -> PodSleepStages { throw URLError(.unsupportedURL) }
     func getStageModel(side: Side) async throws -> PodStageModelResponse { throw URLError(.unsupportedURL) }
+    func importReferenceStages(side: Side, segments: [PodWatchUpload.Segment]) async throws -> Int { throw URLError(.unsupportedURL) }
+    func importReferenceVitals(side: Side, heartRate: [PodWatchUpload.Sample]) async throws -> Int { throw URLError(.unsupportedURL) }
+    func importReferenceSamples(side: Side, metric: PodWatchUpload.Metric, samples: [PodWatchUpload.Sample]) async throws -> Int {
+        throw URLError(.unsupportedURL)
+    }
 }

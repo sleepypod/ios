@@ -69,6 +69,8 @@ final class HealthSyncService {
         var respiration = true
         var readSleep = true
         var readVitals = true
+        /// Opt-in: each morning sync also sends the Watch's own readings to the pod on the home network.
+        var sendWatchToPod = false
         var signature: String { "\(sleep)-\(heartRate)-\(hrv)-\(respiration)" }
 
         init() {}
@@ -81,6 +83,7 @@ final class HealthSyncService {
             respiration = try c.decodeIfPresent(Bool.self, forKey: .respiration) ?? true
             readSleep = try c.decodeIfPresent(Bool.self, forKey: .readSleep) ?? true
             readVitals = try c.decodeIfPresent(Bool.self, forKey: .readVitals) ?? true
+            sendWatchToPod = try c.decodeIfPresent(Bool.self, forKey: .sendWatchToPod) ?? false
         }
     }
     struct Receipt: Codable {
@@ -99,6 +102,9 @@ final class HealthSyncService {
     private(set) var failures: [String: String] = [:]
     private(set) var isSyncing = false
     private(set) var rebuildProgress: (done: Int, total: Int)?
+    private(set) var isSendingToPod = false
+    private(set) var lastPodUpload: (date: Date, report: PodWatchUpload.Report)?
+    private(set) var podUploadError: String?
     var authorizationError: String?
     /// Personal stage models; when one is active, synced nights are staged by it and its version is in the receipt.
     weak var stageModels: StageModelStore?
@@ -230,6 +236,62 @@ final class HealthSyncService {
         isSyncing = true
         defer { isSyncing = false }
         _ = await sync(api: api, podID: podID, side: side, days: Self.recentDays)
+        if preferences.sendWatchToPod {
+            await sendWatchData(api: api, side: side, days: Self.podUploadRecentDays)
+        }
+    }
+
+    static let podUploadRecentDays = 2
+    static let podUploadDays = 30
+
+    /// Sends what the Watch itself recorded over the last `days` (stages, heart rate, HRV, breathing) to the
+    /// pod's reference tables for `side`. Safe to repeat: the pod skips rows it already holds.
+    @discardableResult
+    func sendWatchData(api: SleepypodProtocol, side: Side, days: Int, now: Date = Date()) async -> PodWatchUpload.Report? {
+        guard enabled, store.available, !isSendingToPod else { return nil }
+        isSendingToPod = true
+        defer { isSendingToPod = false }
+        podUploadError = nil
+        let start = now.addingTimeInterval(-Double(days) * 86400)
+        let stages = PodWatchUpload.segments(Self.watchStages(await read("sleep") { try await store.sleepSamples(start: start, end: now) }))
+        func readings(_ type: HKQuantityTypeIdentifier, _ unit: HKUnit, _ label: String) async -> [WatchComparison.Reading] {
+            Self.watchReadings(await read(label) { try await store.quantitySamples(type, start: start, end: now) }, unit: unit)
+        }
+        let heartRate = PodWatchUpload.samples(await readings(.heartRate, .count().unitDivided(by: .minute()), "heart rate"),
+                                               in: PodWatchUpload.heartRateRange)
+        let breathing = PodWatchUpload.samples(await readings(.respiratoryRate, .count().unitDivided(by: .minute()), "breathing"),
+                                               in: PodWatchUpload.Metric.breathingRate.range)
+        let hrv = PodWatchUpload.samples(await readings(.heartRateVariabilitySDNN, .secondUnit(with: .milli), "HRV"),
+                                         in: PodWatchUpload.Metric.hrvSDNN.range)
+        var report = PodWatchUpload.Report(matchedStages: stages.count, matchedHeartRate: heartRate.count,
+                                           matchedBreathing: breathing.count, matchedHRV: hrv.count)
+        do {
+            for night in PodWatchUpload.nights(stages) {
+                do {
+                    report.stages += try await api.importReferenceStages(side: side, segments: night)
+                } catch APIError.serverError(let message) {
+                    // A night the pod holds with other boundaries (an older export import) is skipped, not fatal.
+                    report.rejectedNights += 1
+                    Log.health.notice("Pod refused a Watch night: \(message, privacy: .private)")
+                }
+            }
+            for batch in PodWatchUpload.chunks(heartRate) {
+                report.heartRate += try await api.importReferenceVitals(side: side, heartRate: batch)
+            }
+            for batch in PodWatchUpload.chunks(breathing) {
+                report.breathing += try await api.importReferenceSamples(side: side, metric: .breathingRate, samples: batch)
+            }
+            for batch in PodWatchUpload.chunks(hrv) {
+                report.hrv += try await api.importReferenceSamples(side: side, metric: .hrvSDNN, samples: batch)
+            }
+        } catch {
+            podUploadError = error.localizedDescription
+            Log.health.error("Sending Watch data to the pod failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        lastPodUpload = (now, report)
+        Log.health.info("Sent Watch data to the pod: \(report.written) new rows, \(report.rejectedNights) nights refused")
+        return report
     }
 
     /// Rewrites the last `rebuildDays` nights with the current analysis, then deletes everything else

@@ -156,7 +156,7 @@ struct HealthAccessView: View {
         @Bindable var health = health
         return GroupedSection("SEND TO POD") {
             GroupedCard {
-                SettingsRow("Send Watch data each morning", subtitle: "Stages, heart rate, HRV and breathing", height: 56) {
+                SettingsRow("Send Watch data each morning", subtitle: "Sleep stages, heart rate, HRV, breathing", height: 56) {
                     Toggle("Send Watch data each morning", isOn: $health.preferences.sendWatchToPod).labelsHidden()
                 }
                 Button {
@@ -175,7 +175,7 @@ struct HealthAccessView: View {
                 .buttonStyle(.plain)
                 .disabled(health.isSendingToPod || !health.enabled)
                 if let last = health.lastPodUpload {
-                    SettingsRow("Last sent", subtitle: podUploadSummary(last.report), icon: "clock", height: 56) {
+                    SettingsRow("Last sent", subtitle: Self.podUploadSummary(last.report), icon: "clock", height: 56) {
                         RowValue(last.date.formatted(date: .omitted, time: .shortened), mono: true)
                     }
                 }
@@ -183,14 +183,23 @@ struct HealthAccessView: View {
             if let error = health.podUploadError {
                 Text(error).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
             }
-            Text("Only what your Apple Watch recorded is sent, to the pod at your saved address for this iPhone's side (\(settings.sideName(for: profile.defaultSide))), so the pod can compare its own staging with the Watch. Resending is safe: the pod skips what it already has.")
+            Text("Your pod compares its sleep tracking with your Apple Watch to get more accurate. Only Watch data is sent, and only to your pod, for this iPhone's side (\(settings.sideName(for: profile.defaultSide))). Sending again never duplicates anything.")
                 .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16).fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private func podUploadSummary(_ report: PodWatchUpload.Report) -> String {
-        var parts = ["\(report.stages) stages", "\(report.heartRate) HR", "\(report.hrv) HRV", "\(report.breathing) breathing new"]
-        if report.rejectedNights > 0 { parts.append("\(report.rejectedNights) nights already on the pod differ") }
+    /// A resend that adds nothing is a success, so it reads as up to date instead of a row of zeros.
+    static func podUploadSummary(_ report: PodWatchUpload.Report) -> String {
+        let matched = report.matchedStages + report.matchedHeartRate + report.matchedHRV + report.matchedBreathing
+        var parts: [String]
+        if matched == 0 {
+            parts = ["No Apple Watch data found"]
+        } else if report.written == 0 {
+            parts = ["Up to date"]
+        } else {
+            parts = ["Added \(report.written.formatted()) new readings"]
+        }
+        if report.rejectedNights > 0 { parts.append(report.rejectedNights == 1 ? "1 night skipped" : "\(report.rejectedNights) nights skipped") }
         return parts.joined(separator: " · ")
     }
 

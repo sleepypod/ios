@@ -137,6 +137,16 @@ struct WatchComparisonTests {
         #expect(far == nil)
     }
 
+    @Test func watchStagesAreCutToTheBedSession() {
+        let bedStart = Date(timeIntervalSince1970: 10 * 60), bedEnd = Date(timeIntervalSince1970: 20 * 60)
+        // Before bed, straddling the start, inside, straddling the end, after.
+        let samples = [watch(0, 5, .light), watch(8, 12, .deep), watch(12, 18, .rem), watch(18, 25, .light), watch(30, 40, .deep)]
+        let clipped = WatchComparison.clipped(samples, start: bedStart, end: bedEnd)
+        #expect(clipped == [watch(10, 12, .deep), watch(12, 18, .rem), watch(18, 20, .light)])
+        // A Watch night that misses the bed entirely leaves nothing to draw.
+        #expect(WatchComparison.clipped([watch(30, 40, .deep)], start: bedStart, end: bedEnd).isEmpty)
+    }
+
     @Test func demoIsDeterministicAndDisagreesSomewhere() throws {
         let json = """
         {"id":7,"side":"left","enteredBedAt":0,"leftBedAt":28800,"sleepDurationSeconds":27000}

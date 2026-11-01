@@ -158,6 +158,14 @@ struct WatchComparison: Sendable {
         return nearest
     }
 
+    /// The parts of `samples` inside the bed session; samples that straddle an edge are cut at it.
+    static func clipped(_ samples: [StageSample], start: Date, end: Date) -> [StageSample] {
+        samples.compactMap { sample in
+            let from = max(sample.start, start), to = min(sample.end, end)
+            return from < to ? StageSample(start: from, end: to, stage: sample.stage) : nil
+        }
+    }
+
     /// Adjacent samples of one stage collapse into a single block for drawing.
     static func merged(_ samples: [StageSample], maxGap: TimeInterval = 300) -> [StageSample] {
         var result: [StageSample] = []

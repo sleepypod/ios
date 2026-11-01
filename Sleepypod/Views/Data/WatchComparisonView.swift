@@ -73,13 +73,9 @@ struct WatchComparisonView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var nightStart: Date {
-        min(epochs.map(\.start).min() ?? record.enteredBedDate, comparison?.watchStages.first?.start ?? record.enteredBedDate)
-    }
-    private var nightEnd: Date {
-        max(epochs.map { $0.start.addingTimeInterval($0.duration) }.max() ?? record.leftBedDate,
-            comparison?.watchStages.map(\.end).max() ?? record.leftBedDate)
-    }
+    // The bed session sets the window; Watch data outside it is clipped when the comparison is built.
+    private var nightStart: Date { record.enteredBedDate }
+    private var nightEnd: Date { record.leftBedDate }
 
     /// Hypnogram lanes, deepest at the bottom.
     private static func lane(_ stage: SleepAnalyzer.SleepStage) -> Double {

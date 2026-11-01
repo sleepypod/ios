@@ -637,25 +637,17 @@ final class HealthSyncService {
               record.leftBedDate > record.enteredBedDate else { return nil }
         readError = nil
         Log.health.notice("Watch comparison for night \(record.id) \(record.enteredBedDate.formatted(.iso8601), privacy: .private) to \(record.leftBedDate.formatted(.iso8601), privacy: .private)")
-        // The Watch's night is found on its own terms, then vitals are read over whichever span is wider.
+        // The bed session is the window: the Watch's night is found on its own terms, then clipped to the time
+        // the pod saw someone in bed, so a Watch night that only partly overlaps never stretches the view.
         var stages: [WatchComparison.StageSample] = []
-        var start = record.enteredBedDate, end = record.leftBedDate
+        let start = record.enteredBedDate, end = record.leftBedDate
         if preferences.readSleep {
             let all = Self.watchStages(await read("sleep") {
                 try await store.sleepSamples(start: start.addingTimeInterval(-Self.watchSearchMargin), end: end.addingTimeInterval(Self.watchSearchMargin))
             })
             if let session = WatchComparison.session(for: start, end: end, in: WatchComparison.sessions(all)) {
-                stages = session.samples
-                // Vitals come from the Watch's night, joined with the bed span only when the two actually overlap,
-                // so a night matched at a distance never pulls in daytime readings.
-                if session.start < end && session.end > start {
-                    start = min(start, session.start)
-                    end = max(end, session.end)
-                } else {
-                    start = session.start
-                    end = session.end
-                }
-                Log.health.notice("Watch night \(session.start.formatted(.iso8601), privacy: .private) to \(session.end.formatted(.iso8601), privacy: .private), \(session.samples.count) samples")
+                stages = WatchComparison.clipped(session.samples, start: start, end: end)
+                Log.health.notice("Watch night \(session.start.formatted(.iso8601), privacy: .private) to \(session.end.formatted(.iso8601), privacy: .private), \(stages.count) of \(session.samples.count) samples in bed")
             }
         }
         var heartRate: [WatchComparison.Reading] = [], hrv: [WatchComparison.Reading] = [], breathing: [WatchComparison.Reading] = []

@@ -42,10 +42,10 @@ struct PodWatchUploadTests {
 
     @MainActor @Test func summaryCallsAResendThatAddsNothingUpToDate() {
         var report = PodWatchUpload.Report(matchedStages: 513, matchedHeartRate: 5214, matchedBreathing: 927, matchedHRV: 96)
-        #expect(HealthAccessView.podUploadSummary(report).hasPrefix("Up to date"))
+        #expect(HealthAccessView.podUploadSummary(report) == "Up to date")
         report.heartRate = 12
-        #expect(HealthAccessView.podUploadSummary(report).hasPrefix("12 new of"))
-        #expect(HealthAccessView.podUploadSummary(PodWatchUpload.Report()).hasPrefix("No Watch readings"))
+        #expect(HealthAccessView.podUploadSummary(report) == "Added 12 new readings")
+        #expect(HealthAccessView.podUploadSummary(PodWatchUpload.Report()) == "No Apple Watch data found")
     }
 
     @Test func chunksCapAtTheBatchSize() {

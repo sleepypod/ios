@@ -388,6 +388,32 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         try await query("biometrics.getSleepStages", input: ["side": side.rawValue, "sleepRecordId": sleepRecordId])
     }
 
+    // MARK: - Apple Watch reference readings
+
+    func importReferenceStages(side: Side, segments: [PodWatchUpload.Segment]) async throws -> Int {
+        let result: TRPCWritten = try await mutate("biometrics.importReferenceStages", input: [
+            "side": side.rawValue, "source": "apple_watch",
+            "segments": segments.map { ["start": $0.start, "end": $0.end, "stage": PodWatchUpload.podStage($0.stage)] }
+        ])
+        return result.written
+    }
+
+    func importReferenceVitals(side: Side, heartRate: [PodWatchUpload.Sample]) async throws -> Int {
+        let result: TRPCWritten = try await mutate("biometrics.importReferenceVitals", input: [
+            "side": side.rawValue, "source": "apple_watch",
+            "samples": heartRate.map { ["timestamp": $0.timestamp, "heartRate": $0.value] }
+        ])
+        return result.written
+    }
+
+    func importReferenceSamples(side: Side, metric: PodWatchUpload.Metric, samples: [PodWatchUpload.Sample]) async throws -> Int {
+        let result: TRPCWritten = try await mutate("biometrics.importReferenceSamples", input: [
+            "side": side.rawValue, "source": "apple_watch", "metric": metric.rawValue,
+            "samples": samples.map { ["timestamp": $0.timestamp, "value": $0.value] }
+        ])
+        return result.written
+    }
+
     // MARK: - Actions
 
     func triggerAlarm(_ alarm: AlarmJob) async throws {
@@ -875,6 +901,10 @@ private struct TRPCJSONWrapper<R: Decodable>: Decodable {
 
 private struct TRPCSuccess: Decodable {
     let success: Bool?
+}
+
+private struct TRPCWritten: Decodable {
+    let written: Int
 }
 
 private struct TRPCSideStatus: Decodable {

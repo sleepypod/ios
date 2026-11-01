@@ -29,6 +29,11 @@ enum APIBackend: String, CaseIterable, Sendable {
         self == .demo
     }
 
+    /// Only sleepypod-core stores Apple Watch reference readings.
+    var supportsWatchUpload: Bool {
+        self == .sleepypodCore
+    }
+
     private static let demoClient = MockClient()
 
     func createClient() -> SleepypodProtocol {

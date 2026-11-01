@@ -146,6 +146,7 @@ struct SleepScreen: View {
                 vital("HRV", unit: "ms", key: \.hrv, decimals: 0, icon: "waveform.path.ecg", color: Theme.cool)
                 vital("BREATH", unit: "br/min", key: \.breathingRate, decimals: 1, icon: "lungs", color: Theme.green)
             }
+            PodMovementCardView(record: record, side: metrics.selectedSide)
             if health.hasWriteAuthorization && metrics.selectedSide == profile.defaultSide && !isDemo {
                 healthReceipt(record)
             }

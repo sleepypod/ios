@@ -22,7 +22,8 @@ struct ModernizationTests {
                                       stage: stage, heartRate: 62, hrv: 45, breathingRate: 14)
         }
         let samples = HealthSyncService.samples(record: record, epochs: epochs, podID: "pod-a", preferences: .init())
-        #expect(samples.count == 17)
+        // In bed, 4 stages, 4 heart rate, 4 breathing, and the 4 HRV readings averaged into one 5-minute window.
+        #expect(samples.count == 14)
         let sleep = samples.compactMap { $0 as? HKCategorySample }
         #expect(Set(sleep.map(\.value)) == Set([HKCategoryValueSleepAnalysis.inBed.rawValue,
             HKCategoryValueSleepAnalysis.awake.rawValue, HKCategoryValueSleepAnalysis.asleepREM.rawValue,
@@ -43,6 +44,52 @@ struct ModernizationTests {
         #expect(onlyHR.allSatisfy { $0.sampleType == HKQuantityType(.heartRate) })
         let retry = HealthSyncService.samples(record: record, epochs: epochs, podID: "pod-a", preferences: prefs)
         #expect(onlyHR.map { $0.metadata?[HKMetadataKeySyncIdentifier] as? String } == retry.map { $0.metadata?[HKMetadataKeySyncIdentifier] as? String })
+    }
+
+    private func vitals(_ minutes: Int, heartRate: (Int) -> Double = { _ in 60 }, hrv: (Int) -> Double? = { _ in 40 }) -> [VitalsRecord] {
+        (0..<minutes).map { VitalsRecord(id: $0, side: "left", heartRate: heartRate($0), hrv: hrv($0), breathingRate: 14,
+                                         date: Date(timeIntervalSince1970: 1200 + Double($0) * 60)) }
+    }
+
+    @Test func hrvIsAveragedIntoClockWindowsOrOneNightlyValue() throws {
+        let night = try JSONDecoder().decode(SleepRecord.self, from: Data(#"{"id":7,"side":"left","enteredBedAt":1000,"leftBedAt":3000,"sleepDurationSeconds":2000}"#.utf8))
+        // Minutes 0-4 fall in the 1200-1500 window, 5-9 in 1500-1800; one out-of-range reading is ignored.
+        let readings = vitals(10, hrv: { $0 == 2 ? 900 : ($0 < 5 ? 30 : 50) })
+        let windows = HealthSyncService.hrvWindows(readings, record: night, format: .windows)
+        #expect(windows.map(\.value) == [30, 50])
+        #expect(windows.map(\.start) == [Date(timeIntervalSince1970: 1200), Date(timeIntervalSince1970: 1500)])
+        #expect(windows.allSatisfy { $0.end.timeIntervalSince($0.start) == HealthSyncService.hrvWindow })
+        let nightly = HealthSyncService.hrvWindows(readings, record: night, format: .nightly)
+        #expect(nightly.count == 1)
+        #expect(abs((nightly.first?.value ?? 0) - 370.0 / 9) < 1e-9)
+        #expect(nightly.first?.start == night.enteredBedDate && nightly.first?.end == night.leftBedDate)
+        var prefs = HealthSyncService.Preferences()
+        prefs.hrvFormat = .nightly
+        let samples = HealthSyncService.samples(record: night, epochs: [], podID: "pod-a", preferences: prefs, vitals: readings)
+        #expect(samples.filter { $0.sampleType == HKQuantityType(.heartRateVariabilitySDNN) }.count == 1)
+    }
+
+    @Test func restingHeartRateIsTheLowestFullHalfHour() throws {
+        // 90 minutes at 64 bpm with a 30-minute dip to 52 starting at minute 40.
+        let readings = vitals(90, heartRate: { (40..<70).contains($0) ? 52 : 64 })
+        let resting = try #require(HealthSyncService.restingHeartRate(readings))
+        #expect(resting.value == 52)
+        #expect(resting.start == Date(timeIntervalSince1970: 1200 + 40 * 60))
+        // Too few readings for a half hour gives no resting rate rather than a guess.
+        #expect(HealthSyncService.restingHeartRate(vitals(HealthSyncService.restingMinReadings - 1)) == nil)
+        let night = try JSONDecoder().decode(SleepRecord.self, from: Data(#"{"id":7,"side":"left","enteredBedAt":1000,"leftBedAt":6800,"sleepDurationSeconds":5000}"#.utf8))
+        let samples = HealthSyncService.samples(record: night, epochs: [], podID: "pod-a", preferences: .init(), vitals: readings)
+        let written = samples.filter { $0.sampleType == HKQuantityType(.restingHeartRate) }.compactMap { $0 as? HKQuantitySample }
+        #expect(written.count == 1)
+        #expect(written.first?.quantity.doubleValue(for: .count().unitDivided(by: .minute())) == 52)
+        #expect(written.allSatisfy { $0.endDate <= night.leftBedDate })
+    }
+
+    @Test func restingHeartRateStaysOffForExistingSetups() throws {
+        let saved = try JSONDecoder().decode(HealthSyncService.Preferences.self, from: Data(#"{"sleep":true,"heartRate":true,"hrv":true,"respiration":true}"#.utf8))
+        #expect(!saved.restingHeartRate)
+        #expect(saved.hrvFormat == .windows)
+        #expect(HealthSyncService.Preferences().restingHeartRate)
     }
 
     @Test func healthDeviceAttributionSeparatesPodsAndSides() throws {
@@ -108,9 +155,9 @@ private final class FakeHealthStore: HealthSyncStore {
         deletes.append((deviceID, start, end, version))
         events.append("delete")
     }
-    var sweeps: [(types: Set<HKSampleType>, olderThan: Int)] = []
-    func deleteAll(types: Set<HKSampleType>, olderThan version: Int) async throws {
-        sweeps.append((types, version))
+    var sweeps: [(types: Set<HKSampleType>, olderThan: Int, since: Date)] = []
+    func deleteAll(types: Set<HKSampleType>, olderThan version: Int, since start: Date) async throws {
+        sweeps.append((types, version, start))
         events.append("deleteAll")
     }
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] { [] }
@@ -131,7 +178,7 @@ struct HealthSyncLifecycleTests {
         #expect(!service.authorizationDenied, "nothing to open in Settings where Health does not exist")
         store.available = true
         service.preferences.sleep = false; service.preferences.heartRate = false
-        service.preferences.hrv = false; service.preferences.respiration = false
+        service.preferences.hrv = false; service.preferences.respiration = false; service.preferences.restingHeartRate = false
         #expect(!service.authorizationDenied, "no write types means no sheet was ever refused")
     }
 
@@ -142,6 +189,7 @@ struct HealthSyncLifecycleTests {
         service.preferences.sleep = false
         service.preferences.hrv = false
         service.preferences.respiration = false
+        service.preferences.restingHeartRate = false
         service.preferences.readSleep = false
         service.preferences.readVitals = false
         #expect(await service.requestAuthorization())
@@ -264,6 +312,10 @@ struct HealthSyncLifecycleTests {
         service.preferences.hrv = false
         #expect(await service.rebuild(api: api, podID: "test-pod", side: .left, demo: false))
         #expect(store.sweeps.last?.types == Set(HealthSyncService.allWriteTypes))
+        // A chosen start limits the sweep, so earlier nights are kept.
+        let since = Date().addingTimeInterval(-3 * 86400)
+        #expect(await service.rebuild(api: api, podID: "test-pod", side: .left, since: since, demo: false))
+        #expect(store.sweeps.last?.since == since)
     }
 
     @Test func failedRebuildKeepsOlderHealthData() async {

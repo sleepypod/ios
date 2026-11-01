@@ -131,6 +131,7 @@
 		BC37EEEE2AD3A4072D8141B0 /* InternetToggleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC70CD7C5F0C026275B7EFF6 /* InternetToggleTests.swift */; };
 		BFB6082091FA1466BC8B228A /* WeeklyBarChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A21CD5C2B8905CF28D262D /* WeeklyBarChartView.swift */; };
 		C234367C2067A4180E150C1F /* SleepypodWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C8D0A8FB2F4BBBA27661F94F /* SleepypodWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C3369BF05081975C567BA064 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 350D56A7A6F6B63C5460CE98 /* Assets.xcassets */; };
 		C410FCBED61138E4165AAB43 /* FirstBootTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E152E058D4B193B3FD0F1D0D /* FirstBootTests.swift */; };
 		C4D7F73C779F1ED2B685A770 /* DataPipelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C23ED1E696702811954A0DA /* DataPipelineView.swift */; };
 		C8A7D7FBBE5A153276BF1E09 /* SnoreDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A16C51CB0698898E68365C17 /* SnoreDetection.swift */; };
@@ -244,6 +245,7 @@
 		2F0AFD07A8CB0082733ACB36 /* SleepRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepRecord.swift; sourceTree = "<group>"; };
 		30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureConversion.swift; sourceTree = "<group>"; };
 		3395E1B8972851D74677489D /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		350D56A7A6F6B63C5460CE98 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		36CA3E2091E691163F71E3A2 /* PortableStageModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortableStageModelTests.swift; sourceTree = "<group>"; };
 		37FC9D8DD1B736AAE87A0FBB /* PiezoSweepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoSweepTests.swift; sourceTree = "<group>"; };
 		3802A46A93A63E5977A34D19 /* SleepStageChallenger.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = SleepStageChallenger.mlmodel; sourceTree = "<group>"; };
@@ -712,6 +714,7 @@
 		F0FBBB58B1E099DB9410481F /* SleepypodWatch */ = {
 			isa = PBXGroup;
 			children = (
+				350D56A7A6F6B63C5460CE98 /* Assets.xcassets */,
 				25144B52B22AB54483983387 /* MotionRecorder.swift */,
 				7A6FF64E72F4ED36D4A05386 /* RecordingController.swift */,
 				A182F7D23DCC1F6F92576932 /* SleepypodWatchApp.swift */,
@@ -794,6 +797,7 @@
 			buildConfigurationList = 56D73CAFBE09467E0A30EDAE /* Build configuration list for PBXNativeTarget "SleepypodWatch" */;
 			buildPhases = (
 				5ABAB828E8CF1A4244519C40 /* Sources */,
+				331EDA5B9E78A0DFB11F7E90 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -851,6 +855,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		331EDA5B9E78A0DFB11F7E90 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C3369BF05081975C567BA064 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4948B4B486767F9346B69D79 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;

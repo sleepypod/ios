@@ -175,7 +175,7 @@ struct HealthAccessView: View {
                 .buttonStyle(.plain)
                 .disabled(health.isSendingToPod || !health.enabled)
                 if let last = health.lastPodUpload {
-                    SettingsRow("Last sent", subtitle: podUploadSummary(last.report), icon: "clock", height: 56) {
+                    SettingsRow("Last sent", subtitle: Self.podUploadSummary(last.report), icon: "clock", height: 56) {
                         RowValue(last.date.formatted(date: .omitted, time: .shortened), mono: true)
                     }
                 }
@@ -188,8 +188,18 @@ struct HealthAccessView: View {
         }
     }
 
-    private func podUploadSummary(_ report: PodWatchUpload.Report) -> String {
-        var parts = ["\(report.stages) stages", "\(report.heartRate) HR", "\(report.hrv) HRV", "\(report.breathing) breathing new"]
+    /// A resend that adds nothing is a success, so it reads as up to date instead of a row of zeros.
+    static func podUploadSummary(_ report: PodWatchUpload.Report) -> String {
+        let matched = report.matchedStages + report.matchedHeartRate + report.matchedHRV + report.matchedBreathing
+        var parts: [String]
+        if matched == 0 {
+            parts = ["No Watch readings found in Health for these days"]
+        } else if report.written == 0 {
+            parts = ["Up to date: the pod already had all \(matched.formatted()) readings"]
+        } else {
+            parts = ["\(report.written.formatted()) new of \(matched.formatted())",
+                     "\(report.stages) stages", "\(report.heartRate) HR", "\(report.hrv) HRV", "\(report.breathing) breathing"]
+        }
         if report.rejectedNights > 0 { parts.append("\(report.rejectedNights) nights already on the pod differ") }
         return parts.joined(separator: " · ")
     }

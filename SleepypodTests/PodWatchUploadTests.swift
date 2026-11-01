@@ -40,6 +40,14 @@ struct PodWatchUploadTests {
                 == [PodWatchUpload.Sample(timestamp: 1_800_000_060, value: 14)])
     }
 
+    @MainActor @Test func summaryCallsAResendThatAddsNothingUpToDate() {
+        var report = PodWatchUpload.Report(matchedStages: 513, matchedHeartRate: 5214, matchedBreathing: 927, matchedHRV: 96)
+        #expect(HealthAccessView.podUploadSummary(report).hasPrefix("Up to date"))
+        report.heartRate = 12
+        #expect(HealthAccessView.podUploadSummary(report).hasPrefix("12 new of"))
+        #expect(HealthAccessView.podUploadSummary(PodWatchUpload.Report()).hasPrefix("No Watch readings"))
+    }
+
     @Test func chunksCapAtTheBatchSize() {
         #expect(PodWatchUpload.chunks(Array(0..<4500)).map(\.count) == [2000, 2000, 500])
     }

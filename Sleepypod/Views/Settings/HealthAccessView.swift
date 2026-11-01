@@ -9,6 +9,7 @@ struct HealthAccessView: View {
     @State private var requesting = false
     @State private var confirmRebuild = false
     @State private var rebuildFailed = false
+    @State private var rebuildStart = Calendar.current.date(byAdding: .day, value: -HealthSyncService.rebuildDays, to: .now) ?? .now
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 30
 
     var body: some View {
@@ -33,7 +34,17 @@ struct HealthAccessView: View {
                         GroupedCard {
                             SettingsRow("Sleep stages") { Toggle("Sleep stages", isOn: $health.preferences.sleep).labelsHidden() }
                             SettingsRow("Heart rate") { Toggle("Heart rate", isOn: $health.preferences.heartRate).labelsHidden() }
+                            SettingsRow("Resting heart rate") { Toggle("Resting heart rate", isOn: $health.preferences.restingHeartRate).labelsHidden() }
                             SettingsRow("Heart rate variability") { Toggle("Heart rate variability", isOn: $health.preferences.hrv).labelsHidden() }
+                            if health.preferences.hrv {
+                                SettingsRow("HRV readings") {
+                                    Picker("HRV readings", selection: $health.preferences.hrvFormat) {
+                                        Text("Every 5 minutes").tag(HealthSyncService.Preferences.HRVFormat.windows)
+                                        Text("Nightly average").tag(HealthSyncService.Preferences.HRVFormat.nightly)
+                                    }
+                                    .labelsHidden().pickerStyle(.menu)
+                                }
+                            }
                             SettingsRow("Respiratory rate") { Toggle("Respiratory rate", isOn: $health.preferences.respiration).labelsHidden() }
                         }
                     }
@@ -76,10 +87,10 @@ struct HealthAccessView: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(Theme.background).tint(Theme.green)
         .navigationTitle("Apple Health").navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Rebuild Apple Health data?", isPresented: $confirmRebuild, titleVisibility: .visible) {
-            Button("Rebuild", role: .destructive) { rebuild() }
+        .confirmationDialog("Rewrite Apple Health data?", isPresented: $confirmRebuild, titleVisibility: .visible) {
+            Button("Rewrite", role: .destructive) { rebuild() }
         } message: {
-            Text("Rewrites the last \(HealthSyncService.rebuildDays) nights from the pod with the current analysis, then deletes everything else sleepypod wrote to Health, including older nights. Apple Watch and other apps' data aren't touched. Keep the app open until it finishes.")
+            Text("Rewrites every night since \(rebuildStart.formatted(date: .abbreviated, time: .omitted)) from the pod with the current analysis, then deletes anything else sleepypod wrote to Health in that period. Earlier nights, Apple Watch and other apps' data aren't touched. Keep the app open until it finishes.")
         }
     }
 
@@ -112,6 +123,12 @@ struct HealthAccessView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(health.isSyncing || !health.enabled || APIBackend.current.isDemo)
+                SettingsRow("Rewrite nights since", icon: "calendar") {
+                    DatePicker("Rewrite nights since", selection: $rebuildStart,
+                               in: ...(Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now), displayedComponents: .date)
+                        .labelsHidden()
+                }
+                .disabled(health.isSyncing)
                 Button {
                     Haptics.light()
                     confirmRebuild = true
@@ -124,7 +141,7 @@ struct HealthAccessView: View {
                 .disabled(health.isSyncing || !health.enabled || APIBackend.current.isDemo)
             }
             if rebuildFailed {
-                Text("The rebuild stopped before every night was rewritten, so older Health data was kept. Fix the errors above and try again.")
+                Text("The rewrite stopped before every night was rewritten, so older Health data was kept. Fix the errors above and try again.")
                     .font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
             }
             if APIBackend.current.isDemo {
@@ -178,15 +195,16 @@ struct HealthAccessView: View {
     }
 
     private var rebuildTitle: String {
-        guard let progress = health.rebuildProgress else { return "Rebuild last \(HealthSyncService.rebuildDays) nights" }
-        return progress.total == 0 ? "Finding nights…" : "Rebuilding \(progress.done) of \(progress.total) nights…"
+        guard let progress = health.rebuildProgress else { return "Rewrite nights" }
+        return progress.total == 0 ? "Finding nights…" : "Rewriting \(progress.done) of \(progress.total) nights…"
     }
 
     private func rebuild() {
         rebuildFailed = false
         Task {
             let rebuilt = await health.rebuild(api: APIBackend.current.createClient(), podID: settings.podID,
-                                               side: profile.defaultSide, demo: APIBackend.current.isDemo)
+                                               side: profile.defaultSide, since: Calendar.current.startOfDay(for: rebuildStart),
+                                               demo: APIBackend.current.isDemo)
             rebuildFailed = !rebuilt
             if rebuilt { Haptics.success() } else { Haptics.warning() }
         }

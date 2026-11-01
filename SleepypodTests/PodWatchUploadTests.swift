@@ -83,7 +83,7 @@ private final class WatchHealthStore: HealthSyncStore {
     func authorize(write: Set<HKSampleType>, read: Set<HKObjectType>) async throws {}
     func save(_ samples: [HKSample]) async throws {}
     func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws {}
-    func deleteAll(types: Set<HKSampleType>, olderThan version: Int) async throws {}
+    func deleteAll(types: Set<HKSampleType>, olderThan version: Int, since start: Date) async throws {}
     func sleepSamples(start: Date, end: Date) async throws -> [HKCategorySample] {
         if failReads { throw URLError(.cannotOpenFile) }
         return sleep

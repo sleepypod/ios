@@ -7,6 +7,7 @@ struct PodMovementCardView: View {
     let record: SleepRecord
     let side: Side
     @Environment(WatchMotionReceiver.self) private var watchMotion
+    @Environment(UserProfile.self) private var profile
     @State private var movement: [MovementRecord] = []
     @State private var comparison: WatchMotionComparison?
     @State private var loaded = false
@@ -51,20 +52,22 @@ struct PodMovementCardView: View {
             }
         }
         .cardStyle()
-        .task(id: record.id) { await load() }
+        .task(id: "\(record.id)-\(side.rawValue)-\(watchMotion.recordings.count)") { await load() }
     }
 
     private var chart: some View {
         let podPeak = WatchMotionComparison.peak(movement.map { Double($0.totalMovement) })
-        let watchPeak = comparison?.watchPeak ?? 1
+        // A recording can run past the bed record; only the night shown is drawn and scaled.
+        let watchPoints = comparison?.watch.filter { $0.date >= record.enteredBedDate && $0.date <= record.leftBedDate } ?? []
+        let watchPeak = WatchMotionComparison.peak(watchPoints.map(\.value))
         return Chart {
             ForEach(movement) { minute in
                 BarMark(x: .value("Time", minute.date, unit: .minute),
                         y: .value("Movement", min(Double(minute.totalMovement) / podPeak, 1.2)))
                     .foregroundStyle(Theme.amber.opacity(comparison == nil ? 1 : 0.6))
             }
-            if let comparison {
-                ForEach(comparison.watch) { point in
+            if !watchPoints.isEmpty {
+                ForEach(watchPoints) { point in
                     LineMark(x: .value("Time", point.date), y: .value("Movement", min(point.value / watchPeak, 1.2)),
                              series: .value("Source", "Watch"))
                         .foregroundStyle(Theme.cool)
@@ -108,7 +111,8 @@ struct PodMovementCardView: View {
             movement = []
             self.error = "The pod's movement couldn't be loaded"
         }
-        if let recording = watchRecording, let file = try? WatchMotionFile.decode(Data(contentsOf: recording.url)) {
+        // The Watch is only comparable on the side its wearer sleeps on.
+        if side == profile.defaultSide, let recording = watchRecording, let file = try? WatchMotionFile.decode(Data(contentsOf: recording.url)) {
             comparison = WatchMotionComparison.build(file: file, pod: movement)
         }
         loaded = true

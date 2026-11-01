@@ -300,11 +300,13 @@ final class MockClient: SleepypodProtocol, @unchecked Sendable {
     func getMovement(side: Side? = nil, start: Date? = nil, end: Date? = nil) async throws -> [MovementRecord] {
         let cal = Calendar.current
         let now = Date()
-        let lastNightStart = cal.date(bySettingHour: 23, minute: 0, second: 0,
-                                       of: cal.date(byAdding: .day, value: -1, to: now) ?? now) ?? now
+        // A requested window (one night) gets its own movement; otherwise last night's.
+        let lastNightStart = start ?? cal.date(bySettingHour: 23, minute: 0, second: 0,
+                                                of: cal.date(byAdding: .day, value: -1, to: now) ?? now) ?? now
         var records: [MovementRecord] = []
         let intervalMinutes = 5
-        let totalPoints = 8 * 60 / intervalMinutes
+        let minutes = start.flatMap { s in end.map { Int($0.timeIntervalSince(s) / 60) } } ?? 8 * 60
+        let totalPoints = max(0, minutes / intervalMinutes)
 
         for i in 0..<totalPoints {
             let t = lastNightStart.addingTimeInterval(TimeInterval(i * intervalMinutes * 60))

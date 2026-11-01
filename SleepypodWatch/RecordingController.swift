@@ -8,10 +8,13 @@ import WatchKit
 @Observable
 final class RecordingController: NSObject {
     private static let planKey = "watchMotion.plan"
+    private static let sentKey = "watchMotion.sentPlanStart"
 
     private let source: any AccelerometerSource
     private let defaults: UserDefaults
     private(set) var plan: RecordingPlan?
+    /// Start of the last plan whose recording reached the iPhone's queue, so the morning screen can step aside.
+    private(set) var sentPlanStart: Date?
     private(set) var status = ""
     private(set) var busy = false
     var hours = 9.0
@@ -24,10 +27,25 @@ final class RecordingController: NSObject {
         if let data = defaults.data(forKey: Self.planKey) {
             plan = try? JSONDecoder().decode(RecordingPlan.self, from: data)
         }
+        sentPlanStart = defaults.object(forKey: Self.sentKey) as? Date
         if WCSession.isSupported() {
             WCSession.default.delegate = self
             WCSession.default.activate()
         }
+    }
+
+    enum Phase: Equatable {
+        /// No recording, or the last one was sent.
+        case ready
+        case recording(RecordingPlan)
+        /// The recording ended and hasn't been sent.
+        case finished(RecordingPlan)
+    }
+
+    func phase(now: Date = .now) -> Phase {
+        guard let plan else { return .ready }
+        if now < plan.end { return .recording(plan) }
+        return sentPlanStart == plan.start ? .ready : .finished(plan)
     }
 
     var availability: String {
@@ -56,7 +74,7 @@ final class RecordingController: NSObject {
         source.record(duration: next.duration)
         plan = next
         if let data = try? JSONEncoder().encode(next) { defaults.set(data, forKey: Self.planKey) }
-        status = "Recording until \(next.end.formatted(date: .omitted, time: .shortened)). You can close the app."
+        status = ""
     }
 
     /// Reads what the system kept, summarizes it and queues it for the iPhone; WatchConnectivity retries delivery.
@@ -81,7 +99,9 @@ final class RecordingController: NSObject {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent(file.fileName)
             try file.encoded().write(to: url, options: .atomic)
             WCSession.default.transferFile(url, metadata: ["kind": "watch-motion", "version": file.version])
-            status = "Sent \(file.bins.count) bins to the iPhone."
+            sentPlanStart = plan.start
+            defaults.set(plan.start, forKey: Self.sentKey)
+            status = "Sent to iPhone"
         } catch {
             status = "Could not save the recording: \(error.localizedDescription)"
         }

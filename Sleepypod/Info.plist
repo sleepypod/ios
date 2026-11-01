@@ -13,13 +13,16 @@
 		<string>_sleepypod._tcp.</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod on this iPhone; nothing is uploaded.</string>
+	<string>sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>sleepypod saves your sleep stages and overnight vitals to Apple Health for this iPhone's side of the bed; nothing leaves this iPhone.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>sleepypod listens for snoring on this iPhone while you sleep. Audio is never recorded, saved or uploaded; only snore times are kept.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>audio</string>
 		<string>fetch</string>
 	</array>
 	<key>UIAppFonts</key>

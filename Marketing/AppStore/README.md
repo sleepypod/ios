@@ -30,6 +30,9 @@ screenshots only.
 | `output/iphone-6.9/clip-*.mp4` | 886×1920 | 16–20 s app previews (temperature, Night & Dawn, schedule, sleep → Watch) |
 | `output/iphone-6.9/walkthrough-sleepypod.mp4` | 886×1920 | ~100 s tour of every tab, each control, the Watch page and Health |
 | `output/social/*-1080x1920.mp4` | 1080×1920 | Each video letterboxed for social, padded with the app background |
+| `output/artwork/{dark,light}/header-21x9-3840x1646.png` | 3840×1646 | Product-page header creative asset (temperature dial) |
+| `output/artwork/{dark,light}/search-3x2-3840x2560.png` | 3840×2560 | Search-results creative asset (sleep night) |
+| `output/artwork/{dark,light}/universal-16x9-5244x2950.png` | 5244×2950 | Universal creative asset, accepted in both placements |
 
 Videos use H.264 High, 30 fps, yuv420p, and a silent AAC stereo track, following
 [Apple's app preview specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications).
@@ -52,9 +55,60 @@ App Store Connect's Media Manager before submission and add a medium-size export
 if the slot is not covered. Generated files do not establish upload acceptance.
 See [Apple's current screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications).
 
-The preview dimensions match Apple's current specification. Dedicated product-page
-header and search artwork are not generated here; inspect those optional placements
-separately if used. No assets are uploaded or submitted by these scripts.
+The preview dimensions match Apple's current specification. Product-page header and
+search-results artwork come from `manifest.artwork.json` (see
+[Creative assets](#creative-assets-reviewed-october-21-2026)). No assets are uploaded
+or submitted by these scripts.
+
+## Creative assets (reviewed October 21, 2026)
+
+App Store Connect's optional *creative assets* lead the product page (header) and
+replace the screenshot strip in search results on iOS 27 and iPadOS 27 and later;
+older devices keep showing screenshots. Apple's
+[creative assets specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/creative-assets-specifications)
+accept, for images, exactly these placements:
+
+| Placement | Ratio | Size | Format |
+| --- | --- | --- | --- |
+| Product page header | 21:9 | 3840×1646 | JPEG or PNG, no alpha |
+| Search results | 3:2 | 1920×1280 to 3840×2560 | JPEG or PNG, no alpha |
+| Universal (both placements) | 16:9 | 5244×2950 | PNG only, no alpha |
+
+Video is accepted in the same placements (5–30 s, 30 or 60 fps) but is not produced
+here. In-app event cards (1920×1080 to 3840×2160 and 1080×1920 to 2160×3840) are a
+separate feature and need an event, so they are not generated. Assets are uploaded
+on the version page under *Header and Search Results*, or ahead of time through the
+Asset Library, as described in
+[Manage your App Store assets](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-your-app-store-assets);
+they go through their own review before they can be placed. Apple Ads has no
+upload of its own: search results ads show the product page's screenshots or a
+custom product page, and Today tab ads are built from a custom product page
+([Create Today tab ads](https://searchads.apple.com/help/ad-creative/0086-create-today-tab-ads)),
+so nothing extra is generated for Apple Ads.
+
+Apple's [asset best practices](https://developer.apple.com/app-store/asset-best-practices/)
+ask for one clear idea, focal content centred within a safe area, and no pricing,
+URLs, copyright marks, unverified awards or Apple badges. Apple publishes no safe-area
+pixel values outside its Figma/Sketch templates; the manifests use measured
+margins instead (header and search 9 % of the width and 8 % of the height; universal
+12 % and 14 %, since Apple shows roughly 84 % of its width in search and 76 % of its
+height as a header). Icon, wordmark, caption and the phone's screen stay inside
+that area; only the phone body bleeds off the bottom. `--guides` outlines the area
+in red for proofing, and `--check-config` rejects pricing symbols, the words Apple's
+guidance forbids, a capitalised brand, and any size that is not in the table above.
+Preview the result in App Store Connect's product page preview before placing it.
+
+```sh
+uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.artwork.json
+uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.artwork.json --guides --output-dir /tmp/artwork-guides/{appearance}
+uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.artwork.json --check-config
+uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.artwork.json --self-test
+```
+
+Upload the dark set; the light set is for the website. The header and universal
+images frame the temperature dial, the search image frames the sleep night, both
+from the same raw captures as the screenshots. A caption may contain `\n` to force
+its line break.
 
 ## Capture states
 
@@ -111,7 +165,9 @@ uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.exa
 ```
 
 Captions, eyebrows and both palettes live in the manifests; `{appearance}` in
-a path expands to `dark` or `light`, and `--appearance` renders one set. The
+a path expands to `dark` or `light`, and `--appearance` renders one set. A manifest
+with `screenshots` renders the portrait sets and one with `artwork` renders the
+landscape creative assets. The
 renderer keeps the full screen inside a drawn phone frame under the caption,
 on a night-sky gradient taken from the app icon and the app's `indigo`/`violet`
 colours. The app icon is read from the asset catalog and checked against

@@ -11,7 +11,7 @@ protocol HealthSyncStore {
     func authorize(write: Set<HKSampleType>, read: Set<HKObjectType>) async throws
     func save(_ samples: [HKSample]) async throws
     func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws
-    func deleteAll(types: Set<HKSampleType>, olderThan version: Int) async throws
+    func deleteAll(types: Set<HKSampleType>, olderThan version: Int, since start: Date) async throws
     func sleepSamples(start: Date, end: Date) async throws -> [HKCategorySample]
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async throws -> [HKQuantitySample]
 }
@@ -41,10 +41,11 @@ final class SystemHealthSyncStore: HealthSyncStore {
             _ = try await store.deleteObjects(of: type, predicate: predicate)
         }
     }
-    // Every pod, side and night this app wrote before `version`.
-    func deleteAll(types: Set<HKSampleType>, olderThan version: Int) async throws {
+    // Every pod, side and night this app wrote before `version`, from `start` on.
+    func deleteAll(types: Set<HKSampleType>, olderThan version: Int, since start: Date) async throws {
         let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             HKQuery.predicateForObjects(from: .default()),
+            HKQuery.predicateForSamples(withStart: start, end: nil, options: .strictStartDate),
             HKQuery.predicateForObjects(withMetadataKey: HKMetadataKeySyncVersion, operatorType: .lessThan, value: version)
         ])
         for type in types {
@@ -67,9 +68,20 @@ final class HealthSyncService {
         var heartRate = true
         var hrv = true
         var respiration = true
+        var restingHeartRate = true
+        var hrvFormat = HRVFormat.windows
         var readSleep = true
         var readVitals = true
-        var signature: String { "\(sleep)-\(heartRate)-\(hrv)-\(respiration)" }
+        /// Opt-in: each morning sync also sends the Watch's own readings to the pod on the home network.
+        var sendWatchToPod = false
+        var signature: String { "\(sleep)-\(heartRate)-\(hrv)-\(respiration)-\(restingHeartRate)-\(hrvFormat.rawValue)" }
+
+        enum HRVFormat: String, Codable, CaseIterable {
+            /// One reading per 5 minutes asleep, the short-term HRV window the Watch also writes at night.
+            case windows
+            /// One reading for the night, the same average the Sleep screen shows.
+            case nightly
+        }
 
         init() {}
         // Keys added after a build shipped decode as their defaults rather than resetting every preference.
@@ -79,8 +91,12 @@ final class HealthSyncService {
             heartRate = try c.decodeIfPresent(Bool.self, forKey: .heartRate) ?? true
             hrv = try c.decodeIfPresent(Bool.self, forKey: .hrv) ?? true
             respiration = try c.decodeIfPresent(Bool.self, forKey: .respiration) ?? true
+            // Off for anyone who set up sync before it existed: its write access was never granted, and every night would fail.
+            restingHeartRate = try c.decodeIfPresent(Bool.self, forKey: .restingHeartRate) ?? false
+            hrvFormat = try c.decodeIfPresent(HRVFormat.self, forKey: .hrvFormat) ?? .windows
             readSleep = try c.decodeIfPresent(Bool.self, forKey: .readSleep) ?? true
             readVitals = try c.decodeIfPresent(Bool.self, forKey: .readVitals) ?? true
+            sendWatchToPod = try c.decodeIfPresent(Bool.self, forKey: .sendWatchToPod) ?? false
         }
     }
     struct Receipt: Codable {
@@ -99,6 +115,9 @@ final class HealthSyncService {
     private(set) var failures: [String: String] = [:]
     private(set) var isSyncing = false
     private(set) var rebuildProgress: (done: Int, total: Int)?
+    private(set) var isSendingToPod = false
+    private(set) var lastPodUpload: (date: Date, report: PodWatchUpload.Report)?
+    private(set) var podUploadError: String?
     var authorizationError: String?
     /// Personal stage models; when one is active, synced nights are staged by it and its version is in the receipt.
     weak var stageModels: StageModelStore?
@@ -116,7 +135,8 @@ final class HealthSyncService {
     }
 
     static let allWriteTypes: [HKSampleType] = [HKCategoryType(.sleepAnalysis), HKQuantityType(.heartRate),
-                                                HKQuantityType(.heartRateVariabilitySDNN), HKQuantityType(.respiratoryRate)]
+                                                HKQuantityType(.heartRateVariabilitySDNN), HKQuantityType(.respiratoryRate),
+                                                HKQuantityType(.restingHeartRate)]
 
     var writeTypes: Set<HKSampleType> {
         var types: Set<HKSampleType> = []
@@ -124,6 +144,7 @@ final class HealthSyncService {
         if preferences.heartRate { types.insert(HKQuantityType(.heartRate)) }
         if preferences.hrv { types.insert(HKQuantityType(.heartRateVariabilitySDNN)) }
         if preferences.respiration { types.insert(HKQuantityType(.respiratoryRate)) }
+        if preferences.restingHeartRate { types.insert(HKQuantityType(.restingHeartRate)) }
         return types
     }
 
@@ -169,7 +190,8 @@ final class HealthSyncService {
 
     /// Bump when the samples written for a night change, so every synced night is rewritten once.
     /// v2: full-night vitals (previously truncated to the last 288 rows), capped and fragment records dropped.
-    static let syncVersion = 2
+    /// v3: HRV averaged into 5-minute windows (previously one sample per vitals row).
+    static let syncVersion = 3
     static func receiptSignature(_ preferences: Preferences, model: String? = nil) -> String {
         "v\(syncVersion)-a\(SleepAnalyzer.version)-m\(model ?? "rules")-\(preferences.signature)"
     }
@@ -226,17 +248,85 @@ final class HealthSyncService {
     static let rebuildDays = 90
 
     func syncRecent(api: SleepypodProtocol, podID: String, side: Side, demo: Bool) async {
-        guard enabled, !demo, !isSyncing, !podID.isEmpty, store.available, !writeTypes.isEmpty else { return }
+        guard enabled, !demo, !isSyncing, !podID.isEmpty, store.available else { return }
         isSyncing = true
         defer { isSyncing = false }
-        _ = await sync(api: api, podID: podID, side: side, days: Self.recentDays)
+        // Writing to Health and sending the Watch's readings to the pod are independent choices.
+        if !writeTypes.isEmpty {
+            _ = await sync(api: api, podID: podID, side: side, start: Date().addingTimeInterval(-Double(Self.recentDays) * 86400))
+        }
+        if preferences.sendWatchToPod, APIBackend.current.supportsWatchUpload {
+            await sendWatchData(api: api, side: side, days: Self.podUploadRecentDays)
+        }
     }
 
-    /// Rewrites the last `rebuildDays` nights with the current analysis, then deletes everything else
-    /// sleepypod ever wrote to Health. Each night is saved before its older samples go, and the final
-    /// sweep runs only once every night was handled, so a rebuild that stops partway (pod offline,
-    /// phone locked) leaves the earlier data in place instead of emptying Health.
-    func rebuild(api: SleepypodProtocol, podID: String, side: Side, demo: Bool) async -> Bool {
+    static let podUploadRecentDays = 2
+    static let podUploadDays = 30
+
+    /// Sends what the Watch itself recorded over the last `days` (stages, heart rate, HRV, breathing) to the
+    /// pod's reference tables for `side`. Safe to repeat: the pod skips rows it already holds. A failure keeps the
+    /// counts already stored and sets `podUploadError`; a failed Health read sends nothing.
+    @discardableResult
+    func sendWatchData(api: SleepypodProtocol, side: Side, days: Int, now: Date = Date()) async -> PodWatchUpload.Report? {
+        guard enabled, store.available, !isSendingToPod else { return nil }
+        isSendingToPod = true
+        defer { isSendingToPod = false }
+        podUploadError = nil
+        let start = now.addingTimeInterval(-Double(days) * 86400)
+        let stages: [PodWatchUpload.Segment], heartRate: [PodWatchUpload.Sample]
+        let breathing: [PodWatchUpload.Sample], hrv: [PodWatchUpload.Sample]
+        do {
+            // Read directly: `read` turns a failed query into no samples, which would look like an empty upload.
+            func readings(_ type: HKQuantityTypeIdentifier, _ unit: HKUnit) async throws -> [WatchComparison.Reading] {
+                Self.watchReadings(try await store.quantitySamples(type, start: start, end: now), unit: unit)
+            }
+            stages = PodWatchUpload.segments(Self.watchStages(try await store.sleepSamples(start: start, end: now)))
+            heartRate = PodWatchUpload.samples(try await readings(.heartRate, .count().unitDivided(by: .minute())),
+                                               in: PodWatchUpload.heartRateRange)
+            breathing = PodWatchUpload.samples(try await readings(.respiratoryRate, .count().unitDivided(by: .minute())),
+                                               in: PodWatchUpload.Metric.breathingRate.range)
+            hrv = PodWatchUpload.samples(try await readings(.heartRateVariabilitySDNN, .secondUnit(with: .milli)),
+                                         in: PodWatchUpload.Metric.hrvSDNN.range)
+        } catch {
+            podUploadError = "Apple Health couldn't be read: \(error.localizedDescription)"
+            Log.health.error("Reading Watch data for the pod failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        var report = PodWatchUpload.Report(matchedStages: stages.count, matchedHeartRate: heartRate.count,
+                                           matchedBreathing: breathing.count, matchedHRV: hrv.count)
+        do {
+            for night in PodWatchUpload.nights(stages) {
+                do {
+                    report.stages += try await api.importReferenceStages(side: side, segments: night)
+                } catch APIError.serverError(let message) where PodWatchUpload.isBoundaryConflict(message) {
+                    // A night the pod holds with other boundaries (an older export import) is skipped, not fatal.
+                    report.rejectedNights += 1
+                    Log.health.notice("Pod refused a Watch night: \(message, privacy: .private)")
+                }
+            }
+            for batch in PodWatchUpload.chunks(heartRate) {
+                report.heartRate += try await api.importReferenceVitals(side: side, heartRate: batch)
+            }
+            for batch in PodWatchUpload.chunks(breathing) {
+                report.breathing += try await api.importReferenceSamples(side: side, metric: .breathingRate, samples: batch)
+            }
+            for batch in PodWatchUpload.chunks(hrv) {
+                report.hrv += try await api.importReferenceSamples(side: side, metric: .hrvSDNN, samples: batch)
+            }
+        } catch {
+            podUploadError = error.localizedDescription
+            Log.health.error("Sending Watch data to the pod failed: \(error.localizedDescription, privacy: .public)")
+        }
+        lastPodUpload = (now, report)
+        Log.health.info("Sent Watch data to the pod: \(report.written) new rows, \(report.rejectedNights) nights refused")
+        return report
+    }
+
+    /// Rewrites every night since `start` (default: the last `rebuildDays`) with the current analysis, then deletes
+    /// everything else sleepypod wrote to Health in that period; earlier nights are left alone. Each night is saved
+    /// before its older samples go, and the final sweep runs only once every night was handled, so a rebuild that
+    /// stops partway (pod offline, phone locked) leaves the earlier data in place instead of emptying Health.
+    func rebuild(api: SleepypodProtocol, podID: String, side: Side, since start: Date? = nil, demo: Bool) async -> Bool {
         guard enabled, !demo, !isSyncing, !podID.isEmpty, store.available, !writeTypes.isEmpty else { return false }
         isSyncing = true
         rebuildProgress = (0, 0)
@@ -245,11 +335,12 @@ final class HealthSyncService {
         receipts = [:]
         failures = [:]
         persistence.removeObject(forKey: "healthSyncReceipts")
-        guard await sync(api: api, podID: podID, side: side, days: Self.rebuildDays) else { return false }
+        let start = start ?? Date().addingTimeInterval(-Double(Self.rebuildDays) * 86400)
+        guard await sync(api: api, podID: podID, side: side, start: start) else { return false }
         // Types switched off since an earlier sync may still hold samples; only granted types can be deleted.
         let types = Set(Self.allWriteTypes.filter { store.authorizationStatus(for: $0) == .sharingAuthorized })
         do {
-            try await store.deleteAll(types: types, olderThan: version)
+            try await store.deleteAll(types: types, olderThan: version, since: start)
             Log.health.info("Rebuilt Health data")
             return true
         } catch {
@@ -281,10 +372,9 @@ final class HealthSyncService {
     }
 
     /// Returns false if the sync stopped early or any night failed to write, so a rebuild knows not to sweep.
-    private func sync(api: SleepypodProtocol, podID: String, side: Side, days: Int) async -> Bool {
+    private func sync(api: SleepypodProtocol, podID: String, side: Side, start: Date) async -> Bool {
         let requestedPreferences = preferences
         let end = Date()
-        let start = Calendar.current.date(byAdding: .day, value: -days, to: end) ?? end
         var complete = true
         do {
             let records = try await Self.sleepRecords(api: api, side: side, start: start, end: end).filter {
@@ -404,22 +494,84 @@ final class HealthSyncService {
             VitalsRecord(id: Int($0.start.timeIntervalSince1970), side: record.side, heartRate: $0.heartRate,
                          hrv: $0.hrv, breathingRate: $0.breathingRate, date: $0.start)
         }
-        for vital in values where vital.side == record.side && vital.date >= record.enteredBedDate && vital.date < record.leftBedDate {
+        let night = values.filter { $0.side == record.side && $0.date >= record.enteredBedDate && $0.date < record.leftBedDate }
+        let bpm = HKUnit.count().unitDivided(by: .minute())
+        func quantity(_ type: HKQuantityTypeIdentifier, _ value: Double, _ unit: HKUnit, start: Date, end: Date, id: String) -> HKQuantitySample {
+            HKQuantitySample(type: HKQuantityType(type), quantity: HKQuantity(unit: unit, doubleValue: value),
+                             start: start, end: end, device: device, metadata: metadata(id, type: type.rawValue))
+        }
+        for vital in night {
             let end = min(record.leftBedDate, vital.date.addingTimeInterval(60))
             let id = String(Int(vital.date.timeIntervalSince1970))
-            let quantities: [(Bool, HKQuantityTypeIdentifier, Double?, HKUnit, ClosedRange<Double>)] = [
-                (preferences.heartRate, .heartRate, vital.heartRate, .count().unitDivided(by: .minute()), 45...130),
-                (preferences.hrv, .heartRateVariabilitySDNN, vital.hrv, .secondUnit(with: .milli), 0.001...300),
-                (preferences.respiration, .respiratoryRate, vital.breathingRate, .count().unitDivided(by: .minute()), 8...25)
+            let quantities: [(Bool, HKQuantityTypeIdentifier, Double?, ClosedRange<Double>)] = [
+                (preferences.heartRate, .heartRate, vital.heartRate, 45...130),
+                (preferences.respiration, .respiratoryRate, vital.breathingRate, 8...25)
             ]
-            for (enabled, type, value, unit, range) in quantities {
+            for (enabled, type, value, range) in quantities {
                 if enabled, let value, value.isFinite, range.contains(value) {
-                    result.append(HKQuantitySample(type: HKQuantityType(type), quantity: HKQuantity(unit: unit, doubleValue: value),
-                        start: vital.date, end: end, device: device, metadata: metadata(id, type: type.rawValue)))
+                    result.append(quantity(type, value, bpm, start: vital.date, end: end, id: id))
                 }
             }
         }
+        if preferences.hrv {
+            for window in hrvWindows(night, record: record, format: preferences.hrvFormat) {
+                result.append(quantity(.heartRateVariabilitySDNN, window.value, .secondUnit(with: .milli),
+                                       start: window.start, end: window.end, id: window.id))
+            }
+        }
+        if preferences.restingHeartRate, let resting = restingHeartRate(night) {
+            result.append(quantity(.restingHeartRate, resting.value, bpm, start: resting.start,
+                                   end: min(resting.end, record.leftBedDate), id: "resting"))
+        }
         return result
+    }
+
+    static let hrvWindow: TimeInterval = 5 * 60
+
+    /// HRV for Health: the mean of each 5-minute window on the clock (stable when the pod moves a night's bounds),
+    /// or one mean for the whole night.
+    static func hrvWindows(_ vitals: [VitalsRecord], record: SleepRecord, format: Preferences.HRVFormat)
+        -> [(start: Date, end: Date, value: Double, id: String)] {
+        let readings = vitals.compactMap { vital in vital.hrv.flatMap { $0.isFinite && (0.001...300).contains($0) ? (vital.date, $0) : nil } }
+        guard !readings.isEmpty else { return [] }
+        func mean(_ values: [Double]) -> Double { values.reduce(0, +) / Double(values.count) }
+        if format == .nightly {
+            return [(record.enteredBedDate, record.leftBedDate, mean(readings.map(\.1)), "night")]
+        }
+        let windows = Dictionary(grouping: readings) { floor($0.0.timeIntervalSince1970 / hrvWindow) }
+        return windows.keys.sorted().map { key in
+            let start = Date(timeIntervalSince1970: key * hrvWindow)
+            return (max(start, record.enteredBedDate), min(record.leftBedDate, start.addingTimeInterval(hrvWindow)),
+                    mean(windows[key]!.map(\.1)), String(Int(key * hrvWindow)))
+        }
+    }
+
+    static let restingWindow: TimeInterval = 30 * 60
+    /// A window counts only if at least half its minutes have a heart rate, so a few readings can't set the night's rest.
+    static let restingMinReadings = 15
+
+    /// Resting heart rate for the night: the lowest 30-minute average heart rate in bed.
+    static func restingHeartRate(_ vitals: [VitalsRecord]) -> (start: Date, end: Date, value: Double)? {
+        let readings = vitals.compactMap { vital in vital.heartRate.flatMap { $0.isFinite && (30...130).contains($0) ? (vital.date, $0) : nil } }
+            .sorted { $0.0 < $1.0 }
+        var best: (start: Date, end: Date, value: Double)?
+        var upper = 0
+        var sum = 0.0
+        for lower in readings.indices {
+            while upper < readings.count && readings[upper].0 < readings[lower].0.addingTimeInterval(restingWindow) {
+                sum += readings[upper].1
+                upper += 1
+            }
+            let count = upper - lower
+            if count >= restingMinReadings {
+                let value = sum / Double(count)
+                if value < best?.value ?? .infinity {
+                    best = (readings[lower].0, readings[lower].0.addingTimeInterval(restingWindow), value)
+                }
+            }
+            sum -= readings[lower].1
+        }
+        return best
     }
 
     static func stageValue(_ stage: SleepAnalyzer.SleepStage) -> Int {

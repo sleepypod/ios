@@ -14,6 +14,8 @@ struct SleepypodApp: App {
     @State private var notificationRelay = NotificationRelay()
     @State private var healthSync: HealthSyncService
     @State private var stageModels: StageModelStore
+    @State private var watchMotion = WatchMotionReceiver()
+    @State private var snoreCapture = SnoreCaptureService()
 
     init() {
         let client = APIBackend.current.createClient()
@@ -52,11 +54,14 @@ struct SleepypodApp: App {
                 .environment(notificationRelay)
                 .environment(healthSync)
                 .environment(stageModels)
+                .environment(watchMotion)
+                .environment(snoreCapture)
                 .preferredColorScheme(userProfile.appearance.colorScheme)
                 .foregroundStyle(Theme.text1)
                 .tint(Theme.text1)
                 .task {
                     sensorStream.notificationRelay = notificationRelay
+                    watchMotion.activate()
                 }
                 .task(id: deviceManager.isConnected) {
                     // Keep first-install setup focused on local network access.

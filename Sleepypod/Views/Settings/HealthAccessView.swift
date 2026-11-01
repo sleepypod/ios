@@ -9,6 +9,7 @@ struct HealthAccessView: View {
     @State private var requesting = false
     @State private var confirmRebuild = false
     @State private var rebuildFailed = false
+    @State private var rebuildStart = Calendar.current.date(byAdding: .day, value: -HealthSyncService.rebuildDays, to: .now) ?? .now
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 30
 
     var body: some View {
@@ -24,7 +25,7 @@ struct HealthAccessView: View {
                     Text("Sync with Apple Health").font(.system(size: titleSize, weight: .bold)).tracking(-0.5)
                     Text("Each morning, last night's sleep and vitals are written to Health. Stage analysis runs on this iPhone.")
                         .font(.subheadline).foregroundStyle(Theme.text2).lineSpacing(3)
-                    Text("Your Health data stays on this iPhone. sleepypod has no server: nothing you allow here is uploaded to the pod, to iCloud or to anyone else. The pod's own readings are fetched to this iPhone for the comparison.")
+                    Text("Your Health data stays on this iPhone unless you send your Apple Watch readings to your own pod below, over your home network. sleepypod has no server: nothing goes to iCloud or anyone else.")
                         .font(.footnote).foregroundStyle(Theme.text2).lineSpacing(3)
                 }
                 .padding(.horizontal, 8)
@@ -33,7 +34,17 @@ struct HealthAccessView: View {
                         GroupedCard {
                             SettingsRow("Sleep stages") { Toggle("Sleep stages", isOn: $health.preferences.sleep).labelsHidden() }
                             SettingsRow("Heart rate") { Toggle("Heart rate", isOn: $health.preferences.heartRate).labelsHidden() }
+                            SettingsRow("Resting heart rate") { Toggle("Resting heart rate", isOn: $health.preferences.restingHeartRate).labelsHidden() }
                             SettingsRow("Heart rate variability") { Toggle("Heart rate variability", isOn: $health.preferences.hrv).labelsHidden() }
+                            if health.preferences.hrv {
+                                SettingsRow("HRV readings") {
+                                    Picker("HRV readings", selection: $health.preferences.hrvFormat) {
+                                        Text("Every 5 minutes").tag(HealthSyncService.Preferences.HRVFormat.windows)
+                                        Text("Nightly average").tag(HealthSyncService.Preferences.HRVFormat.nightly)
+                                    }
+                                    .labelsHidden().pickerStyle(.menu)
+                                }
+                            }
                             SettingsRow("Respiratory rate") { Toggle("Respiratory rate", isOn: $health.preferences.respiration).labelsHidden() }
                         }
                     }
@@ -56,6 +67,13 @@ struct HealthAccessView: View {
                     }
                     if health.authorizationDenied { deniedNote } else { allowButton.padding(.top, 8) }
                     syncStatus
+                    if APIBackend.current.supportsWatchUpload {
+                        podUpload
+                    } else if APIBackend.current == .freeSleep {
+                        Text("Sending Apple Watch readings to the pod needs the sleepypod server; Free Sleep doesn't store them.")
+                            .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if let error = health.authorizationError {
                         Text(error).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
                     }
@@ -69,10 +87,10 @@ struct HealthAccessView: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(Theme.background).tint(Theme.green)
         .navigationTitle("Apple Health").navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Rebuild Apple Health data?", isPresented: $confirmRebuild, titleVisibility: .visible) {
-            Button("Rebuild", role: .destructive) { rebuild() }
+        .confirmationDialog("Rewrite Apple Health data?", isPresented: $confirmRebuild, titleVisibility: .visible) {
+            Button("Rewrite", role: .destructive) { rebuild() }
         } message: {
-            Text("Rewrites the last \(HealthSyncService.rebuildDays) nights from the pod with the current analysis, then deletes everything else sleepypod wrote to Health, including older nights. Apple Watch and other apps' data aren't touched. Keep the app open until it finishes.")
+            Text("Rewrites every night since \(rebuildStart.formatted(date: .abbreviated, time: .omitted)) from the pod with the current analysis, then deletes anything else sleepypod wrote to Health in that period. Earlier nights, Apple Watch and other apps' data aren't touched. Keep the app open until it finishes.")
         }
     }
 
@@ -105,6 +123,12 @@ struct HealthAccessView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(health.isSyncing || !health.enabled || APIBackend.current.isDemo)
+                SettingsRow("Rewrite nights since", icon: "calendar") {
+                    DatePicker("Rewrite nights since", selection: $rebuildStart,
+                               in: ...(Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now), displayedComponents: .date)
+                        .labelsHidden()
+                }
+                .disabled(health.isSyncing)
                 Button {
                     Haptics.light()
                     confirmRebuild = true
@@ -117,7 +141,7 @@ struct HealthAccessView: View {
                 .disabled(health.isSyncing || !health.enabled || APIBackend.current.isDemo)
             }
             if rebuildFailed {
-                Text("The rebuild stopped before every night was rewritten, so older Health data was kept. Fix the errors above and try again.")
+                Text("The rewrite stopped before every night was rewritten, so older Health data was kept. Fix the errors above and try again.")
                     .font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
             }
             if APIBackend.current.isDemo {
@@ -127,16 +151,60 @@ struct HealthAccessView: View {
         }
     }
 
+    /// Opt-in: the Watch's own stages and vitals go to the pod, which scores its staging against them.
+    private var podUpload: some View {
+        @Bindable var health = health
+        return GroupedSection("SEND TO POD") {
+            GroupedCard {
+                SettingsRow("Send Watch data each morning", subtitle: "Stages, heart rate, HRV and breathing", height: 56) {
+                    Toggle("Send Watch data each morning", isOn: $health.preferences.sendWatchToPod).labelsHidden()
+                }
+                Button {
+                    Haptics.light()
+                    Task {
+                        let report = await health.sendWatchData(api: APIBackend.current.createClient(), side: profile.defaultSide,
+                                                                days: HealthSyncService.podUploadDays)
+                        if report != nil && health.podUploadError == nil { Haptics.success() } else { Haptics.warning() }
+                    }
+                } label: {
+                    SettingsRow(health.isSendingToPod ? "Sending…" : "Send last \(HealthSyncService.podUploadDays) days now",
+                                icon: "arrow.up.circle") {
+                        if health.isSendingToPod { ProgressView() }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(health.isSendingToPod || !health.enabled)
+                if let last = health.lastPodUpload {
+                    SettingsRow("Last sent", subtitle: podUploadSummary(last.report), icon: "clock", height: 56) {
+                        RowValue(last.date.formatted(date: .omitted, time: .shortened), mono: true)
+                    }
+                }
+            }
+            if let error = health.podUploadError {
+                Text(error).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
+            }
+            Text("Only what your Apple Watch recorded is sent, to the pod at your saved address for this iPhone's side (\(settings.sideName(for: profile.defaultSide))), so the pod can compare its own staging with the Watch. Resending is safe: the pod skips what it already has.")
+                .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func podUploadSummary(_ report: PodWatchUpload.Report) -> String {
+        var parts = ["\(report.stages) stages", "\(report.heartRate) HR", "\(report.hrv) HRV", "\(report.breathing) breathing new"]
+        if report.rejectedNights > 0 { parts.append("\(report.rejectedNights) nights already on the pod differ") }
+        return parts.joined(separator: " · ")
+    }
+
     private var rebuildTitle: String {
-        guard let progress = health.rebuildProgress else { return "Rebuild last \(HealthSyncService.rebuildDays) nights" }
-        return progress.total == 0 ? "Finding nights…" : "Rebuilding \(progress.done) of \(progress.total) nights…"
+        guard let progress = health.rebuildProgress else { return "Rewrite nights" }
+        return progress.total == 0 ? "Finding nights…" : "Rewriting \(progress.done) of \(progress.total) nights…"
     }
 
     private func rebuild() {
         rebuildFailed = false
         Task {
             let rebuilt = await health.rebuild(api: APIBackend.current.createClient(), podID: settings.podID,
-                                               side: profile.defaultSide, demo: APIBackend.current.isDemo)
+                                               side: profile.defaultSide, since: Calendar.current.startOfDay(for: rebuildStart),
+                                               demo: APIBackend.current.isDemo)
             rebuildFailed = !rebuilt
             if rebuilt { Haptics.success() } else { Haptics.warning() }
         }

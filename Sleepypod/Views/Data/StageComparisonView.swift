@@ -79,7 +79,7 @@ struct StageComparisonView: View {
                         .font(.footnote).foregroundStyle(Theme.text3).fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
                 }
                 modelCard
-                Text("Your Health data stays on this iPhone. sleepypod has no server: nothing is uploaded to the pod, to iCloud or to anyone else.")
+                Text("Your Health data stays on this iPhone unless you choose to send Apple Watch readings to your own pod. sleepypod has no server: nothing goes to iCloud or anyone else.")
                     .font(.footnote).foregroundStyle(Theme.text3).fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
             }
             .padding(.horizontal, 16)
@@ -171,7 +171,7 @@ struct StageComparisonView: View {
 
     private var healthAccessCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Allow sleepypod to read Sleep in Apple Health to compare with your Watch. The comparison runs on this iPhone; your Health data is never uploaded.")
+            Text("Allow sleepypod to read Sleep in Apple Health to compare with your Watch. The comparison runs on this iPhone. Sending Watch readings to your pod is optional and off unless you turn it on.")
                 .font(.subheadline).foregroundStyle(Theme.text1).fixedSize(horizontal: false, vertical: true)
             NavigationLink { HealthAccessView() } label: {
                 Text("Set up Apple Health").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.red)

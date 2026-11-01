@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.jonathanng.com.ios.sleepypod
   deploymentTarget:
     iOS: "26.0"
+    watchOS: "26.0"
   xcodeVersion: "26"
   createIntermediateGroups: true
   defaultConfig: Debug
@@ -26,6 +27,9 @@ targets:
     platform: iOS
     sources:
       - path: Sleepypod
+      - path: Shared
+    dependencies:
+      - target: SleepypodWatch
     entitlements:
       path: Sleepypod/Sleepypod.entitlements
       properties:
@@ -34,7 +38,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.com.ios.sleepypod
         INFOPLIST_FILE: Sleepypod/Info.plist
-        INFOPLIST_KEY_NSHealthShareUsageDescription: "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod on this iPhone; nothing is uploaded."
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod."
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep."
@@ -43,6 +47,27 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ZUR2343J7S
         PRODUCT_NAME: Sleepypod
+
+  SleepypodWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: SleepypodWatch
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jonathanng.com.ios.sleepypod.watchkitapp
+        PRODUCT_NAME: SleepypodWatch
+        INFOPLIST_KEY_CFBundleDisplayName: sleepypod
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.jonathanng.com.ios.sleepypod
+        INFOPLIST_KEY_WKApplication: true
+        INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: false
+        INFOPLIST_KEY_NSMotionUsageDescription: "sleepypod records wrist movement overnight on this Watch and sends it only to your iPhone, as movement labels for training."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: 4
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ZUR2343J7S
+        SKIP_INSTALL: true
 
   SleepypodTests:
     type: bundle.unit-test

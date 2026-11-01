@@ -1,0 +1,76 @@
+{
+  "format": 1,
+  "app_name": "sleepypod",
+  "icon": {
+    "path": "../../Sleepypod/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+    "pixel_sha256": "e310bb86466500d99569f428ddbad337395af1dfb8ccc7c39c5de587d58e6d1a"
+  },
+  "appearances": {
+    "dark": {
+      "accent": "#A58BE0",
+      "text": "#ECECEC",
+      "muted": "#8B8B92",
+      "background": [
+        "#0B0B0C",
+        "#11152E",
+        "#2A2466"
+      ],
+      "glow": "#D9779A",
+      "bezel": "#050506"
+    },
+    "light": {
+      "accent": "#34509E",
+      "text": "#111113",
+      "muted": "#6B6B70",
+      "background": [
+        "#F6F6F5",
+        "#E3E6F4",
+        "#C9C2EE"
+      ],
+      "glow": "#F2B596",
+      "bezel": "#17171A"
+    }
+  },
+  "output_dir": "output/artwork/{appearance}",
+  "artwork": [
+    {
+      "placement": "header",
+      "output": "header-21x9-3840x1646.png",
+      "size": "3840x1646",
+      "safe_area": [
+        0.09,
+        0.08
+      ],
+      "input": "raw/iphone-6.9/{appearance}/01-temperature.png",
+      "eyebrow": "Local pod control",
+      "caption": "Your pod, your temperature,\nyour phone.",
+      "subtitle": "Dial in each side of the bed, to the degree."
+    },
+    {
+      "placement": "search",
+      "output": "search-3x2-3840x2560.png",
+      "size": "3840x2560",
+      "safe_area": [
+        0.09,
+        0.08
+      ],
+      "input": "raw/iphone-6.9/{appearance}/05-sleep-night.png",
+      "eyebrow": "Local pod control",
+      "caption": "Cooler nights,\nclearer mornings.",
+      "subtitle": "Temperature, schedules and each night's sleep."
+    },
+    {
+      "placement": "universal",
+      "output": "universal-16x9-5244x2950.png",
+      "size": "5244x2950",
+      "safe_area": [
+        0.12,
+        0.14
+      ],
+      "input": "raw/iphone-6.9/{appearance}/01-temperature.png",
+      "eyebrow": "Local pod control",
+      "caption": "Your pod, your temperature,\nyour phone.",
+      "subtitle": "Dial in each side of the bed, to the degree."
+    }
+  ]
+}

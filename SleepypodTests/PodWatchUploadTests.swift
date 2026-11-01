@@ -1,4 +1,5 @@
 import Foundation
+import HealthKit
 import Testing
 @testable import Sleepypod
 
@@ -68,5 +69,93 @@ struct PodWatchUploadTests {
         #expect(WatchMotionComparison.pearson((0..<5).map { (Double($0), Double($0)) }) == nil)
         let pairs = (0..<20).map { (pod: Double($0), watch: Double($0) * 2 + 1) }
         #expect(abs((WatchMotionComparison.pearson(pairs) ?? 0) - 1) < 1e-9)
+    }
+}
+
+/// Health store holding what one Apple Watch recorded, or failing every read.
+@MainActor
+private final class WatchHealthStore: HealthSyncStore {
+    var available = true
+    var failReads = false
+    var sleep: [HKCategorySample] = []
+    var quantities: [HKQuantityTypeIdentifier: [HKQuantitySample]] = [:]
+    func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus { .sharingAuthorized }
+    func authorize(write: Set<HKSampleType>, read: Set<HKObjectType>) async throws {}
+    func save(_ samples: [HKSample]) async throws {}
+    func delete(types: Set<HKSampleType>, deviceID: String, start: Date, end: Date, olderThan version: Int?) async throws {}
+    func deleteAll(types: Set<HKSampleType>, olderThan version: Int) async throws {}
+    func sleepSamples(start: Date, end: Date) async throws -> [HKCategorySample] {
+        if failReads { throw URLError(.cannotOpenFile) }
+        return sleep
+    }
+    func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async throws -> [HKQuantitySample] {
+        if failReads { throw URLError(.cannotOpenFile) }
+        return quantities[type] ?? []
+    }
+}
+
+@Suite("Sending Watch data to the pod")
+@MainActor
+struct PodWatchSendTests {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private let watch = HKDevice(name: "Apple Watch", manufacturer: "Apple", model: "Watch", hardwareVersion: "Watch6,1",
+                                 firmwareVersion: nil, softwareVersion: nil, localIdentifier: nil, udiDeviceIdentifier: nil)
+
+    private func service(_ store: WatchHealthStore) -> HealthSyncService {
+        let service = HealthSyncService(store: store, defaults: UserDefaults(suiteName: "pod-upload-\(UUID().uuidString)")!)
+        service.enabled = true
+        return service
+    }
+
+    private func watchNight(_ store: WatchHealthStore) {
+        let start = now.addingTimeInterval(-8 * 3600)
+        store.sleep = [HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                                        start: start, end: start.addingTimeInterval(3600), device: watch, metadata: nil)]
+        func quantity(_ type: HKQuantityTypeIdentifier, _ unit: HKUnit, _ value: Double) -> HKQuantitySample {
+            HKQuantitySample(type: HKQuantityType(type), quantity: HKQuantity(unit: unit, doubleValue: value),
+                             start: start, end: start, device: watch, metadata: nil)
+        }
+        store.quantities = [.heartRate: [quantity(.heartRate, .count().unitDivided(by: .minute()), 55)],
+                            .respiratoryRate: [quantity(.respiratoryRate, .count().unitDivided(by: .minute()), 15)],
+                            .heartRateVariabilitySDNN: [quantity(.heartRateVariabilitySDNN, .secondUnit(with: .milli), 40)]]
+    }
+
+    @Test func aFailedHealthReadSendsNothing() async {
+        let store = WatchHealthStore()
+        store.failReads = true
+        let api = MockAPIClient()
+        let health = service(store)
+        #expect(await health.sendWatchData(api: api, side: .left, days: 2, now: now) == nil)
+        #expect(api.importCalls == 0)
+        #expect(health.lastPodUpload == nil)
+        #expect(health.podUploadError != nil)
+    }
+
+    @Test func aBoundaryConflictSkipsOnlyThatNight() async {
+        let store = WatchHealthStore()
+        watchNight(store)
+        let api = MockAPIClient()
+        api.importStages = { _, _ in throw APIError.serverError(message: "Segments overlap stored reference stages: 1 conflict") }
+        let health = service(store)
+        let report = await health.sendWatchData(api: api, side: .left, days: 2, now: now)
+        #expect(report?.rejectedNights == 1)
+        #expect(report?.heartRate == 1)
+        #expect(report?.hrv == 1)
+        #expect(health.podUploadError == nil)
+    }
+
+    @Test func otherServerErrorsSurfaceAndKeepWhatWasStored() async {
+        let store = WatchHealthStore()
+        watchNight(store)
+        let api = MockAPIClient()
+        api.importSamples = { _, _, _ in throw APIError.serverError(message: "Failed to import reference samples: disk full") }
+        let health = service(store)
+        let report = await health.sendWatchData(api: api, side: .left, days: 2, now: now)
+        #expect(report?.stages == 1)
+        #expect(report?.heartRate == 1)
+        #expect(report?.breathing == 0)
+        #expect(report?.rejectedNights == 0)
+        #expect(health.podUploadError != nil)
+        #expect(health.lastPodUpload?.report == report)
     }
 }

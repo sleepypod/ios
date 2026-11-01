@@ -19,6 +19,23 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
         return try stageModelResponse.get()
     }
 
+    var importStages: (Side, [PodWatchUpload.Segment]) throws -> Int = { _, segments in segments.count }
+    var importVitals: (Side, [PodWatchUpload.Sample]) throws -> Int = { _, samples in samples.count }
+    var importSamples: (Side, PodWatchUpload.Metric, [PodWatchUpload.Sample]) throws -> Int = { _, _, samples in samples.count }
+    var importCalls = 0
+    func importReferenceStages(side: Side, segments: [PodWatchUpload.Segment]) async throws -> Int {
+        importCalls += 1
+        return try importStages(side, segments)
+    }
+    func importReferenceVitals(side: Side, heartRate: [PodWatchUpload.Sample]) async throws -> Int {
+        importCalls += 1
+        return try importVitals(side, heartRate)
+    }
+    func importReferenceSamples(side: Side, metric: PodWatchUpload.Metric, samples: [PodWatchUpload.Sample]) async throws -> Int {
+        importCalls += 1
+        return try importSamples(side, metric, samples)
+    }
+
     func getDeviceStatus() async throws -> DeviceStatus { throw APIError.noBaseURL }
     func updateDeviceStatus(_ update: DeviceStatusUpdate) async throws {}
     func getSettings() async throws -> PodSettings { throw APIError.noBaseURL }

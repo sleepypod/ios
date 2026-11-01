@@ -56,7 +56,13 @@ struct HealthAccessView: View {
                     }
                     if health.authorizationDenied { deniedNote } else { allowButton.padding(.top, 8) }
                     syncStatus
-                    podUpload
+                    if APIBackend.current.supportsWatchUpload {
+                        podUpload
+                    } else if APIBackend.current == .freeSleep {
+                        Text("Sending Apple Watch readings to the pod needs the sleepypod server; Free Sleep doesn't store them.")
+                            .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if let error = health.authorizationError {
                         Text(error).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
                     }
@@ -141,7 +147,7 @@ struct HealthAccessView: View {
                     Task {
                         let report = await health.sendWatchData(api: APIBackend.current.createClient(), side: profile.defaultSide,
                                                                 days: HealthSyncService.podUploadDays)
-                        if report != nil { Haptics.success() } else { Haptics.warning() }
+                        if report != nil && health.podUploadError == nil { Haptics.success() } else { Haptics.warning() }
                     }
                 } label: {
                     SettingsRow(health.isSendingToPod ? "Sending…" : "Send last \(HealthSyncService.podUploadDays) days now",
@@ -150,7 +156,7 @@ struct HealthAccessView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .disabled(health.isSendingToPod || !health.enabled || APIBackend.current.isDemo)
+                .disabled(health.isSendingToPod || !health.enabled)
                 if let last = health.lastPodUpload {
                     SettingsRow("Last sent", subtitle: podUploadSummary(last.report), icon: "clock", height: 56) {
                         RowValue(last.date.formatted(date: .omitted, time: .shortened), mono: true)

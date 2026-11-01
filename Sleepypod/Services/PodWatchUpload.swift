@@ -37,6 +37,11 @@ enum PodWatchUpload {
     static let batchSize = 2000
     static let heartRateRange: ClosedRange<Double> = 20...250
 
+    /// The pod's refusal of a night it already holds with other boundaries (importReferenceStages BAD_REQUEST).
+    static func isBoundaryConflict(_ message: String) -> Bool {
+        message.contains("overlap stored reference stages")
+    }
+
     static func podStage(_ stage: SleepAnalyzer.SleepStage) -> String {
         switch stage {
         case .wake: "wake"

@@ -232,11 +232,14 @@ final class HealthSyncService {
     static let rebuildDays = 90
 
     func syncRecent(api: SleepypodProtocol, podID: String, side: Side, demo: Bool) async {
-        guard enabled, !demo, !isSyncing, !podID.isEmpty, store.available, !writeTypes.isEmpty else { return }
+        guard enabled, !demo, !isSyncing, !podID.isEmpty, store.available else { return }
         isSyncing = true
         defer { isSyncing = false }
-        _ = await sync(api: api, podID: podID, side: side, days: Self.recentDays)
-        if preferences.sendWatchToPod {
+        // Writing to Health and sending the Watch's readings to the pod are independent choices.
+        if !writeTypes.isEmpty {
+            _ = await sync(api: api, podID: podID, side: side, days: Self.recentDays)
+        }
+        if preferences.sendWatchToPod, APIBackend.current.supportsWatchUpload {
             await sendWatchData(api: api, side: side, days: Self.podUploadRecentDays)
         }
     }
@@ -245,7 +248,8 @@ final class HealthSyncService {
     static let podUploadDays = 30
 
     /// Sends what the Watch itself recorded over the last `days` (stages, heart rate, HRV, breathing) to the
-    /// pod's reference tables for `side`. Safe to repeat: the pod skips rows it already holds.
+    /// pod's reference tables for `side`. Safe to repeat: the pod skips rows it already holds. A failure keeps the
+    /// counts already stored and sets `podUploadError`; a failed Health read sends nothing.
     @discardableResult
     func sendWatchData(api: SleepypodProtocol, side: Side, days: Int, now: Date = Date()) async -> PodWatchUpload.Report? {
         guard enabled, store.available, !isSendingToPod else { return nil }
@@ -253,23 +257,32 @@ final class HealthSyncService {
         defer { isSendingToPod = false }
         podUploadError = nil
         let start = now.addingTimeInterval(-Double(days) * 86400)
-        let stages = PodWatchUpload.segments(Self.watchStages(await read("sleep") { try await store.sleepSamples(start: start, end: now) }))
-        func readings(_ type: HKQuantityTypeIdentifier, _ unit: HKUnit, _ label: String) async -> [WatchComparison.Reading] {
-            Self.watchReadings(await read(label) { try await store.quantitySamples(type, start: start, end: now) }, unit: unit)
-        }
-        let heartRate = PodWatchUpload.samples(await readings(.heartRate, .count().unitDivided(by: .minute()), "heart rate"),
+        let stages: [PodWatchUpload.Segment], heartRate: [PodWatchUpload.Sample]
+        let breathing: [PodWatchUpload.Sample], hrv: [PodWatchUpload.Sample]
+        do {
+            // Read directly: `read` turns a failed query into no samples, which would look like an empty upload.
+            func readings(_ type: HKQuantityTypeIdentifier, _ unit: HKUnit) async throws -> [WatchComparison.Reading] {
+                Self.watchReadings(try await store.quantitySamples(type, start: start, end: now), unit: unit)
+            }
+            stages = PodWatchUpload.segments(Self.watchStages(try await store.sleepSamples(start: start, end: now)))
+            heartRate = PodWatchUpload.samples(try await readings(.heartRate, .count().unitDivided(by: .minute())),
                                                in: PodWatchUpload.heartRateRange)
-        let breathing = PodWatchUpload.samples(await readings(.respiratoryRate, .count().unitDivided(by: .minute()), "breathing"),
+            breathing = PodWatchUpload.samples(try await readings(.respiratoryRate, .count().unitDivided(by: .minute())),
                                                in: PodWatchUpload.Metric.breathingRate.range)
-        let hrv = PodWatchUpload.samples(await readings(.heartRateVariabilitySDNN, .secondUnit(with: .milli), "HRV"),
+            hrv = PodWatchUpload.samples(try await readings(.heartRateVariabilitySDNN, .secondUnit(with: .milli)),
                                          in: PodWatchUpload.Metric.hrvSDNN.range)
+        } catch {
+            podUploadError = "Apple Health couldn't be read: \(error.localizedDescription)"
+            Log.health.error("Reading Watch data for the pod failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
         var report = PodWatchUpload.Report(matchedStages: stages.count, matchedHeartRate: heartRate.count,
                                            matchedBreathing: breathing.count, matchedHRV: hrv.count)
         do {
             for night in PodWatchUpload.nights(stages) {
                 do {
                     report.stages += try await api.importReferenceStages(side: side, segments: night)
-                } catch APIError.serverError(let message) {
+                } catch APIError.serverError(let message) where PodWatchUpload.isBoundaryConflict(message) {
                     // A night the pod holds with other boundaries (an older export import) is skipped, not fatal.
                     report.rejectedNights += 1
                     Log.health.notice("Pod refused a Watch night: \(message, privacy: .private)")
@@ -287,7 +300,6 @@ final class HealthSyncService {
         } catch {
             podUploadError = error.localizedDescription
             Log.health.error("Sending Watch data to the pod failed: \(error.localizedDescription, privacy: .public)")
-            return nil
         }
         lastPodUpload = (now, report)
         Log.health.info("Sent Watch data to the pod: \(report.written) new rows, \(report.rejectedNights) nights refused")

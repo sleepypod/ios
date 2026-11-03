@@ -13,7 +13,9 @@ struct MotionSample: Sendable, Equatable {
 /// Fixed-width summaries of a night's wrist acceleration, small enough to send to the iPhone and used by
 /// sleepypod/training as movement labels. Format documented in docs/watch-motion-format.md.
 struct WatchMotionFile: Codable, Sendable, Equatable {
-    static let currentVersion = "watch-motion-v1"
+    static let currentVersion = "watch-motion-v2"
+    /// v1 predates the per-axis means; the iPhone still reads v1 files already stored in its inbox.
+    static let legacyVersion = "watch-motion-v1"
 
     var version = WatchMotionFile.currentVersion
     var recordedFromMs: Int64
@@ -36,6 +38,10 @@ struct WatchMotionFile: Codable, Sendable, Equatable {
         var magnitudeVariance: [Double] = []
         var maxJerk: [Double] = []
         var movingSamples: [Int] = []
+        /// Per-axis mean in g, gravity included, so sleepypod/training can derive arm angle. Absent in v1.
+        var meanX: [Double]?
+        var meanY: [Double]?
+        var meanZ: [Double]?
 
         var count: Int { startMs.count }
     }
@@ -59,11 +65,13 @@ struct WatchMotionFile: Codable, Sendable, Equatable {
     }
 
     func validate() throws {
-        guard version == Self.currentVersion else { throw FormatError.unsupportedVersion(version) }
+        guard [Self.currentVersion, Self.legacyVersion].contains(version) else { throw FormatError.unsupportedVersion(version) }
         guard recordedToMs >= recordedFromMs, binSeconds > 0 else { throw FormatError.badInterval }
         let n = bins.count
-        guard [bins.samples.count, bins.meanMagnitude.count, bins.magnitudeVariance.count,
-               bins.maxJerk.count, bins.movingSamples.count].allSatisfy({ $0 == n }) else {
+        let axes = [bins.meanX, bins.meanY, bins.meanZ]
+        if version == Self.currentVersion, axes.contains(where: { $0 == nil }) { throw FormatError.mismatchedColumns }
+        guard ([bins.samples.count, bins.meanMagnitude.count, bins.magnitudeVariance.count,
+                bins.maxJerk.count, bins.movingSamples.count] + axes.compactMap { $0?.count }).allSatisfy({ $0 == n }) else {
             throw FormatError.mismatchedColumns
         }
     }
@@ -82,13 +90,14 @@ enum MotionSummarizer {
     /// inside one bin and at most `maxGap` apart.
     static func summarize(_ samples: [MotionSample], binSeconds: Double = defaultBinSeconds,
                           jerkThreshold: Double = defaultJerkThreshold, maxGap: Double = 0.5) -> WatchMotionFile.Bins {
-        var bins = WatchMotionFile.Bins()
+        var bins = WatchMotionFile.Bins(meanX: [], meanY: [], meanZ: [])
         let sorted = samples.sorted { $0.time < $1.time }
         var index = 0
         while index < sorted.count {
             let binStart = (sorted[index].time / binSeconds).rounded(.down) * binSeconds
             let binEnd = binStart + binSeconds
             var magnitudes: [Double] = []
+            var sumX = 0.0, sumY = 0.0, sumZ = 0.0
             var maxJerk = 0.0
             var moving = 0
             var previous: MotionSample?
@@ -100,6 +109,9 @@ enum MotionSummarizer {
                     if jerk > jerkThreshold { moving += 1 }
                 }
                 magnitudes.append(sample.magnitude)
+                sumX += sample.x
+                sumY += sample.y
+                sumZ += sample.z
                 previous = sample
                 index += 1
             }
@@ -111,6 +123,9 @@ enum MotionSummarizer {
             bins.magnitudeVariance.append(variance)
             bins.maxJerk.append(maxJerk)
             bins.movingSamples.append(moving)
+            bins.meanX?.append(sumX / Double(magnitudes.count))
+            bins.meanY?.append(sumY / Double(magnitudes.count))
+            bins.meanZ?.append(sumZ / Double(magnitudes.count))
         }
         return bins
     }
@@ -118,7 +133,9 @@ enum MotionSummarizer {
     static func file(samples: [MotionSample], from: Date, to: Date, timeZone: TimeZone, device: String,
                      sampleRateHz: Double = 50, binSeconds: Double = defaultBinSeconds,
                      jerkThreshold: Double = defaultJerkThreshold, includeRaw: Bool = false) -> WatchMotionFile {
-        WatchMotionFile(
+        // The recorder can hand back leftovers from an earlier recording; keep only [from, to).
+        let samples = samples.filter { $0.time >= from.timeIntervalSince1970 && $0.time < to.timeIntervalSince1970 }
+        return WatchMotionFile(
             recordedFromMs: Int64((from.timeIntervalSince1970 * 1000).rounded()),
             recordedToMs: Int64((to.timeIntervalSince1970 * 1000).rounded()),
             timeZone: timeZone.identifier,

@@ -8,13 +8,13 @@ The sleepypod Watch app records wrist acceleration overnight and sends a summary
 2. In the morning, tap **Send to iPhone**. The Watch reads the recorded span with `accelerometerData(from:to:)`, summarizes it and queues the file with WatchConnectivity `transferFile`, which retries until the iPhone receives it.
 3. On the iPhone, the file appears under **Settings → Watch movement**, stored in Application Support/WatchMotion. Share it to a computer from there. Nothing is uploaded automatically.
 
-## File format (`watch-motion-v1`)
+## File format (`watch-motion-v2`)
 
 JSON, named `watch-motion-<recordedFromMs>.json`, keys sorted.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `version` | string | `watch-motion-v1` |
+| `version` | string | `watch-motion-v2` |
 | `recordedFromMs`, `recordedToMs` | integer | Requested span, Unix milliseconds (UTC) |
 | `timeZone` | string | IANA zone of the Watch at the start, for example `America/Los_Angeles` |
 | `utcOffsetSeconds` | integer | That zone's offset at `recordedFromMs` |
@@ -35,8 +35,15 @@ JSON, named `watch-motion-<recordedFromMs>.json`, keys sorted.
 | `magnitudeVariance` | g² | Population variance of \|a\| in the bin |
 | `maxJerk` | g/s | Largest \|Δ\|a\|\| / Δt between consecutive readings ≤ 0.5 s apart |
 | `movingSamples` | count | Readings whose jerk exceeds `jerkThresholdGPerSecond` |
+| `meanX`, `meanY`, `meanZ` | g | Mean of each axis in the bin, gravity included |
 
-Bins with no readings are omitted: a missing bin means no data, never stillness. Times are the recorder's wall-clock `startDate` for each reading.
+Bins with no readings are omitted: a missing bin means no data, never stillness. Only readings inside [`recordedFromMs`, `recordedToMs`) are kept, in bins and `raw`, so bins always lie inside the span; the recorder can return leftovers from an earlier recording, which are dropped. Being Unix-aligned, the first bin's `startMs` can precede `recordedFromMs` by less than `binSeconds`. Times are the recorder's wall-clock `startDate` for each reading.
+
+The axis means keep wrist orientation, which magnitude discards. The training workspace derives the arm angle of van Hees et al. 2015 (PLoS ONE 10(11):e0142533), angle = atan(z / √(x²+y²)) in degrees, from them to find sleeping-position changes. At rest the mean vector's length is ≈1 g. The Watch does not compute the angle.
+
+### Version 1
+
+`watch-motion-v1` is identical without `meanX`, `meanY` and `meanZ`. The Watch writes v2; the iPhone still reads and shows v1 files already stored. Any other version is rejected.
 
 ## Limits
 

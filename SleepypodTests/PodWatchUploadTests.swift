@@ -73,6 +73,34 @@ struct PodWatchUploadTests {
         #expect(comparison.watch.map(\.value) == [30, 90])
     }
 
+    @Test func onlyTheSpanBothSensorsCoverIsKept() {
+        // The Watch covers minutes 10..<20; the pod reports minutes ending at 1...40.
+        let base: Int64 = 1_800_000_000_000
+        var bins = WatchMotionFile.Bins()
+        for minute in 10..<20 {
+            bins.startMs.append(base + Int64(minute) * 60_000)
+            bins.samples.append(100)
+            bins.meanMagnitude.append(1)
+            bins.magnitudeVariance.append(0)
+            bins.maxJerk.append(0)
+            bins.movingSamples.append(1)
+        }
+        let file = WatchMotionFile(recordedFromMs: base, recordedToMs: base + 40 * 60_000, timeZone: "UTC", utcOffsetSeconds: 0,
+                                   sampleRateHz: 50, binSeconds: 2, jerkThresholdGPerSecond: 1, device: "test", bins: bins)
+        let pod = (1...40).map { MovementRecord(id: $0, totalMovement: $0, date: Date(timeIntervalSince1970: 1_800_000_000 + Double($0) * 60)) }
+        let comparison = WatchMotionComparison.build(file: file, pod: pod)
+        #expect(comparison.pod.map(\.value) == (11...20).map(Double.init))
+        #expect(comparison.watch.count == 10)
+        #expect(comparison.pairs.count == 10)
+
+        // A pod that starts late trims the Watch's early minutes instead.
+        let late = WatchMotionComparison.build(file: file, pod: Array(pod[14...]))
+        #expect(late.watch.map(\.date.timeIntervalSince1970) == (14..<20).map { 1_800_000_000 + Double($0) * 60 })
+
+        // Nothing to line up against: the Watch is left whole.
+        #expect(WatchMotionComparison.build(file: file, pod: []).watch.count == 10)
+    }
+
     @Test func correlationNeedsEnoughVaryingMinutes() {
         #expect(WatchMotionComparison.pearson((0..<5).map { (Double($0), Double($0)) }) == nil)
         let pairs = (0..<20).map { (pod: Double($0), watch: Double($0) * 2 + 1) }

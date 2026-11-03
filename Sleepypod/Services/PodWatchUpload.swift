@@ -126,13 +126,26 @@ struct WatchMotionComparison: Sendable {
         for index in 0..<bins.count {
             perMinute[bins.startMs[index] / 60_000, default: 0] += Double(bins.movingSamples[index])
         }
-        let watch: [Point] = perMinute.sorted { $0.key < $1.key }
+        var watch: [Point] = perMinute.sorted { $0.key < $1.key }
             .map { minute, moving in Point(date: Date(timeIntervalSince1970: Double(minute) * 60), value: moving) }
         let from = Date(timeIntervalSince1970: Double(file.recordedFromMs) / 1000)
         let to = Date(timeIntervalSince1970: Double(file.recordedToMs) / 1000)
-        let pod = records.filter { $0.date >= from && $0.date <= to.addingTimeInterval(60) }
+        var pod = records.filter { $0.date >= from && $0.date <= to.addingTimeInterval(60) }
             .sorted { $0.date < $1.date }
             .map { Point(date: $0.date, value: Double($0.totalMovement)) }
+
+        // Keep only the span both sensors cover, so a Watch taken off early or a pod that started late leaves
+        // no stretch of one sensor with nothing to compare against. A Watch minute starts at its date; a pod
+        // minute ends at it.
+        if let watchFirst = watch.first?.date, let watchLast = watch.last?.date,
+           let podFirst = pod.first?.date, let podLast = pod.last?.date {
+            let start = max(watchFirst, podFirst.addingTimeInterval(-60))
+            let end = min(watchLast.addingTimeInterval(60), podLast)
+            if start < end {
+                watch = watch.filter { $0.date.addingTimeInterval(60) > start && $0.date < end }
+                pod = pod.filter { $0.date > start && $0.date.addingTimeInterval(-60) < end }
+            }
+        }
 
         // Each pod reading summarises the minute before its timestamp.
         let order = bins.startMs.indices.sorted { bins.startMs[$0] < bins.startMs[$1] }

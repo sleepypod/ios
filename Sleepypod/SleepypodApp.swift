@@ -61,6 +61,10 @@ struct SleepypodApp: App {
                 .tint(Theme.text1)
                 .task {
                     sensorStream.notificationRelay = notificationRelay
+                    watchMotion.podDestination = { [userProfile] in
+                        let backend = APIBackend.current
+                        return backend.supportsWatchUpload ? (backend.createClient(), userProfile.defaultSide) : nil
+                    }
                     watchMotion.activate()
                 }
                 .task(id: deviceManager.isConnected) {

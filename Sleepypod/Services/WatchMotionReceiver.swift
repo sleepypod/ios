@@ -3,7 +3,7 @@ import Observation
 import WatchConnectivity
 
 /// Movement recordings received from the Watch, kept on this iPhone under Application Support/WatchMotion.
-/// Nothing is uploaded; the user exports a file to the training workspace by hand.
+/// The receiver sends each to the user's own pod; nothing goes anywhere else.
 struct WatchMotionInbox: Sendable {
     let directory: URL
 
@@ -54,6 +54,13 @@ final class WatchMotionReceiver: NSObject {
     private(set) var recordings: [WatchMotionInbox.Recording] = []
     private(set) var lastError: String?
     nonisolated let inbox: WatchMotionInbox
+    /// The pod to send recordings to and the side they belong to; nil when the backend can't store them.
+    var podDestination: @MainActor () -> (api: SleepypodProtocol, side: Side)? = { nil }
+    /// What the pod said about each recording this session.
+    private(set) var podUploads: [URL: WatchMotionPodUpload.Outcome] = [:]
+    private(set) var sendingToPod: Set<URL> = []
+    /// Set when the pod's software predates the route, so arriving recordings wait for a manual send.
+    private(set) var podLacksSupport = false
 
     init(inbox: WatchMotionInbox = .standard) {
         self.inbox = inbox
@@ -69,8 +76,26 @@ final class WatchMotionReceiver: NSObject {
 
     func received(_ result: Result<WatchMotionInbox.Recording, Error>) {
         switch result {
-        case .success: recordings = inbox.recordings(); lastError = nil
+        case .success(let recording):
+            recordings = inbox.recordings()
+            lastError = nil
+            if !podLacksSupport { Task { await sendToPod([recording]) } }
         case .failure(let error): lastError = "A Watch recording could not be read: \(error.localizedDescription)"
+        }
+    }
+
+    var canSendToPod: Bool { podDestination() != nil }
+
+    /// Sends recordings one at a time; resending is safe because the pod keys them by side and start.
+    func sendToPod(_ recordings: [WatchMotionInbox.Recording]) async {
+        guard let destination = podDestination() else { return }
+        for recording in recordings where !sendingToPod.contains(recording.url) {
+            sendingToPod.insert(recording.url)
+            let outcome = await WatchMotionPodUpload.send(contentsOf: recording.url, side: destination.side, api: destination.api)
+            sendingToPod.remove(recording.url)
+            podUploads[recording.url] = outcome
+            podLacksSupport = outcome == .unsupported
+            if podLacksSupport { break }
         }
     }
 }

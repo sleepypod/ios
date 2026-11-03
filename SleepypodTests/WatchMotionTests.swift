@@ -203,6 +203,47 @@ struct WatchMotionTests {
         #expect(receiver.recordings.isEmpty)
         receiver.activate()
     }
+
+    @MainActor @Test func receiverSendsArrivalsToThePodAndWaitsOnOldPods() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        for start in [0.0, 100] {
+            let file = MotionSummarizer.file(samples: [still(start + 1)], from: Date(timeIntervalSince1970: start),
+                                             to: Date(timeIntervalSince1970: start + 2), timeZone: .gmt, device: "Watch")
+            try file.encoded().write(to: root.appendingPathComponent(file.fileName))
+        }
+        let receiver = WatchMotionReceiver(inbox: WatchMotionInbox(directory: root))
+        let api = MockAPIClient()
+        #expect(!receiver.canSendToPod)
+        await receiver.sendToPod(receiver.recordings)
+        #expect(receiver.podUploads.isEmpty)
+
+        receiver.podDestination = { (api, .right) }
+        #expect(receiver.canSendToPod)
+        let newest = try #require(receiver.recordings.first)
+        receiver.received(.success(newest))
+        for _ in 0..<200 where receiver.podUploads[newest.url] == nil { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(api.uploadMotionCalls.map(\.0) == [.right])
+        guard case .stored = receiver.podUploads[newest.url] else { Issue.record("The arrival should be sent"); return }
+        #expect(receiver.sendingToPod.isEmpty)
+
+        // A pod without the route stops the batch and later arrivals, until a manual send.
+        api.uploadMotion = { _, _ in throw APIError.notSupported("Watch movement upload") }
+        await receiver.sendToPod(receiver.recordings)
+        #expect(api.uploadMotionCalls.count == 2)
+        #expect(receiver.podLacksSupport)
+        #expect(receiver.podUploads[newest.url] == .unsupported)
+        receiver.received(.success(newest))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(api.uploadMotionCalls.count == 2)
+
+        api.uploadMotion = { _, _ in throw APIError.serverError(message: "disk full") }
+        await receiver.sendToPod(receiver.recordings)
+        #expect(api.uploadMotionCalls.count == 4)
+        #expect(!receiver.podLacksSupport)
+        #expect(receiver.recordings.allSatisfy { receiver.podUploads[$0.url] == .failed("Server error: disk full") })
+    }
 }
 
 private extension WatchMotionFile.Bins {

@@ -22,6 +22,7 @@ enum APIEndpoint: Sendable {
     case vitals(side: Side?, start: Date?, end: Date?)
     case vitalsSummary(side: Side?, start: Date?, end: Date?)
     case movement(side: Side?, start: Date?, end: Date?)
+    case watchMotion(side: Side)
 
     var path: String {
         switch self {
@@ -45,6 +46,8 @@ enum APIEndpoint: Sendable {
             "/api/metrics/vitals/summary"
         case .movement:
             "/api/metrics/movement"
+        case .watchMotion:
+            "/api/biometrics/watch-motion"
         }
     }
 
@@ -54,7 +57,7 @@ enum APIEndpoint: Sendable {
              .sleepRecords, .vitals, .vitalsSummary, .movement:
             .GET
         case .updateDeviceStatus, .updateSchedules, .updateSettings,
-             .updateServices, .alarm:
+             .updateServices, .alarm, .watchMotion:
             .POST
         }
     }
@@ -67,6 +70,8 @@ enum APIEndpoint: Sendable {
              .vitalsSummary(let side, let start, let end),
              .movement(let side, let start, let end):
             return buildMetricsQuery(side: side, start: start, end: end, useISO: false)
+        case .watchMotion(let side):
+            return [URLQueryItem(name: "side", value: side.rawValue)]
         default:
             return nil
         }

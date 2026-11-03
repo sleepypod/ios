@@ -6,7 +6,8 @@ The sleepypod Watch app records wrist acceleration overnight and sends a summary
 
 1. At bedtime, open sleepypod on the Watch, choose a duration (1–12 h) and tap **Record tonight**. The app asks for Motion & Fitness the first time. It calls `CMSensorRecorder.recordAccelerometer(forDuration:)`; the system records at 50 Hz in the background, so the app can close.
 2. In the morning, tap **Send to iPhone**. The Watch reads the recorded span with `accelerometerData(from:to:)`, summarizes it and queues the file with WatchConnectivity `transferFile`, which retries until the iPhone receives it.
-3. On the iPhone, the file appears under **Settings → Watch movement**, stored in Application Support/WatchMotion. Share it to a computer from there. Nothing is uploaded automatically.
+3. On the iPhone, the file appears under **Settings → Watch movement**, stored in Application Support/WatchMotion. Share it to a computer from there.
+4. The iPhone sends the file, without `raw`, to the user's own pod (sleepypod-core `POST /api/biometrics/watch-motion?side=`) for the profile's side. **Send all to pod** on the same screen resends; the pod keys files by side and `recordedFromMs`, so a resend never duplicates. A pod whose software predates the route is reported as not supporting it, and later files wait for a manual send. Nothing goes anywhere else.
 
 ## File format (`watch-motion-v2`)
 

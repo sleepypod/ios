@@ -414,6 +414,39 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
         return result.written
     }
 
+    // MARK: - Apple Watch movement recordings
+
+    func uploadWatchMotion(side: Side, file: Data) async throws -> WatchMotionUploadResult {
+        guard let base = baseURL else { throw APIError.noBaseURL }
+        let endpoint = APIEndpoint.watchMotion(side: side)
+        var components = URLComponents(string: "\(base)\(endpoint.path)")
+        components?.queryItems = endpoint.queryItems
+        guard let url = components?.url else { throw APIError.invalidURL }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = endpoint.method.rawValue
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30
+        request.httpBody = file
+
+        let (data, response) = try await performRequest(request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        // A pod from before the route answers 404: unsupported, not a failure worth retrying.
+        if status == 404 { throw APIError.notSupported("Watch movement upload") }
+        // A plain REST route, so its refusals come as {"error": ...} rather than a tRPC envelope.
+        if !(200...299).contains(status),
+           let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let message = body["error"] as? String ?? body["message"] as? String {
+            throw APIError.serverError(message: message)
+        }
+        try validateResponse(response, data: data, procedure: endpoint.path)
+        do {
+            return try decoder.decode(WatchMotionUploadResult.self, from: data)
+        } catch {
+            throw APIError.decodingFailed(error)
+        }
+    }
+
     // MARK: - Actions
 
     func triggerAlarm(_ alarm: AlarmJob) async throws {

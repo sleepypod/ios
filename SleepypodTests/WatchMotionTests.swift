@@ -80,6 +80,16 @@ struct WatchMotionTests {
         #expect(plan.readableInterval(now: start.addingTimeInterval(9 * 3600))?.end == plan.end)
     }
 
+    @Test func stoppingAPlanEndsItEarlyButNeverLater() {
+        let start = Date(timeIntervalSince1970: 1000)
+        let plan = RecordingPlan(start: start, hours: 8)
+        let stopped = plan.stopped(at: start.addingTimeInterval(4 * 3600))
+        #expect(stopped.end == start.addingTimeInterval(4 * 3600))
+        #expect(stopped.readableInterval(now: start.addingTimeInterval(9 * 3600))?.end == stopped.end)
+        #expect(plan.stopped(at: start.addingTimeInterval(9 * 3600)).end == plan.end)
+        #expect(plan.stopped(at: start.addingTimeInterval(-60)).duration == 0)
+    }
+
     @Test func inboxStoresValidFilesNewestFirstAndSkipsBadOnes() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

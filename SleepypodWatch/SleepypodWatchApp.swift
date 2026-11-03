@@ -93,6 +93,8 @@ private struct ReadyView: View {
 }
 
 private struct RecordingView: View {
+    @Environment(RecordingController.self) private var controller
+    @State private var confirmingStop = false
     let plan: RecordingPlan
 
     var body: some View {
@@ -105,7 +107,18 @@ private struct RecordingView: View {
             Text("until \(plan.end.formatted(date: .omitted, time: .shortened))")
                 .font(.footnote).foregroundStyle(.secondary)
             Spacer(minLength: 0)
+            Button {
+                confirmingStop = true
+            } label: {
+                Label("Stop", systemImage: "stop.fill").frame(maxWidth: .infinity)
+            }
             Text("You can close the app.").font(.caption2).foregroundStyle(.secondary)
+        }
+        .confirmationDialog("Stop recording?", isPresented: $confirmingStop) {
+            Button("Stop", role: .destructive) { controller.stop() }
+            Button("Keep recording", role: .cancel) {}
+        } message: {
+            Text("What's recorded so far is kept to send.")
         }
     }
 }

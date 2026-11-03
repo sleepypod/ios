@@ -17,6 +17,27 @@ struct WatchMotionTests {
         #expect(bins.magnitudeVariance == [0, 0])
         #expect(bins.maxJerk == [0, 0])
         #expect(bins.movingSamples == [0, 0])
+        #expect(bins.meanX == [0, 0])
+        #expect(bins.meanY == [0, 0])
+        #expect(bins.meanZ == [1, 1])
+    }
+
+    @Test func axisMeansKeepGravityPerBin() throws {
+        let samples = [
+            MotionSample(time: 20.0, x: 0.6, y: 0, z: 0.8),
+            MotionSample(time: 20.5, x: 0.8, y: 0, z: 0.6),
+            MotionSample(time: 21.0, x: -0.2, y: 0.3, z: 0.9),
+            MotionSample(time: 22.1, x: 0, y: -1, z: 0),  // next bin: wrist on its side
+        ]
+        let bins = MotionSummarizer.summarize(samples, binSeconds: 2)
+        #expect(bins.startMs == [20_000, 22_000])
+        let meanX = try #require(bins.meanX), meanY = try #require(bins.meanY), meanZ = try #require(bins.meanZ)
+        #expect(abs(meanX[0] - 0.4) < 1e-9)
+        #expect(abs(meanY[0] - 0.1) < 1e-9)
+        #expect(abs(meanZ[0] - 2.3 / 3) < 1e-9)
+        #expect(meanX[1] == 0)
+        #expect(meanY[1] == -1)
+        #expect(meanZ[1] == 0)
     }
 
     @Test func jerkCountsFastChangesOnlyBetweenCloseReadings() {
@@ -40,7 +61,7 @@ struct WatchMotionTests {
         let from = Date(timeIntervalSince1970: 1_800_000_000), to = from.addingTimeInterval(4)
         let samples = [still(1_800_000_000.5), MotionSample(time: 1_800_000_002.25, x: 0.6, y: 0, z: 0.8)]
         let file = MotionSummarizer.file(samples: samples, from: from, to: to, timeZone: zone, device: "Watch")
-        #expect(file.version == "watch-motion-v1")
+        #expect(file.version == "watch-motion-v2")
         #expect(file.recordedFromMs == 1_800_000_000_000)
         #expect(file.recordedToMs == 1_800_000_004_000)
         #expect(file.timeZone == "America/Los_Angeles")
@@ -50,6 +71,16 @@ struct WatchMotionTests {
         #expect(file.fileName == "watch-motion-1800000000000.json")
         let raw = MotionSummarizer.file(samples: samples, from: from, to: to, timeZone: zone, device: "Watch", includeRaw: true)
         #expect(raw.raw?.first == [1_800_000_000_500, 0, 0, 1])
+    }
+
+    @Test func fileDropsReadingsOutsideTheRequestedSpan() {
+        let from = Date(timeIntervalSince1970: 1_800_000_000), to = from.addingTimeInterval(4)
+        // A leftover from the previous night's recording, the first reading, and one exactly at the end.
+        let samples = [still(1_799_925_795.5), still(1_800_000_000), still(1_800_000_003.9), still(1_800_000_004)]
+        let file = MotionSummarizer.file(samples: samples, from: from, to: to, timeZone: .gmt, device: "Watch", includeRaw: true)
+        #expect(file.bins.startMs == [1_800_000_000_000, 1_800_000_002_000])
+        #expect(file.bins.samples == [1, 1])
+        #expect(file.raw?.map { $0[0] } == [1_800_000_000_000, 1_800_000_003_900])
     }
 
     @Test func encodingRoundTripsAndRejectsBadFiles() throws {
@@ -63,10 +94,52 @@ struct WatchMotionTests {
         var ragged = file
         ragged.bins.maxJerk.removeLast()
         #expect(throws: WatchMotionFile.FormatError.mismatchedColumns) { try WatchMotionFile.decode(ragged.encoded()) }
+        var raggedAxis = file
+        raggedAxis.bins.meanZ?.removeLast()
+        #expect(throws: WatchMotionFile.FormatError.mismatchedColumns) { try WatchMotionFile.decode(raggedAxis.encoded()) }
+        var missingAxis = file
+        missingAxis.bins.meanY = nil
+        #expect(throws: WatchMotionFile.FormatError.mismatchedColumns) { try WatchMotionFile.decode(missingAxis.encoded()) }
         var backwards = file
         backwards.recordedToMs = backwards.recordedFromMs - 1
         #expect(throws: WatchMotionFile.FormatError.badInterval) { try WatchMotionFile.decode(backwards.encoded()) }
         #expect(throws: (any Error).self) { try WatchMotionFile.decode(Data("{}".utf8)) }
+    }
+
+    @Test func v1FilesWithoutAxisMeansStillDecode() throws {
+        let json = """
+        {"binSeconds":2,"bins":{"magnitudeVariance":[0,0.01],"maxJerk":[0,1.5],"meanMagnitude":[1,1.02],
+        "movingSamples":[0,3],"samples":[100,100],"startMs":[1800000000000,1800000002000]},
+        "device":"Watch","jerkThresholdGPerSecond":1,"recordedFromMs":1800000000000,"recordedToMs":1800000004000,
+        "sampleRateHz":50,"timeZone":"UTC","utcOffsetSeconds":0,"version":"watch-motion-v1"}
+        """
+        let file = try WatchMotionFile.decode(Data(json.utf8))
+        #expect(file.version == "watch-motion-v1")
+        #expect(file.bins.count == 2)
+        #expect(file.bins.movingSamples == [0, 3])
+        #expect(file.bins.meanX == nil)
+        #expect(try WatchMotionFile.decode(file.encoded()) == file)
+
+        var ragged = file
+        ragged.bins.meanX = [0]
+        #expect(throws: WatchMotionFile.FormatError.mismatchedColumns) { try WatchMotionFile.decode(ragged.encoded()) }
+    }
+
+    @Test func decodingTrimsBinsOutsideTheSpan() throws {
+        let from = Date(timeIntervalSince1970: 1_800_000_001), to = from.addingTimeInterval(5)
+        var file = MotionSummarizer.file(samples: [still(1_800_000_001.5), still(1_800_000_004.5)], from: from, to: to,
+                                         timeZone: .gmt, device: "Watch")
+        // As phones already hold them: a leftover bin from the night before, and one starting exactly at the end.
+        let stray = MotionSummarizer.summarize([still(1_799_925_795.5), still(1_800_000_006.5)])
+        file.bins = stray.selecting([0]).appending(file.bins).appending(stray.selecting([1]))
+        #expect(file.bins.startMs == [1_799_925_794_000, 1_800_000_000_000, 1_800_000_004_000, 1_800_000_006_000])
+
+        // The bin at 000 starts before recordedFromMs (001) but overlaps it, so it stays.
+        let trimmed = try WatchMotionFile.decode(file.encoded())
+        #expect(trimmed.bins.startMs == [1_800_000_000_000, 1_800_000_004_000])
+        #expect(trimmed.bins.meanZ == [1, 1])
+        #expect(trimmed.bins.samples.count == 2)
+        #expect(trimmed.trimmedToSpan() == trimmed)
     }
 
     @Test func recordingPlanClampsAndReadsBackOnlyWhatHasPassed() {
@@ -129,5 +202,14 @@ struct WatchMotionTests {
         #expect(receiver.lastError == nil)
         #expect(receiver.recordings.isEmpty)
         receiver.activate()
+    }
+}
+
+private extension WatchMotionFile.Bins {
+    func appending(_ other: Self) -> Self {
+        Self(startMs: startMs + other.startMs, samples: samples + other.samples, meanMagnitude: meanMagnitude + other.meanMagnitude,
+             magnitudeVariance: magnitudeVariance + other.magnitudeVariance, maxJerk: maxJerk + other.maxJerk,
+             movingSamples: movingSamples + other.movingSamples, meanX: (meanX ?? []) + (other.meanX ?? []),
+             meanY: (meanY ?? []) + (other.meanY ?? []), meanZ: (meanZ ?? []) + (other.meanZ ?? []))
     }
 }

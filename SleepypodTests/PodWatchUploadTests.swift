@@ -71,6 +71,14 @@ struct PodWatchUploadTests {
         #expect(comparison.pairs.map(\.watch) == [30, 90])
         #expect(comparison.pairs.map(\.pod) == [5, 9])
         #expect(comparison.watch.map(\.value) == [30, 90])
+        #expect(comparison.span == Date(timeIntervalSince1970: 1_800_000_000)...Date(timeIntervalSince1970: 1_800_000_180))
+    }
+
+    @Test func watchLineBreaksAcrossGapsLongerThanTwoMinutes() {
+        let points = [0, 60, 180, 600, 660].map { WatchMotionComparison.Point(date: Date(timeIntervalSince1970: $0), value: 1) }
+        let runs = WatchMotionComparison.runs(points.reversed())
+        #expect(runs.map { $0.map(\.date.timeIntervalSince1970) } == [[0, 60, 180], [600, 660]])
+        #expect(WatchMotionComparison.runs([]).isEmpty)
     }
 
     @Test func correlationNeedsEnoughVaryingMinutes() {

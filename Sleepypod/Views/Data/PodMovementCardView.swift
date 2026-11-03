@@ -66,15 +66,17 @@ struct PodMovementCardView: View {
                         y: .value("Movement", min(Double(minute.totalMovement) / podPeak, 1.2)))
                     .foregroundStyle(Theme.amber.opacity(comparison == nil ? 1 : 0.6))
             }
-            if !watchPoints.isEmpty {
-                ForEach(watchPoints) { point in
+            // One series per run, so gaps without readings stay gaps.
+            ForEach(Array(WatchMotionComparison.runs(watchPoints).enumerated()), id: \.offset) { run, points in
+                ForEach(points) { point in
                     LineMark(x: .value("Time", point.date), y: .value("Movement", min(point.value / watchPeak, 1.2)),
-                             series: .value("Source", "Watch"))
+                             series: .value("Source", "Watch \(run)"))
                         .foregroundStyle(Theme.cool)
                         .lineStyle(StrokeStyle(lineWidth: 1.2))
                 }
             }
         }
+        .chartXScale(domain: record.enteredBedDate...max(record.enteredBedDate, record.leftBedDate))
         .chartYAxis(.hidden)
         .chartXAxis {
             AxisMarks(values: .stride(by: .hour, count: 2)) { value in

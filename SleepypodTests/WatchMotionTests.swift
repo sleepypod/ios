@@ -125,6 +125,23 @@ struct WatchMotionTests {
         #expect(throws: WatchMotionFile.FormatError.mismatchedColumns) { try WatchMotionFile.decode(ragged.encoded()) }
     }
 
+    @Test func decodingTrimsBinsOutsideTheSpan() throws {
+        let from = Date(timeIntervalSince1970: 1_800_000_001), to = from.addingTimeInterval(5)
+        var file = MotionSummarizer.file(samples: [still(1_800_000_001.5), still(1_800_000_004.5)], from: from, to: to,
+                                         timeZone: .gmt, device: "Watch")
+        // As phones already hold them: a leftover bin from the night before, and one starting exactly at the end.
+        let stray = MotionSummarizer.summarize([still(1_799_925_795.5), still(1_800_000_006.5)])
+        file.bins = stray.selecting([0]).appending(file.bins).appending(stray.selecting([1]))
+        #expect(file.bins.startMs == [1_799_925_794_000, 1_800_000_000_000, 1_800_000_004_000, 1_800_000_006_000])
+
+        // The bin at 000 starts before recordedFromMs (001) but overlaps it, so it stays.
+        let trimmed = try WatchMotionFile.decode(file.encoded())
+        #expect(trimmed.bins.startMs == [1_800_000_000_000, 1_800_000_004_000])
+        #expect(trimmed.bins.meanZ == [1, 1])
+        #expect(trimmed.bins.samples.count == 2)
+        #expect(trimmed.trimmedToSpan() == trimmed)
+    }
+
     @Test func recordingPlanClampsAndReadsBackOnlyWhatHasPassed() {
         let start = Date(timeIntervalSince1970: 1000)
         #expect(RecordingPlan(start: start, hours: 20).duration == 12 * 3600)
@@ -185,5 +202,14 @@ struct WatchMotionTests {
         #expect(receiver.lastError == nil)
         #expect(receiver.recordings.isEmpty)
         receiver.activate()
+    }
+}
+
+private extension WatchMotionFile.Bins {
+    func appending(_ other: Self) -> Self {
+        Self(startMs: startMs + other.startMs, samples: samples + other.samples, meanMagnitude: meanMagnitude + other.meanMagnitude,
+             magnitudeVariance: magnitudeVariance + other.magnitudeVariance, maxJerk: maxJerk + other.maxJerk,
+             movingSamples: movingSamples + other.movingSamples, meanX: (meanX ?? []) + (other.meanX ?? []),
+             meanY: (meanY ?? []) + (other.meanY ?? []), meanZ: (meanZ ?? []) + (other.meanZ ?? []))
     }
 }

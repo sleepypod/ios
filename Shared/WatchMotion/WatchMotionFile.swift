@@ -44,6 +44,13 @@ struct WatchMotionFile: Codable, Sendable, Equatable {
         var meanZ: [Double]?
 
         var count: Int { startMs.count }
+
+        func selecting(_ indices: [Int]) -> Bins {
+            func pick<T>(_ column: [T]) -> [T] { indices.map { column[$0] } }
+            return Bins(startMs: pick(startMs), samples: pick(samples), meanMagnitude: pick(meanMagnitude),
+                        magnitudeVariance: pick(magnitudeVariance), maxJerk: pick(maxJerk), movingSamples: pick(movingSamples),
+                        meanX: meanX.map(pick), meanY: meanY.map(pick), meanZ: meanZ.map(pick))
+        }
     }
 
     enum FormatError: Error, Equatable {
@@ -61,6 +68,17 @@ struct WatchMotionFile: Codable, Sendable, Equatable {
     static func decode(_ data: Data) throws -> WatchMotionFile {
         let file = try JSONDecoder().decode(WatchMotionFile.self, from: data)
         try file.validate()
+        return file.trimmedToSpan()
+    }
+
+    /// Drops bins wholly outside [recordedFromMs, recordedToMs); a bin overlapping the start counts as inside. Files
+    /// written before the Watch clamped its readings can carry a leftover bin from an earlier recording, hours early.
+    func trimmedToSpan() -> WatchMotionFile {
+        let binMs = Int64((binSeconds * 1000).rounded())
+        let keep = bins.startMs.indices.filter { bins.startMs[$0] + binMs > recordedFromMs && bins.startMs[$0] < recordedToMs }
+        guard keep.count < bins.count else { return self }
+        var file = self
+        file.bins = bins.selecting(keep)
         return file
     }
 

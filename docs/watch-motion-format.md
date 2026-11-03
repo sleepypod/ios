@@ -37,7 +37,7 @@ JSON, named `watch-motion-<recordedFromMs>.json`, keys sorted.
 | `movingSamples` | count | Readings whose jerk exceeds `jerkThresholdGPerSecond` |
 | `meanX`, `meanY`, `meanZ` | g | Mean of each axis in the bin, gravity included |
 
-Bins with no readings are omitted: a missing bin means no data, never stillness. Only readings inside [`recordedFromMs`, `recordedToMs`) are kept, in bins and `raw`, so bins always lie inside the span; the recorder can return leftovers from an earlier recording, which are dropped. Being Unix-aligned, the first bin's `startMs` can precede `recordedFromMs` by less than `binSeconds`. Times are the recorder's wall-clock `startDate` for each reading.
+Bins with no readings are omitted: a missing bin means no data, never stillness. Only readings inside [`recordedFromMs`, `recordedToMs`) are kept, in bins and `raw`, so bins always lie inside the span; the recorder can return leftovers from an earlier recording, which are dropped. Files recorded before that fix can still hold such a bin; the iPhone drops bins wholly outside the span when it reads a file. Being Unix-aligned, the first bin's `startMs` can precede `recordedFromMs` by less than `binSeconds`. Times are the recorder's wall-clock `startDate` for each reading.
 
 The axis means keep wrist orientation, which magnitude discards. The training workspace derives the arm angle of van Hees et al. 2015 (PLoS ONE 10(11):e0142533), angle = atan(z / √(x²+y²)) in degrees, from them to find sleeping-position changes. At rest the mean vector's length is ≈1 g. The Watch does not compute the angle.
 

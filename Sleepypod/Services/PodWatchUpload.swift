@@ -113,6 +113,8 @@ struct WatchMotionComparison: Sendable {
     /// Watch moving readings per minute, by Unix minute.
     let watch: [Point]
     let pod: [Point]
+    /// The recording's span plus the last pod minute after it, for the chart's x-axis.
+    let span: ClosedRange<Date>
     /// Pod minutes paired with the Watch bins inside the same 60 s window.
     let pairs: [(pod: Double, watch: Double)]
 
@@ -144,7 +146,20 @@ struct WatchMotionComparison: Sendable {
             guard hi > lo else { continue }
             pairs.append((point.value, order[lo..<hi].reduce(0) { $0 + Double(bins.movingSamples[$1]) }))
         }
-        return WatchMotionComparison(watch: watch, pod: pod, pairs: pairs)
+        return WatchMotionComparison(watch: watch, pod: pod, span: from...max(from, to.addingTimeInterval(60)), pairs: pairs)
+    }
+
+    /// Runs of points no more than `maxGap` apart, so a line is never drawn across a stretch without readings.
+    static func runs(_ points: [Point], maxGap: TimeInterval = 120) -> [[Point]] {
+        var runs: [[Point]] = []
+        for point in points.sorted(by: { $0.date < $1.date }) {
+            if let last = runs.last?.last, point.date.timeIntervalSince(last.date) <= maxGap {
+                runs[runs.count - 1].append(point)
+            } else {
+                runs.append([point])
+            }
+        }
+        return runs
     }
 
     private static func lowerBound(_ sorted: [Int64], _ value: Int64) -> Int {

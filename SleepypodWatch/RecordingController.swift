@@ -92,6 +92,11 @@ final class RecordingController: NSObject {
         status = ""
     }
 
+    /// Shows a line from elsewhere, such as what the iPhone sent on to the pod.
+    func note(_ line: String) {
+        status = line
+    }
+
     /// Reads what the system kept, summarizes it and queues it for the iPhone; WatchConnectivity retries delivery.
     func send(now: Date = .now) async {
         guard let plan, let interval = plan.readableInterval(now: now) else {

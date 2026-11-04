@@ -6,6 +6,9 @@ struct WatchMotionView: View {
     @Environment(WatchMotionReceiver.self) private var receiver
     @Environment(UserProfile.self) private var profile
     @Environment(SettingsManager.self) private var settings
+    @Environment(SnoreCaptureService.self) private var snore
+    @State private var exportURL: URL?
+    @State private var exportError: String?
 
     var body: some View {
         ScrollView {
@@ -29,15 +32,49 @@ struct WatchMotionView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                        if !receiver.recordings.isEmpty {
+                            Button(action: exportAll) {
+                                SettingsRow("Export all", subtitle: "\(receiver.recordings.count) recordings in one file",
+                                            icon: "square.and.arrow.up", iconColor: Theme.text1, chevron: true)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                }
+                if let exportError {
+                    Text(exportError).font(.footnote).foregroundStyle(Theme.red).padding(.horizontal, 8)
                 }
                 if receiver.canSendToPod && !receiver.recordings.isEmpty {
                     podSection
                 }
+                GroupedSection("ALSO OVERNIGHT") {
+                    GroupedCard {
+                        NavigationLink { SnoreCaptureView() } label: {
+                            SettingsRow("Snore detection", icon: "waveform.badge.mic", iconColor: Theme.text1, chevron: true) {
+                                RowValue(snore.isActive ? "Listening" : "Beta")
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
             .padding(16)
         }
+        .background(Theme.background)
         .navigationTitle("Watch movement")
+        .sheet(item: Binding(get: { exportURL.map(ExportItem.init) }, set: { exportURL = $0?.url })) { item in
+            ShareSheet(items: [item.url])
+        }
+    }
+
+    private func exportAll() {
+        Haptics.light()
+        do {
+            exportURL = try receiver.inbox.combinedExport()
+            exportError = nil
+        } catch {
+            exportError = "Couldn't combine the recordings: \(error.localizedDescription)"
+        }
     }
 
     private var podSection: some View {
@@ -85,4 +122,9 @@ struct WatchMotionView: View {
         let pod = WatchMotionPodUpload.summary(receiver.podUploads[recording.url], sending: receiver.sendingToPod.contains(recording.url))
         return (["\(duration)", "\(recording.bins) bins"] + [pod].compactMap { $0 }).joined(separator: " · ")
     }
+}
+
+private struct ExportItem: Identifiable {
+    let url: URL
+    var id: String { url.path }
 }

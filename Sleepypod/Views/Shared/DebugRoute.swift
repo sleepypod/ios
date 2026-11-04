@@ -1,6 +1,6 @@
 import Foundation
 
-/// DEBUG-only deep link for design QA: `-uiRoute schedule|sleep|week|weektrend|month|watch|stages|settings|allsettings|health|onboard1|onboard2`.
+/// DEBUG-only deep link for design QA: `-uiRoute schedule|sleep|week|weektrend|month|watch|stages|settings|allsettings|health|watchmotion|onboard1|onboard2`.
 enum DebugRoute {
     static var current: String? {
         #if DEBUG

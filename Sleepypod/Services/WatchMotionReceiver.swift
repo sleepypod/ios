@@ -42,6 +42,22 @@ struct WatchMotionInbox: Sendable {
             .sorted { $0.from > $1.from }
     }
 
+    /// Every recording in one JSON array, oldest first, each exactly as the Watch sent it, for the training workspace.
+    func combinedExport(in directory: URL = FileManager.default.temporaryDirectory) throws -> URL {
+        let all = recordings().sorted { $0.from < $1.from }
+        guard let first = all.first, let last = all.last else { throw CocoaError(.fileNoSuchFile) }
+        var data = Data("[".utf8)
+        for (index, recording) in all.enumerated() {
+            if index > 0 { data.append(Data(",\n".utf8)) }
+            data.append(try Data(contentsOf: recording.url))
+        }
+        data.append(Data("]\n".utf8))
+        let day = Date.ISO8601FormatStyle(timeZone: .current).year().month().day().dateSeparator(.omitted)
+        let url = directory.appendingPathComponent("watch-motion-all-\(first.from.formatted(day))-\(last.to.formatted(day)).json")
+        try data.write(to: url, options: .atomic)
+        return url
+    }
+
     private static func recording(_ file: WatchMotionFile, at url: URL) -> Recording {
         Recording(url: url, from: Date(timeIntervalSince1970: Double(file.recordedFromMs) / 1000),
                   to: Date(timeIntervalSince1970: Double(file.recordedToMs) / 1000), bins: file.bins.count)

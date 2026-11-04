@@ -95,15 +95,20 @@ struct PodWatchUploadTests {
         }
         let file = WatchMotionFile(recordedFromMs: base, recordedToMs: base + 40 * 60_000, timeZone: "UTC", utcOffsetSeconds: 0,
                                    sampleRateHz: 50, binSeconds: 2, jerkThresholdGPerSecond: 1, device: "test", bins: bins)
-        let pod = (1...40).map { MovementRecord(id: $0, totalMovement: $0, date: Date(timeIntervalSince1970: 1_800_000_000 + Double($0) * 60)) }
+        let pod: [MovementRecord] = (1...40).map { (minute: Int) -> MovementRecord in
+            MovementRecord(id: minute, totalMovement: minute, date: Date(timeIntervalSince1970: 1_800_000_000 + Double(minute) * 60))
+        }
         let comparison = WatchMotionComparison.build(file: file, pod: pod)
-        #expect(comparison.pod.map(\.value) == (11...20).map(Double.init))
+        let podValues: [Double] = comparison.pod.map(\.value)
+        #expect(podValues == (11...20).map { Double($0) })
         #expect(comparison.watch.count == 10)
         #expect(comparison.pairs.count == 10)
 
         // A pod that starts late trims the Watch's early minutes instead.
         let late = WatchMotionComparison.build(file: file, pod: Array(pod[14...]))
-        #expect(late.watch.map(\.date.timeIntervalSince1970) == (14..<20).map { 1_800_000_000 + Double($0) * 60 })
+        let lateSeconds: [TimeInterval] = late.watch.map(\.date.timeIntervalSince1970)
+        let expectedSeconds: [TimeInterval] = (14..<20).map { (minute: Int) -> TimeInterval in 1_800_000_000 + Double(minute) * 60 }
+        #expect(lateSeconds == expectedSeconds)
 
         // Nothing to line up against: the Watch is left whole.
         #expect(WatchMotionComparison.build(file: file, pod: []).watch.count == 10)

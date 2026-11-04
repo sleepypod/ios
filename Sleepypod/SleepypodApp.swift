@@ -9,12 +9,12 @@ struct SleepypodApp: App {
     @State private var settingsManager: SettingsManager
     @State private var updateChecker = UpdateChecker()
     @State private var podDiscovery = PodDiscovery()
-    @State private var userProfile = UserProfile()
+    @State private var userProfile: UserProfile
     @State private var sensorStream = SensorStreamService()
     @State private var notificationRelay = NotificationRelay()
     @State private var healthSync: HealthSyncService
     @State private var stageModels: StageModelStore
-    @State private var watchMotion = WatchMotionReceiver()
+    @State private var watchMotion: WatchMotionReceiver
     @State private var snoreCapture = SnoreCaptureService()
 
     init() {
@@ -37,6 +37,43 @@ struct SleepypodApp: App {
         health.stageModels = models
         _stageModels = State(initialValue: models)
         _healthSync = State(initialValue: health)
+
+        // Also wired here: the Watch wakes the app in the background to send recordings and work the bed.
+        let profile = UserProfile()
+        let motion = WatchMotionReceiver()
+        let watchBed = WatchBedRelay()
+        motion.podDestination = {
+            let backend = APIBackend.current
+            return backend.supportsWatchUpload ? (backend.createClient(), profile.defaultSide) : nil
+        }
+        watchBed.context = {
+            guard APIBackend.current.isDemo || device.hasPodIP else { return nil }
+            return WatchBedRelay.Context(api: APIBackend.current.createClient(), defaultSide: profile.defaultSide,
+                                         unit: settings.temperatureFormat, sideName: settings.sideName(for:))
+        }
+        watchBed.onStatus = { device.acceptStatus($0) }
+        watchBed.sendNight = {
+            let backend = APIBackend.current
+            guard backend.supportsWatchUpload else { return "This pod can't store Watch data." }
+            let motionOutcomes = await motion.sendRecent()
+            let problem: String?
+            var report: PodWatchUpload.Report?
+            if !health.enabled {
+                problem = "Turn on Apple Health in sleepypod on iPhone"
+            } else if health.isSendingToPod {
+                problem = "Health readings are already sending"
+            } else {
+                report = await health.sendWatchData(api: backend.createClient(), side: profile.defaultSide,
+                                                    days: HealthSyncService.podUploadRecentDays)
+                problem = report == nil ? "Health couldn't be read; unlock iPhone and try again"
+                    : health.podUploadError == nil ? nil : "Some Health readings weren't sent"
+            }
+            return WatchBedRelay.nightSummary(motion: motionOutcomes, health: report, healthProblem: problem)
+        }
+        motion.bedRequests = { [watchBed] in await watchBed.handle($0) }
+        motion.activate()
+        _userProfile = State(initialValue: profile)
+        _watchMotion = State(initialValue: motion)
     }
 
     var body: some Scene {
@@ -61,11 +98,6 @@ struct SleepypodApp: App {
                 .tint(Theme.text1)
                 .task {
                     sensorStream.notificationRelay = notificationRelay
-                    watchMotion.podDestination = { [userProfile] in
-                        let backend = APIBackend.current
-                        return backend.supportsWatchUpload ? (backend.createClient(), userProfile.defaultSide) : nil
-                    }
-                    watchMotion.activate()
                 }
                 .task(id: deviceManager.isConnected) {
                     // Keep first-install setup focused on local network access.

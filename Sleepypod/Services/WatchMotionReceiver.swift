@@ -61,6 +61,8 @@ final class WatchMotionReceiver: NSObject {
     private(set) var sendingToPod: Set<URL> = []
     /// Set when the pod's software predates the route, so arriving recordings wait for a manual send.
     private(set) var podLacksSupport = false
+    /// Answers the Watch's bed requests. Set at launch, before `activate`, so a background wake can answer.
+    var bedRequests: ((WatchBed.Request) async -> WatchBed.Reply)?
 
     init(inbox: WatchMotionInbox = .standard) {
         self.inbox = inbox
@@ -98,6 +100,13 @@ final class WatchMotionReceiver: NSObject {
             if podLacksSupport { break }
         }
     }
+
+    /// Sends the recordings from the last `days` again and returns what the pod said about each.
+    func sendRecent(days: Int = 2, now: Date = .now) async -> [WatchMotionPodUpload.Outcome] {
+        let recent = recordings.filter { $0.to > now.addingTimeInterval(-Double(days) * 86400) }
+        await sendToPod(recent)
+        return recent.compactMap { podUploads[$0.url] }
+    }
 }
 
 extension WatchMotionReceiver: WCSessionDelegate {
@@ -110,4 +119,25 @@ extension WatchMotionReceiver: WCSessionDelegate {
         let result = Result { try inbox.store(contentsOf: file.fileURL) }
         Task { @MainActor in self.received(result) }
     }
+
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any],
+                             replyHandler: @escaping ([String: Any]) -> Void) {
+        let request = Result { try WatchBed.decode(WatchBed.Request.self, from: message) }
+        let reply = WatchReply(send: replyHandler)
+        Task { @MainActor in
+            let answer: WatchBed.Reply
+            switch request {
+            case .success(let request):
+                answer = await self.bedRequests?(request) ?? WatchBed.Reply(message: "Open sleepypod on iPhone.", failed: true)
+            case .failure:
+                answer = WatchBed.Reply(message: "Update sleepypod on iPhone.", failed: true)
+            }
+            reply.send((try? WatchBed.message(answer)) ?? [:])
+        }
+    }
+}
+
+/// WatchConnectivity calls the reply handler from any thread; it is only called once, with plain data.
+private struct WatchReply: @unchecked Sendable {
+    let send: ([String: Any]) -> Void
 }

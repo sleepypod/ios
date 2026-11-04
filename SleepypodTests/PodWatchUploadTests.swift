@@ -71,6 +71,14 @@ struct PodWatchUploadTests {
         #expect(comparison.pairs.map(\.watch) == [30, 90])
         #expect(comparison.pairs.map(\.pod) == [5, 9])
         #expect(comparison.watch.map(\.value) == [30, 90])
+        #expect(comparison.span == Date(timeIntervalSince1970: 1_800_000_000)...Date(timeIntervalSince1970: 1_800_000_180))
+    }
+
+    @Test func watchLineBreaksAcrossGapsLongerThanTwoMinutes() {
+        let points = [0, 60, 180, 600, 660].map { WatchMotionComparison.Point(date: Date(timeIntervalSince1970: $0), value: 1) }
+        let runs = WatchMotionComparison.runs(points.reversed())
+        #expect(runs.map { $0.map(\.date.timeIntervalSince1970) } == [[0, 60, 180], [600, 660]])
+        #expect(WatchMotionComparison.runs([]).isEmpty)
     }
 
     @Test func onlyTheSpanBothSensorsCoverIsKept() {
@@ -194,4 +202,158 @@ struct PodWatchSendTests {
         #expect(health.podUploadError != nil)
         #expect(health.lastPodUpload?.report == report)
     }
+}
+
+@Suite("Sending Watch movement to the pod")
+struct WatchMotionPodUploadTests {
+    private func recording(raw: Bool) throws -> URL {
+        let samples = [MotionSample(time: 5, x: 0, y: 0, z: 1), MotionSample(time: 7.5, x: 0.6, y: 0, z: 0.8)]
+        let file = MotionSummarizer.file(samples: samples, from: Date(timeIntervalSince1970: 4), to: Date(timeIntervalSince1970: 10),
+                                         timeZone: .gmt, device: "Watch", includeRaw: raw)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("watch-motion-\(UUID().uuidString).json")
+        try file.encoded().write(to: url)
+        return url
+    }
+
+    @Test func endpointPostsToTheBiometricsRouteForOneSide() {
+        let endpoint = APIEndpoint.watchMotion(side: .right)
+        #expect(endpoint.path == "/api/biometrics/watch-motion")
+        #expect(endpoint.method == .POST)
+        #expect(endpoint.queryItems == [URLQueryItem(name: "side", value: "right")])
+    }
+
+    @Test func fileGoesAsRecordedButNeverWithRaw() async throws {
+        let plain = try recording(raw: false), withRaw = try recording(raw: true)
+        defer { try? FileManager.default.removeItem(at: plain); try? FileManager.default.removeItem(at: withRaw) }
+        let api = MockAPIClient()
+
+        let receipt = try api.uploadMotion(.right, Data())
+        #expect(await WatchMotionPodUpload.send(contentsOf: plain, side: .right, api: api) == .stored(receipt))
+        #expect(api.uploadMotionCalls.first?.0 == .right)
+        #expect(api.uploadMotionCalls.first?.1 == (try Data(contentsOf: plain)))
+
+        _ = await WatchMotionPodUpload.send(contentsOf: withRaw, side: .left, api: api)
+        let sent = try WatchMotionFile.decode(try #require(api.uploadMotionCalls.last?.1))
+        let original = try WatchMotionFile.decode(Data(contentsOf: withRaw))
+        #expect(original.raw != nil)
+        #expect(sent.raw == nil)
+        #expect(sent.bins == original.bins)
+        #expect(sent.version == "watch-motion-v2")
+    }
+
+    @Test func oldPodsReadAsUnsupportedAndFailuresKeepTheirReason() async throws {
+        let url = try recording(raw: false)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let api = MockAPIClient()
+
+        api.uploadMotion = { _, _ in throw APIError.notSupported("Watch movement upload") }
+        #expect(await WatchMotionPodUpload.send(contentsOf: url, side: .left, api: api) == .unsupported)
+        api.uploadMotion = { _, _ in throw URLError(.unsupportedURL) }
+        #expect(await WatchMotionPodUpload.send(contentsOf: url, side: .left, api: api) == .unsupported)
+        api.uploadMotion = { _, _ in throw APIError.serverError(message: "disk full") }
+        #expect(await WatchMotionPodUpload.send(contentsOf: url, side: .left, api: api) == .failed("Server error: disk full"))
+
+        let calls = api.uploadMotionCalls.count
+        #expect(await WatchMotionPodUpload.send(contentsOf: url, side: .left, api: api, maxBytes: 10)
+                == .failed("The recording is too large for the pod"))
+        let missing = url.deletingLastPathComponent().appendingPathComponent("missing-\(UUID().uuidString).json")
+        if case .failed(let message) = await WatchMotionPodUpload.send(contentsOf: missing, side: .left, api: api) {
+            #expect(message.hasPrefix("The recording couldn't be read"))
+        } else {
+            Issue.record("A missing file should fail")
+        }
+        #expect(api.uploadMotionCalls.count == calls)
+    }
+
+    @Test func rowsSayWhatThePodDid() {
+        let result = { (status: WatchMotionUploadResult.Status) in
+            WatchMotionPodUpload.Outcome.stored(WatchMotionUploadResult(id: 1, side: .left, version: "watch-motion-v2", recordedFromMs: 0,
+                                                                        recordedToMs: 0, bins: 0, trimmedBins: 0, status: status))
+        }
+        #expect(WatchMotionPodUpload.summary(nil, sending: false) == nil)
+        #expect(WatchMotionPodUpload.summary(nil, sending: true) == "Sending to pod…")
+        #expect(WatchMotionPodUpload.summary(result(.created), sending: false) == "Sent to pod")
+        #expect(WatchMotionPodUpload.summary(result(.replaced), sending: false) == "Sent to pod")
+        #expect(WatchMotionPodUpload.summary(result(.unchanged), sending: false) == "On pod")
+        #expect(WatchMotionPodUpload.summary(.unsupported, sending: false) == "Pod can't store it yet")
+        #expect(WatchMotionPodUpload.summary(.failed("x"), sending: false) == "Not sent")
+    }
+
+    @Test func coreClientPostsTheFileAndMapsOldPodsAndRefusals() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [WatchMotionRouteStub.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        func client(_ host: String) -> SleepypodCoreClient {
+            SleepypodCoreClient(session: session, baseURL: URL(string: "http://\(host):3000"))
+        }
+        let body = Data(#"{"version":"watch-motion-v2"}"#.utf8)
+
+        let result = try await client("current.test").uploadWatchMotion(side: .right, file: body)
+        #expect(result == WatchMotionUploadResult(id: 7, side: .right, version: "watch-motion-v2", recordedFromMs: 1_800_000_000_000,
+                                                  recordedToMs: 1_800_000_004_000, bins: 2, trimmedBins: 1, status: .replaced))
+        let request = try #require(WatchMotionRouteStub.request(for: "current.test"))
+        #expect(request.method == "POST")
+        #expect(request.url.path == "/api/biometrics/watch-motion")
+        #expect(request.url.query == "side=right")
+        #expect(request.contentType == "application/json")
+        #expect(request.body == body)
+
+        do {
+            _ = try await client("old.test").uploadWatchMotion(side: .left, file: body)
+            Issue.record("A pod without the route should throw")
+        } catch APIError.notSupported {
+        } catch {
+            Issue.record("A pod without the route should read as unsupported, not \(error)")
+        }
+        do {
+            _ = try await client("refusing.test").uploadWatchMotion(side: .left, file: body)
+            Issue.record("A refused file should throw")
+        } catch APIError.serverError(let message) {
+            #expect(message == "raw readings are not accepted")
+        }
+    }
+}
+
+/// Answers the watch-motion route by host: a current pod, a pod from before the route, and one refusing the file.
+private final class WatchMotionRouteStub: URLProtocol, @unchecked Sendable {
+    struct Seen: Sendable {
+        let method: String
+        let url: URL
+        let contentType: String?
+        let body: Data
+    }
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var seen: [String: Seen] = [:]
+    static func request(for host: String) -> Seen? { lock.withLock { seen[host] } }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let url = request.url!, host = url.host ?? ""
+        var body = request.httpBody ?? Data()
+        if body.isEmpty, let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var bytes = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&bytes, maxLength: bytes.count)
+                if count <= 0 { break }
+                body.append(contentsOf: bytes.prefix(count))
+            }
+        }
+        let seen = Seen(method: request.httpMethod ?? "", url: url, contentType: request.value(forHTTPHeaderField: "Content-Type"), body: body)
+        Self.lock.withLock { Self.seen[host] = seen }
+        let (status, payload): (Int, String) = switch host {
+        case "current.test":
+            (200, #"{"id":7,"side":"right","version":"watch-motion-v2","recordedFromMs":1800000000000,"recordedToMs":1800000004000,"bins":2,"trimmedBins":1,"status":"replaced"}"#)
+        case "refusing.test": (400, #"{"error":"raw readings are not accepted"}"#)
+        default: (404, "<!DOCTYPE html><title>404</title>")
+        }
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(payload.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
 }

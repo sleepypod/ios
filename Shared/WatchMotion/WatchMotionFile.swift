@@ -179,6 +179,13 @@ struct RecordingPlan: Codable, Sendable, Equatable {
 
     var end: Date { start.addingTimeInterval(duration) }
 
+    /// The plan cut short at `now`, so only what was recorded until then is read back.
+    func stopped(at now: Date) -> RecordingPlan {
+        var plan = self
+        plan.duration = min(max(now.timeIntervalSince(start), 0), duration)
+        return plan
+    }
+
     /// The span that can be read back now: from the start until now or the planned end, whichever is first.
     func readableInterval(now: Date) -> DateInterval? {
         let stop = min(now, end)

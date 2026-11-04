@@ -192,6 +192,31 @@ struct WatchMotionTests {
         #expect(throws: (any Error).self) { try inbox.store(contentsOf: bad) }
     }
 
+    @Test func combinedExportHoldsEveryRecordingOldestFirstAsSent() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let inbox = WatchMotionInbox(directory: root.appendingPathComponent("WatchMotion"))
+        #expect(throws: (any Error).self) { try inbox.combinedExport(in: root) }
+
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        for start in [90_000.0, 1000.0] {
+            let file = MotionSummarizer.file(samples: [still(start + 1)], from: Date(timeIntervalSince1970: start),
+                                             to: Date(timeIntervalSince1970: start + 3600), timeZone: .gmt, device: "Watch")
+            let url = root.appendingPathComponent(UUID().uuidString + ".json")
+            try file.encoded().write(to: url)
+            try inbox.store(contentsOf: url)
+        }
+        let url = try inbox.combinedExport(in: root)
+        #expect(url.lastPathComponent.hasPrefix("watch-motion-all-"))
+        let array = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        let starts = array.compactMap { $0["recordedFromMs"] as? Int }
+        #expect(starts == [1_000_000, 90_000_000])
+        let firstStored = try Data(contentsOf: inbox.recordings().last!.url)
+        let firstExported = try JSONSerialization.data(withJSONObject: array[0], options: .sortedKeys)
+        let firstOriginal = try JSONSerialization.data(withJSONObject: JSONSerialization.jsonObject(with: firstStored), options: .sortedKeys)
+        #expect(firstExported == firstOriginal)
+    }
+
     @MainActor @Test func receiverListsTheInboxAtLaunch() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

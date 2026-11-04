@@ -100,6 +100,77 @@ enum PodWatchUpload {
     }
 }
 
+/// The pod's receipt for a Watch movement recording. It keys recordings by side and start, so a resend is
+/// `unchanged`, or `replaced` when the file differs.
+struct WatchMotionUploadResult: Decodable, Sendable, Equatable {
+    enum Status: String, Decodable, Sendable {
+        case created, unchanged, replaced
+    }
+
+    let id: Int
+    let side: Side
+    let version: String
+    let recordedFromMs: Int64
+    let recordedToMs: Int64
+    let bins: Int
+    /// Bins the pod dropped as outside the recorded span.
+    let trimmedBins: Int
+    let status: Status
+}
+
+/// Watch movement recordings sent from this iPhone to the pod for the profile's side, as the Watch wrote them.
+enum WatchMotionPodUpload {
+    /// The pod refuses larger bodies.
+    static let maxBytes = 8 * 1024 * 1024
+
+    enum Outcome: Sendable, Equatable {
+        case stored(WatchMotionUploadResult)
+        /// The pod's software predates the route.
+        case unsupported
+        case failed(String)
+    }
+
+    /// The file as recorded, minus `raw`: the pod refuses raw readings, which run to tens of megabytes.
+    static func body(_ data: Data) throws -> Data {
+        var file = try WatchMotionFile.decode(data)
+        guard file.raw != nil else { return data }
+        file.raw = nil
+        return try file.encoded()
+    }
+
+    static func send(contentsOf url: URL, side: Side, api: SleepypodProtocol, maxBytes: Int = maxBytes) async -> Outcome {
+        let body: Data
+        do {
+            body = try Self.body(Data(contentsOf: url))
+        } catch {
+            return .failed("The recording couldn't be read: \(error.localizedDescription)")
+        }
+        guard body.count <= maxBytes else { return .failed("The recording is too large for the pod") }
+        do {
+            return .stored(try await api.uploadWatchMotion(side: side, file: body))
+        } catch APIError.notSupported {
+            return .unsupported
+        } catch let error as URLError where error.code == .unsupportedURL {
+            return .unsupported
+        } catch {
+            Log.network.error("Sending a Watch movement recording to the pod failed: \(error.localizedDescription, privacy: .public)")
+            return .failed(error.localizedDescription)
+        }
+    }
+
+    /// One line for a recording's row; nil before anything was tried this session.
+    static func summary(_ outcome: Outcome?, sending: Bool) -> String? {
+        if sending { return "Sending to pod…" }
+        switch outcome {
+        case .stored(let result) where result.status == .unchanged: return "On pod"
+        case .stored: return "Sent to pod"
+        case .unsupported: return "Pod can't store it yet"
+        case .failed: return "Not sent"
+        case nil: return nil
+        }
+    }
+}
+
 /// A night of Watch wrist movement set against the pod's movement score for the same side. The two measure
 /// different things (wrist jerk against bed capacitance per minute), so each is scaled to its own range for
 /// drawing and they are compared by correlation, not by value.
@@ -113,6 +184,8 @@ struct WatchMotionComparison: Sendable {
     /// Watch moving readings per minute, by Unix minute.
     let watch: [Point]
     let pod: [Point]
+    /// The recording's span plus the last pod minute after it, for the chart's x-axis.
+    let span: ClosedRange<Date>
     /// Pod minutes paired with the Watch bins inside the same 60 s window.
     let pairs: [(pod: Double, watch: Double)]
 
@@ -126,13 +199,26 @@ struct WatchMotionComparison: Sendable {
         for index in 0..<bins.count {
             perMinute[bins.startMs[index] / 60_000, default: 0] += Double(bins.movingSamples[index])
         }
-        let watch: [Point] = perMinute.sorted { $0.key < $1.key }
+        var watch: [Point] = perMinute.sorted { $0.key < $1.key }
             .map { minute, moving in Point(date: Date(timeIntervalSince1970: Double(minute) * 60), value: moving) }
         let from = Date(timeIntervalSince1970: Double(file.recordedFromMs) / 1000)
         let to = Date(timeIntervalSince1970: Double(file.recordedToMs) / 1000)
-        let pod = records.filter { $0.date >= from && $0.date <= to.addingTimeInterval(60) }
+        var pod = records.filter { $0.date >= from && $0.date <= to.addingTimeInterval(60) }
             .sorted { $0.date < $1.date }
             .map { Point(date: $0.date, value: Double($0.totalMovement)) }
+
+        // Keep only the span both sensors cover, so a Watch taken off early or a pod that started late leaves
+        // no stretch of one sensor with nothing to compare against. A Watch minute starts at its date; a pod
+        // minute ends at it.
+        if let watchFirst = watch.first?.date, let watchLast = watch.last?.date,
+           let podFirst = pod.first?.date, let podLast = pod.last?.date {
+            let start = max(watchFirst, podFirst.addingTimeInterval(-60))
+            let end = min(watchLast.addingTimeInterval(60), podLast)
+            if start < end {
+                watch = watch.filter { $0.date.addingTimeInterval(60) > start && $0.date < end }
+                pod = pod.filter { $0.date > start && $0.date.addingTimeInterval(-60) < end }
+            }
+        }
 
         // Each pod reading summarises the minute before its timestamp.
         let order = bins.startMs.indices.sorted { bins.startMs[$0] < bins.startMs[$1] }
@@ -144,7 +230,20 @@ struct WatchMotionComparison: Sendable {
             guard hi > lo else { continue }
             pairs.append((point.value, order[lo..<hi].reduce(0) { $0 + Double(bins.movingSamples[$1]) }))
         }
-        return WatchMotionComparison(watch: watch, pod: pod, pairs: pairs)
+        return WatchMotionComparison(watch: watch, pod: pod, span: from...max(from, to.addingTimeInterval(60)), pairs: pairs)
+    }
+
+    /// Runs of points no more than `maxGap` apart, so a line is never drawn across a stretch without readings.
+    static func runs(_ points: [Point], maxGap: TimeInterval = 120) -> [[Point]] {
+        var runs: [[Point]] = []
+        for point in points.sorted(by: { $0.date < $1.date }) {
+            if let last = runs.last?.last, point.date.timeIntervalSince(last.date) <= maxGap {
+                runs[runs.count - 1].append(point)
+            } else {
+                runs.append([point])
+            }
+        }
+        return runs
     }
 
     private static func lowerBound(_ sorted: [Int64], _ value: Int64) -> Int {

@@ -36,6 +36,16 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
         return try importSamples(side, metric, samples)
     }
 
+    var uploadMotion: (Side, Data) throws -> WatchMotionUploadResult = { side, _ in
+        WatchMotionUploadResult(id: 1, side: side, version: "watch-motion-v2", recordedFromMs: 0, recordedToMs: 0,
+                                bins: 0, trimmedBins: 0, status: .created)
+    }
+    var uploadMotionCalls: [(Side, Data)] = []
+    func uploadWatchMotion(side: Side, file: Data) async throws -> WatchMotionUploadResult {
+        uploadMotionCalls.append((side, file))
+        return try uploadMotion(side, file)
+    }
+
     func getDeviceStatus() async throws -> DeviceStatus { throw APIError.noBaseURL }
     func updateDeviceStatus(_ update: DeviceStatusUpdate) async throws {}
     func getSettings() async throws -> PodSettings { throw APIError.noBaseURL }

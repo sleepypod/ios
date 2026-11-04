@@ -77,6 +77,26 @@ final class RecordingController: NSObject {
         status = ""
     }
 
+    /// Ends the recording now. Apple's recorder can't be cancelled and keeps sampling to the planned end, but
+    /// only the span up to now is read back and sent. A recording stopped within its first minute is dropped.
+    func stop(now: Date = .now) {
+        guard let plan else { return }
+        let stopped = plan.stopped(at: now)
+        if stopped.duration < 60 {
+            self.plan = nil
+            defaults.removeObject(forKey: Self.planKey)
+        } else {
+            self.plan = stopped
+            if let data = try? JSONEncoder().encode(stopped) { defaults.set(data, forKey: Self.planKey) }
+        }
+        status = ""
+    }
+
+    /// Shows a line from elsewhere, such as what the iPhone sent on to the pod.
+    func note(_ line: String) {
+        status = line
+    }
+
     /// Reads what the system kept, summarizes it and queues it for the iPhone; WatchConnectivity retries delivery.
     func send(now: Date = .now) async {
         guard let plan, let interval = plan.readableInterval(now: now) else {

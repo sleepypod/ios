@@ -3,7 +3,7 @@ import Observation
 import WatchConnectivity
 
 /// Movement recordings received from the Watch, kept on this iPhone under Application Support/WatchMotion.
-/// Nothing is uploaded; the user exports a file to the training workspace by hand.
+/// The receiver sends each to the user's own pod; nothing goes anywhere else.
 struct WatchMotionInbox: Sendable {
     let directory: URL
 
@@ -42,6 +42,22 @@ struct WatchMotionInbox: Sendable {
             .sorted { $0.from > $1.from }
     }
 
+    /// Every recording in one JSON array, oldest first, each exactly as the Watch sent it, for the training workspace.
+    func combinedExport(in directory: URL = FileManager.default.temporaryDirectory) throws -> URL {
+        let all = recordings().sorted { $0.from < $1.from }
+        guard let first = all.first, let last = all.last else { throw CocoaError(.fileNoSuchFile) }
+        var data = Data("[".utf8)
+        for (index, recording) in all.enumerated() {
+            if index > 0 { data.append(Data(",\n".utf8)) }
+            data.append(try Data(contentsOf: recording.url))
+        }
+        data.append(Data("]\n".utf8))
+        let day = Date.ISO8601FormatStyle(timeZone: .current).year().month().day().dateSeparator(.omitted)
+        let url = directory.appendingPathComponent("watch-motion-all-\(first.from.formatted(day))-\(last.to.formatted(day)).json")
+        try data.write(to: url, options: .atomic)
+        return url
+    }
+
     private static func recording(_ file: WatchMotionFile, at url: URL) -> Recording {
         Recording(url: url, from: Date(timeIntervalSince1970: Double(file.recordedFromMs) / 1000),
                   to: Date(timeIntervalSince1970: Double(file.recordedToMs) / 1000), bins: file.bins.count)
@@ -54,6 +70,15 @@ final class WatchMotionReceiver: NSObject {
     private(set) var recordings: [WatchMotionInbox.Recording] = []
     private(set) var lastError: String?
     nonisolated let inbox: WatchMotionInbox
+    /// The pod to send recordings to and the side they belong to; nil when the backend can't store them.
+    var podDestination: @MainActor () -> (api: SleepypodProtocol, side: Side)? = { nil }
+    /// What the pod said about each recording this session.
+    private(set) var podUploads: [URL: WatchMotionPodUpload.Outcome] = [:]
+    private(set) var sendingToPod: Set<URL> = []
+    /// Set when the pod's software predates the route, so arriving recordings wait for a manual send.
+    private(set) var podLacksSupport = false
+    /// Answers the Watch's bed requests. Set at launch, before `activate`, so a background wake can answer.
+    var bedRequests: ((WatchBed.Request) async -> WatchBed.Reply)?
 
     init(inbox: WatchMotionInbox = .standard) {
         self.inbox = inbox
@@ -69,9 +94,34 @@ final class WatchMotionReceiver: NSObject {
 
     func received(_ result: Result<WatchMotionInbox.Recording, Error>) {
         switch result {
-        case .success: recordings = inbox.recordings(); lastError = nil
+        case .success(let recording):
+            recordings = inbox.recordings()
+            lastError = nil
+            if !podLacksSupport { Task { await sendToPod([recording]) } }
         case .failure(let error): lastError = "A Watch recording could not be read: \(error.localizedDescription)"
         }
+    }
+
+    var canSendToPod: Bool { podDestination() != nil }
+
+    /// Sends recordings one at a time; resending is safe because the pod keys them by side and start.
+    func sendToPod(_ recordings: [WatchMotionInbox.Recording]) async {
+        guard let destination = podDestination() else { return }
+        for recording in recordings where !sendingToPod.contains(recording.url) {
+            sendingToPod.insert(recording.url)
+            let outcome = await WatchMotionPodUpload.send(contentsOf: recording.url, side: destination.side, api: destination.api)
+            sendingToPod.remove(recording.url)
+            podUploads[recording.url] = outcome
+            podLacksSupport = outcome == .unsupported
+            if podLacksSupport { break }
+        }
+    }
+
+    /// Sends the recordings from the last `days` again and returns what the pod said about each.
+    func sendRecent(days: Int = 2, now: Date = .now) async -> [WatchMotionPodUpload.Outcome] {
+        let recent = recordings.filter { $0.to > now.addingTimeInterval(-Double(days) * 86400) }
+        await sendToPod(recent)
+        return recent.compactMap { podUploads[$0.url] }
     }
 }
 
@@ -85,4 +135,25 @@ extension WatchMotionReceiver: WCSessionDelegate {
         let result = Result { try inbox.store(contentsOf: file.fileURL) }
         Task { @MainActor in self.received(result) }
     }
+
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any],
+                             replyHandler: @escaping ([String: Any]) -> Void) {
+        let request = Result { try WatchBed.decode(WatchBed.Request.self, from: message) }
+        let reply = WatchReply(send: replyHandler)
+        Task { @MainActor in
+            let answer: WatchBed.Reply
+            switch request {
+            case .success(let request):
+                answer = await self.bedRequests?(request) ?? WatchBed.Reply(message: "Open sleepypod on iPhone.", failed: true)
+            case .failure:
+                answer = WatchBed.Reply(message: "Update sleepypod on iPhone.", failed: true)
+            }
+            reply.send((try? WatchBed.message(answer)) ?? [:])
+        }
+    }
+}
+
+/// WatchConnectivity calls the reply handler from any thread; it is only called once, with plain data.
+private struct WatchReply: @unchecked Sendable {
+    let send: ([String: Any]) -> Void
 }

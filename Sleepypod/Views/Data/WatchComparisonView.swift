@@ -32,7 +32,7 @@ struct WatchComparisonView: View {
                     vitalCard(heartRateMetric(comparison))
                     vitalCard(hrvMetric(comparison))
                     vitalCard(breathingMetric(comparison))
-                    Text("Touch and hold any chart to read both sources at that minute. sleepypod reports HRV as RMSSD and the Watch as SDNN from a few spot readings, so compare how they move, not their level. Agreement counts only minutes where the Watch recorded a stage.")
+                    Text("Touch and hold any chart to read both sources at that minute. sleepypod's HRV is its own 5-minute variability index and the Watch's is SDNN from a few spot readings, so compare how they move, not their level. Agreement counts only minutes where the Watch recorded a stage.")
                         .font(.footnote).foregroundStyle(Theme.text3).fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
                 } else if loaded {
                     ContentUnavailableView("No Apple Watch data", systemImage: "applewatch",
@@ -327,7 +327,7 @@ struct WatchComparisonView: View {
                ours: podReadings(\.hrv), watch: comparison.watchHRV, watchTolerance: 20 * 60,
                stat: averagesText(comparison.hrv, decimals: 0, unit: "ms"),
                accessibility: averagesSummary("HRV", comparison.hrv, decimals: 0, unit: "milliseconds"),
-               footer: "RMSSD vs SDNN")
+               footer: "Pod index vs SDNN")
     }
 
     private func breathingMetric(_ comparison: WatchComparison) -> Metric {

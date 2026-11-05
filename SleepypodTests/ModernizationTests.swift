@@ -162,6 +162,7 @@ private final class FakeHealthStore: HealthSyncStore {
     }
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] { [] }
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async -> [HKQuantitySample] { [] }
+    func shouldRequestAuthorization(write: Set<HKSampleType>, read: Set<HKObjectType>) async -> Bool { false }
 }
 
 @Suite("Health sync lifecycle")

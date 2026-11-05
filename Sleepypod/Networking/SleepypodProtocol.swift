@@ -58,6 +58,7 @@ protocol SleepypodProtocol: Sendable {
     func importReferenceStages(side: Side, segments: [PodWatchUpload.Segment]) async throws -> Int
     func importReferenceVitals(side: Side, heartRate: [PodWatchUpload.Sample]) async throws -> Int
     func importReferenceSamples(side: Side, metric: PodWatchUpload.Metric, samples: [PodWatchUpload.Sample]) async throws -> Int
+    func referenceCapabilities() async throws -> PodWatchUpload.Capabilities
 
     // A Watch movement recording, sent as the file the Watch wrote (sleepypod-core POST /api/biometrics/watch-motion).
     func uploadWatchMotion(side: Side, file: Data) async throws -> WatchMotionUploadResult
@@ -89,5 +90,6 @@ extension SleepypodProtocol {
     func importReferenceSamples(side: Side, metric: PodWatchUpload.Metric, samples: [PodWatchUpload.Sample]) async throws -> Int {
         throw URLError(.unsupportedURL)
     }
+    func referenceCapabilities() async throws -> PodWatchUpload.Capabilities { .baseline }
     func uploadWatchMotion(side: Side, file: Data) async throws -> WatchMotionUploadResult { throw URLError(.unsupportedURL) }
 }

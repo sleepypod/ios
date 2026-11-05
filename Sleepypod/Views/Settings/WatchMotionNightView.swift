@@ -20,7 +20,7 @@ struct WatchMotionNightView: View {
                     Text(error).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 8)
                 }
                 if let comparison {
-                    chart(comparison).cardStyle()
+                    WatchMotionChart(comparison: comparison).cardStyle()
                     GroupedSection("AGREEMENT") {
                         GroupedCard {
                             SettingsRow("Correlation", subtitle: "Per minute, 1 is perfect agreement", height: 56) {
@@ -48,7 +48,29 @@ struct WatchMotionNightView: View {
         .task { await load() }
     }
 
-    private func chart(_ comparison: WatchMotionComparison) -> some View {
+    private func load() async {
+        do {
+            let file = try WatchMotionFile.decode(Data(contentsOf: recording.url))
+            let pod: [MovementRecord]
+            do {
+                pod = try await APIBackend.current.createClient()
+                    .getMovement(side: profile.defaultSide, start: recording.from, end: recording.to.addingTimeInterval(60))
+            } catch {
+                pod = []
+                self.error = "The pod's movement couldn't be loaded: \(error.localizedDescription)"
+            }
+            comparison = WatchMotionComparison.build(file: file, pod: pod)
+        } catch {
+            self.error = "This recording couldn't be read: \(error.localizedDescription)"
+        }
+    }
+}
+
+/// Wrist movement from the Watch over the pod's movement score, each scaled to its own night.
+struct WatchMotionChart: View {
+    let comparison: WatchMotionComparison
+
+    var body: some View {
         let watchPeak = comparison.watchPeak, podPeak = comparison.podPeak
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
@@ -91,23 +113,6 @@ struct WatchMotionNightView: View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 10, height: 10)
             Text(title).font(.caption).foregroundStyle(Theme.text2)
-        }
-    }
-
-    private func load() async {
-        do {
-            let file = try WatchMotionFile.decode(Data(contentsOf: recording.url))
-            let pod: [MovementRecord]
-            do {
-                pod = try await APIBackend.current.createClient()
-                    .getMovement(side: profile.defaultSide, start: recording.from, end: recording.to.addingTimeInterval(60))
-            } catch {
-                pod = []
-                self.error = "The pod's movement couldn't be loaded: \(error.localizedDescription)"
-            }
-            comparison = WatchMotionComparison.build(file: file, pod: pod)
-        } catch {
-            self.error = "This recording couldn't be read: \(error.localizedDescription)"
         }
     }
 }

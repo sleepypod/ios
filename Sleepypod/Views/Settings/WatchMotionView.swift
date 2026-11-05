@@ -6,7 +6,6 @@ struct WatchMotionView: View {
     @Environment(WatchMotionReceiver.self) private var receiver
     @Environment(UserProfile.self) private var profile
     @Environment(SettingsManager.self) private var settings
-    @Environment(SnoreCaptureService.self) private var snore
     @State private var exportURL: URL?
     @State private var exportError: String?
 
@@ -32,30 +31,10 @@ struct WatchMotionView: View {
                             }
                             .buttonStyle(.plain)
                         }
-                        if !receiver.recordings.isEmpty {
-                            Button(action: exportAll) {
-                                SettingsRow("Export all", subtitle: "\(receiver.recordings.count) recordings in one file",
-                                            icon: "square.and.arrow.up", iconColor: Theme.text1, chevron: true)
-                            }
-                            .buttonStyle(.plain)
-                        }
                     }
                 }
-                if let exportError {
-                    Text(exportError).font(.footnote).foregroundStyle(Theme.red).padding(.horizontal, 8)
-                }
-                if receiver.canSendToPod && !receiver.recordings.isEmpty {
-                    podSection
-                }
-                GroupedSection("ALSO OVERNIGHT") {
-                    GroupedCard {
-                        NavigationLink { SnoreCaptureView() } label: {
-                            SettingsRow("Snore detection", icon: "waveform.badge.mic", iconColor: Theme.text1, chevron: true) {
-                                RowValue(snore.isActive ? "Listening" : "Beta")
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
+                if !receiver.recordings.isEmpty {
+                    actionsSection
                 }
             }
             .padding(16)
@@ -77,34 +56,50 @@ struct WatchMotionView: View {
         }
     }
 
-    private var podSection: some View {
-        GroupedSection("SEND TO POD") {
+    private var actionsSection: some View {
+        GroupedSection("ACTIONS") {
             GroupedCard {
-                Button {
-                    Haptics.light()
-                    Task {
-                        await receiver.sendToPod(receiver.recordings)
-                        let outcomes = receiver.recordings.map { receiver.podUploads[$0.url] }
-                        if outcomes.allSatisfy({ if case .stored = $0 { true } else { false } }) { Haptics.success() } else { Haptics.warning() }
-                    }
-                } label: {
-                    SettingsRow(receiver.sendingToPod.isEmpty ? "Send all to pod" : "Sending…", icon: "arrow.up.circle") {
-                        if !receiver.sendingToPod.isEmpty { ProgressView() }
-                    }
+                if receiver.canSendToPod { sendAllButton }
+                Button(action: exportAll) {
+                    SettingsRow("Export all", subtitle: "\(receiver.recordings.count) recordings in one file",
+                                icon: "square.and.arrow.up", iconColor: Theme.text1, chevron: true)
                 }
                 .buttonStyle(.plain)
-                .disabled(!receiver.sendingToPod.isEmpty)
             }
-            if receiver.podLacksSupport {
-                Text("This pod's software doesn't store Watch movement yet. Update the pod, then send again.")
-                    .font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
+            if let exportError {
+                Text(exportError).font(.footnote).foregroundStyle(Theme.red).padding(.horizontal, 16)
             }
-            ForEach(failures, id: \.self) { message in
-                Text(message).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
-            }
-            Text("Each recording goes to your pod when it arrives, for this iPhone's side (\(settings.sideName(for: profile.defaultSide))), and nowhere else. Sending again never duplicates anything.")
-                .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16).fixedSize(horizontal: false, vertical: true)
+            if receiver.canSendToPod { podNotes }
         }
+    }
+
+    private var sendAllButton: some View {
+        Button {
+            Haptics.light()
+            Task {
+                await receiver.sendToPod(receiver.recordings)
+                let outcomes = receiver.recordings.map { receiver.podUploads[$0.url] }
+                if outcomes.allSatisfy({ if case .stored = $0 { true } else { false } }) { Haptics.success() } else { Haptics.warning() }
+            }
+        } label: {
+            SettingsRow(receiver.sendingToPod.isEmpty ? "Send all to pod" : "Sending…", icon: "arrow.up.circle") {
+                if !receiver.sendingToPod.isEmpty { ProgressView() }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(!receiver.sendingToPod.isEmpty)
+    }
+
+    @ViewBuilder private var podNotes: some View {
+        if receiver.podLacksSupport {
+            Text("This pod's software doesn't store Watch movement yet. Update the pod, then send again.")
+                .font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
+        }
+        ForEach(failures, id: \.self) { message in
+            Text(message).font(.footnote).foregroundStyle(Theme.amber).padding(.horizontal, 16)
+        }
+        Text("Each recording goes to your pod when it arrives, for this iPhone's side (\(settings.sideName(for: profile.defaultSide))), and nowhere else. Sending again never duplicates anything.")
+            .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16).fixedSize(horizontal: false, vertical: true)
     }
 
     /// Distinct failure messages from the last attempts, so a dead pod reads as one line, not one per night.

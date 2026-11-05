@@ -5,10 +5,13 @@ import Charts
 struct WatchComparisonView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(HealthSyncService.self) private var health
+    @Environment(WatchMotionReceiver.self) private var watchMotion
+    @Environment(UserProfile.self) private var profile
     let record: SleepRecord
     let epochs: [SleepAnalyzer.SleepEpoch]
     let vitals: [VitalsRecord]
     @State private var comparison: WatchComparison?
+    @State private var movement: WatchMotionComparison?
     @State private var loaded = false
     /// The touched minute, shared so every chart marks the same moment.
     @State private var selection: Date?
@@ -25,6 +28,7 @@ struct WatchComparisonView: View {
                     agreementCard(comparison)
                     stagesCard(comparison)
                     if comparison.stages.comparedSeconds > 0 { confusionCard(comparison.stages) }
+                    if let movement { movementCard(movement) }
                     vitalCard(heartRateMetric(comparison))
                     vitalCard(hrvMetric(comparison))
                     vitalCard(breathingMetric(comparison))
@@ -49,7 +53,38 @@ struct WatchComparisonView: View {
                 ? WatchComparison.demo(record: record, epochs: epochs, vitals: vitals)
                 : await health.watchComparison(record: record, epochs: epochs, vitals: vitals)
             loaded = true
+            movement = await loadMovement()
         }
+    }
+
+    // MARK: Movement
+
+    private func movementCard(_ movement: WatchMotionComparison) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Eyebrow("MOVEMENT")
+                Spacer()
+                if let correlation = movement.correlation {
+                    Text("r \(correlation.formatted(.number.precision(.fractionLength(2))))")
+                        .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
+                }
+            }
+            WatchMotionChart(comparison: movement)
+        }
+        .cardStyle()
+    }
+
+    /// The Watch movement recording that overlaps this bed session most, against the pod's movement over it.
+    private func loadMovement() async -> WatchMotionComparison? {
+        func overlap(_ recording: WatchMotionInbox.Recording) -> TimeInterval {
+            min(recording.to, nightEnd).timeIntervalSince(max(recording.from, nightStart))
+        }
+        guard let recording = watchMotion.recordings.filter({ overlap($0) > 0 }).max(by: { overlap($0) < overlap($1) }),
+              let data = try? Data(contentsOf: recording.url),
+              let file = try? WatchMotionFile.decode(data) else { return nil }
+        let pod = (try? await APIBackend.current.createClient()
+            .getMovement(side: profile.defaultSide, start: recording.from, end: recording.to.addingTimeInterval(60))) ?? []
+        return WatchMotionComparison.build(file: file, pod: pod)
     }
 
     // MARK: Stages

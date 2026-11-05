@@ -23,6 +23,8 @@ class MockAPIClient: SleepypodProtocol, @unchecked Sendable {
     var importVitals: (Side, [PodWatchUpload.Sample]) throws -> Int = { _, samples in samples.count }
     var importSamples: (Side, PodWatchUpload.Metric, [PodWatchUpload.Sample]) throws -> Int = { _, _, samples in samples.count }
     var importCalls = 0
+    var capabilities: Result<PodWatchUpload.Capabilities, Error> = .success(.baseline)
+    func referenceCapabilities() async throws -> PodWatchUpload.Capabilities { try capabilities.get() }
     func importReferenceStages(side: Side, segments: [PodWatchUpload.Segment]) async throws -> Int {
         importCalls += 1
         return try importStages(side, segments)

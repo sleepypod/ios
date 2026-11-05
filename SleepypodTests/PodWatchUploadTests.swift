@@ -128,6 +128,9 @@ private final class WatchHealthStore: HealthSyncStore {
     var failReads = false
     var sleep: [HKCategorySample] = []
     var quantities: [HKQuantityTypeIdentifier: [HKQuantitySample]] = [:]
+    var failing: Set<HKQuantityTypeIdentifier> = []
+    var unasked = false
+    func shouldRequestAuthorization(write: Set<HKSampleType>, read: Set<HKObjectType>) async -> Bool { unasked }
     func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus { .sharingAuthorized }
     func authorize(write: Set<HKSampleType>, read: Set<HKObjectType>) async throws {}
     func save(_ samples: [HKSample]) async throws {}
@@ -138,7 +141,7 @@ private final class WatchHealthStore: HealthSyncStore {
         return sleep
     }
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async throws -> [HKQuantitySample] {
-        if failReads { throw URLError(.cannotOpenFile) }
+        if failReads || failing.contains(type) { throw URLError(.cannotOpenFile) }
         return quantities[type] ?? []
     }
 }
@@ -206,6 +209,154 @@ struct PodWatchSendTests {
         #expect(report?.rejectedNights == 0)
         #expect(health.podUploadError != nil)
         #expect(health.lastPodUpload?.report == report)
+    }
+
+    private let everything = PodWatchUpload.Capabilities(
+        sampleFields: ["endTimestamp", "device", "algorithm"],
+        metrics: PodWatchUpload.Metric.allCases.map { .init(metric: $0.rawValue, min: $0.range.lowerBound, max: $0.range.upperBound) })
+
+    private func reading(_ type: HKQuantityTypeIdentifier, _ unit: HKUnit, _ value: Double, seconds: TimeInterval = 300,
+                         metadata: [String: Any]? = nil) -> HKQuantitySample {
+        let start = now.addingTimeInterval(-3600)
+        return HKQuantitySample(type: HKQuantityType(type), quantity: HKQuantity(unit: unit, doubleValue: value),
+                                start: start, end: start.addingTimeInterval(seconds), device: watch, metadata: metadata)
+    }
+
+    private func recordingPod(_ capabilities: PodWatchUpload.Capabilities?) -> (MockAPIClient, () -> [(PodWatchUpload.Metric, [PodWatchUpload.Sample])]) {
+        let api = MockAPIClient()
+        api.capabilities = capabilities.map { .success($0) } ?? .failure(APIError.invalidResponse(statusCode: 404))
+        nonisolated(unsafe) var sent: [(PodWatchUpload.Metric, [PodWatchUpload.Sample])] = []
+        api.importSamples = { _, metric, samples in
+            sent.append((metric, samples))
+            return samples.count
+        }
+        return (api, { sent })
+    }
+
+    @Test func aPodTooOldToAnswerGetsOnlyWhatItAlwaysTook() async {
+        let store = WatchHealthStore()
+        watchNight(store)
+        store.quantities[.oxygenSaturation] = [reading(.oxygenSaturation, .percent(), 0.97)]
+        store.quantities[.heartRateVariabilitySDNN] = [reading(.heartRateVariabilitySDNN, .secondUnit(with: .milli), 40)]
+        let (api, sent) = recordingPod(nil)
+        let health = service(store)
+        let report = await health.sendWatchData(api: api, side: .left, days: 2, now: now)
+        #expect(sent().map(\.0) == [.breathingRate, .hrvSDNN])
+        #expect(sent().flatMap(\.1).allSatisfy { $0.end == nil && $0.device == nil && $0.algorithm == nil })
+        #expect(report?.optional == 0)
+        #expect(health.podUploadError == nil)
+    }
+
+    @Test func aPodThatAcceptsMoreGetsEachWithItsWindowDeviceAndAlgorithm() async {
+        let store = WatchHealthStore()
+        watchNight(store)
+        store.quantities[.heartRateVariabilitySDNN] = [reading(.heartRateVariabilitySDNN, .secondUnit(with: .milli), 40,
+                                                               metadata: [HKMetadataKeyAlgorithmVersion: 3])]
+        store.quantities[.oxygenSaturation] = [reading(.oxygenSaturation, .percent(), 0.97, seconds: 0)]
+        store.quantities[.appleSleepingWristTemperature] = [reading(.appleSleepingWristTemperature, .degreeCelsius(), 35.2)]
+        let (api, sent) = recordingPod(everything)
+        let report = await service(store).sendWatchData(api: api, side: .left, days: 2, now: now)
+        let start = Int(now.timeIntervalSince1970) - 3600
+        #expect(sent().first { $0.0 == .hrvSDNN }?.1 == [PodWatchUpload.Sample(timestamp: start, value: 40, end: start + 300,
+                                                                              device: "Watch6,1", algorithm: "3")])
+        #expect(sent().first { $0.0 == .bloodOxygen }?.1 == [PodWatchUpload.Sample(timestamp: start, value: 97, device: "Watch6,1")])
+        #expect(sent().first { $0.0 == .skinTemperature }?.1.first?.value == 35.2)
+        #expect(report?.optional == 2)
+        #expect(report?.matchedOptional == 2)
+    }
+
+    @Test func anOptionalMetricHealthWontShareCostsOnlyItself() async {
+        let store = WatchHealthStore()
+        watchNight(store)
+        store.failing = [.oxygenSaturation]
+        store.quantities[.restingHeartRate] = [reading(.restingHeartRate, .count().unitDivided(by: .minute()), 52)]
+        let (api, sent) = recordingPod(everything)
+        let health = service(store)
+        let report = await health.sendWatchData(api: api, side: .left, days: 2, now: now)
+        #expect(sent().contains { $0.0 == .restingHeartRate })
+        #expect(report?.stages == 1)
+        #expect(health.podUploadError == nil)
+    }
+
+    @Test func anOptionalMetricThePodRefusesCostsOnlyItself() async {
+        let store = WatchHealthStore()
+        watchNight(store)
+        store.quantities[.oxygenSaturation] = [reading(.oxygenSaturation, .percent(), 0.97)]
+        store.quantities[.restingHeartRate] = [reading(.restingHeartRate, .count().unitDivided(by: .minute()), 52)]
+        let api = MockAPIClient()
+        api.capabilities = .success(everything)
+        api.importSamples = { _, metric, samples in
+            if metric == .bloodOxygen { throw APIError.serverError(message: "refused") }
+            return samples.count
+        }
+        let health = service(store)
+        let report = await health.sendWatchData(api: api, side: .left, days: 2, now: now)
+        #expect(report?.optional == 1)
+        #expect(report?.breathing == 1)
+        #expect(health.podUploadError == nil)
+    }
+
+    @Test func anotherDevicesReadingsAreLeftOut() async {
+        struct Ring: ReferenceDevice {
+            let metrics: [PodWatchUpload.Metric] = [.restingHeartRate]
+            func recorded(_ sample: HKSample) -> Bool { sample.device?.model == "Ring" }
+            func hardware(of sample: HKSample) -> String? { sample.device?.hardwareVersion }
+        }
+        let ring = HKDevice(name: "Ring", manufacturer: nil, model: "Ring", hardwareVersion: "Gen4", firmwareVersion: nil,
+                            softwareVersion: nil, localIdentifier: nil, udiDeviceIdentifier: nil)
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let fromRing = HKQuantitySample(type: HKQuantityType(.restingHeartRate), quantity: HKQuantity(unit: unit, doubleValue: 48),
+                                        start: now, end: now, device: ring, metadata: nil)
+        let store = WatchHealthStore()
+        store.quantities[.restingHeartRate] = [fromRing, reading(.restingHeartRate, unit, 52)]
+        let (api, sent) = recordingPod(everything)
+        let health = service(store)
+        health.device = Ring()
+        _ = await health.sendWatchData(api: api, side: .left, days: 2, now: now)
+        #expect(sent().first { $0.0 == .restingHeartRate }?.1.map(\.device) == ["Gen4"])
+        #expect(sent().first { $0.0 == .bloodOxygen } == nil)
+    }
+
+    @Test func everyMetricsUnitFitsItsHealthType() {
+        // HealthKit raises on a mismatched unit instead of returning an error.
+        for metric in PodWatchUpload.Metric.allCases {
+            guard let type = metric.healthType else { continue }
+            #expect(HKQuantityType(type).is(compatibleWith: metric.unit), "\(metric)")
+        }
+    }
+
+    @Test func rmssdIsReadOnlyWhereHealthHasIt() {
+        if #available(iOS 27, *) {
+            #expect(PodWatchUpload.Metric.hrvRMSSD.healthType != nil)
+        } else {
+            #expect(PodWatchUpload.Metric.hrvRMSSD.healthType == nil)
+        }
+    }
+
+    @Test func aReadingOutsideThePodsOwnBoundsIsDropped() {
+        let pod = PodWatchUpload.Capabilities(sampleFields: [], metrics: [.init(metric: "blood_oxygen", min: 70, max: 100)])
+        let samples = [PodWatchUpload.Sample(timestamp: 2, value: 96, end: 3, device: "Watch8,2"), PodWatchUpload.Sample(timestamp: 1, value: 60)]
+        #expect(pod.prepared(samples, of: .bloodOxygen) == [PodWatchUpload.Sample(timestamp: 2, value: 96)])
+    }
+
+    @Test func theExtraReadingsAreAskedForOnlyWhenSendingToThePod() {
+        let health = service(WatchHealthStore())
+        health.preferences.sendWatchToPod = false
+        #expect(!health.readTypes.contains(HKQuantityType(.oxygenSaturation)))
+        health.preferences.sendWatchToPod = true
+        #expect(health.readTypes.contains(HKQuantityType(.oxygenSaturation)))
+        #expect(health.readTypes.contains(HKQuantityType(.appleSleepingWristTemperature)))
+    }
+
+    @Test func healthIsAskedAboutTheNewReadingsOnlyWhileAnyAreUnasked() async {
+        let store = WatchHealthStore()
+        store.unasked = true
+        let health = service(store)
+        await health.refreshMoreHealthAccess()
+        #expect(health.moreHealthAccess)
+        store.unasked = false
+        await health.refreshMoreHealthAccess()
+        #expect(!health.moreHealthAccess)
     }
 }
 

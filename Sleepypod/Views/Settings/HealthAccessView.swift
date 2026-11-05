@@ -174,6 +174,16 @@ struct HealthAccessView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(health.isSendingToPod || !health.enabled)
+                if health.moreHealthAccess {
+                    Button {
+                        Haptics.light()
+                        Task { _ = await health.requestAuthorization() }
+                    } label: {
+                        SettingsRow("Allow more Watch readings", subtitle: "Optional: blood oxygen, resting heart rate, wrist temperature and more",
+                                    icon: "plus.circle", height: 56) {}
+                    }
+                    .buttonStyle(.plain)
+                }
                 if let last = health.lastPodUpload {
                     SettingsRow("Last sent", subtitle: Self.podUploadSummary(last.report), icon: "clock", height: 56) {
                         RowValue(last.date.formatted(date: .omitted, time: .shortened), mono: true)
@@ -186,11 +196,12 @@ struct HealthAccessView: View {
             Text("Your pod compares its sleep tracking with your Apple Watch to get more accurate. Only Watch data is sent, and only to your pod, for this iPhone's side (\(settings.sideName(for: profile.defaultSide))). Sending again never duplicates anything.")
                 .font(.footnote).foregroundStyle(Theme.text2).padding(.horizontal, 16).fixedSize(horizontal: false, vertical: true)
         }
+        .task(id: health.preferences.sendWatchToPod) { await health.refreshMoreHealthAccess() }
     }
 
     /// A resend that adds nothing is a success, so it reads as up to date instead of a row of zeros.
     static func podUploadSummary(_ report: PodWatchUpload.Report) -> String {
-        let matched = report.matchedStages + report.matchedHeartRate + report.matchedHRV + report.matchedBreathing
+        let matched = report.matchedStages + report.matchedHeartRate + report.matchedHRV + report.matchedBreathing + report.matchedOptional
         var parts: [String]
         if matched == 0 {
             parts = ["No Apple Watch data found"]

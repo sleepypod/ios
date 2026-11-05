@@ -36,7 +36,7 @@ We discard HR values outside 30-200 BPM as physiologically impossible during sle
 ## Heart Rate Variability (HRV)
 
 ### Measurement
-HRV is the variation in time between consecutive heartbeats (R-R intervals). We use **RMSSD** (Root Mean Square of Successive Differences), which is the standard for short-term HRV measurement:
+HRV is the variation in time between consecutive heartbeats (R-R intervals). The pod reports a 5-minute variability index (`window_ibi_variability_v1` in sleepypod-core). It is not clinical RMSSD or SDNN, and the normal ranges below don't apply to it directly: over 26 nights on one pod it read about 1.6× Apple Watch SDNN. The app writes it to Apple Health as SDNN because Health has no field for it. For reference, **RMSSD** (Root Mean Square of Successive Differences), the standard for short-term HRV measurement, is:
 
 ```
 RMSSD = sqrt(mean((RR[i+1] - RR[i])^2))

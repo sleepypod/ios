@@ -14,6 +14,8 @@ protocol HealthSyncStore {
     func deleteAll(types: Set<HKSampleType>, olderThan version: Int, since start: Date) async throws
     func sleepSamples(start: Date, end: Date) async throws -> [HKCategorySample]
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async throws -> [HKQuantitySample]
+    /// Whether the Health sheet has anything left to ask. iOS never says whether a read was allowed.
+    func shouldRequestAuthorization(write: Set<HKSampleType>, read: Set<HKObjectType>) async -> Bool
 }
 
 @MainActor
@@ -23,6 +25,9 @@ final class SystemHealthSyncStore: HealthSyncStore {
     func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus { store.authorizationStatus(for: type) }
     func authorize(write: Set<HKSampleType>, read: Set<HKObjectType>) async throws {
         try await store.requestAuthorization(toShare: write, read: read)
+    }
+    func shouldRequestAuthorization(write: Set<HKSampleType>, read: Set<HKObjectType>) async -> Bool {
+        (try? await store.statusForAuthorizationRequest(toShare: write, read: read)) == .shouldRequest
     }
     func save(_ samples: [HKSample]) async throws { try await store.save(samples) }
     // HealthKit only lets an app delete its own samples; the device match keeps other pods and sides out.
@@ -123,6 +128,9 @@ final class HealthSyncService {
     weak var stageModels: StageModelStore?
     /// The last HealthKit read failure, so the Watch page can say why it is empty instead of showing a generic message.
     private(set) var readError: String?
+    private(set) var moreHealthAccess = false
+    /// The wearable whose readings go to the pod.
+    var device: any ReferenceDevice = AppleWatchDevice()
     private let store: any HealthSyncStore
     private let persistence: UserDefaults
 
@@ -154,7 +162,18 @@ final class HealthSyncService {
         var types: Set<HKObjectType> = []
         if preferences.readSleep { types.insert(HKCategoryType(.sleepAnalysis)) }
         if preferences.readVitals { types.formUnion(Self.vitalsReadTypes.map { HKQuantityType($0) }) }
+        // Only the send to the pod uses these, so they aren't asked for without it.
+        if preferences.sendWatchToPod { types.formUnion(device.metrics.compactMap(\.healthType).map { HKQuantityType($0) }) }
         return types
+    }
+
+    /// Checks for readings added since the Health sheet was last shown; iOS only asks about those when requested.
+    func refreshMoreHealthAccess() async {
+        guard enabled, store.available else {
+            moreHealthAccess = false
+            return
+        }
+        moreHealthAccess = await store.shouldRequestAuthorization(write: writeTypes, read: readTypes)
     }
 
     var hasWriteAuthorization: Bool {
@@ -177,6 +196,7 @@ final class HealthSyncService {
             // Completing the sheet does not prove access was granted. Each write is checked separately.
             enabled = true
             authorizationError = nil
+            await refreshMoreHealthAccess()
             return true
         } catch {
             authorizationError = error.localizedDescription
@@ -273,20 +293,22 @@ final class HealthSyncService {
         defer { isSendingToPod = false }
         podUploadError = nil
         let start = now.addingTimeInterval(-Double(days) * 86400)
+        // A pod that can't answer takes what it always took.
+        let capabilities = (try? await api.referenceCapabilities()) ?? .baseline
+        func samples(_ metric: PodWatchUpload.Metric) async throws -> [PodWatchUpload.Sample] {
+            guard let type = metric.healthType else { return [] }
+            return capabilities.prepared(device.samples(try await store.quantitySamples(type, start: start, end: now), of: metric), of: metric)
+        }
         let stages: [PodWatchUpload.Segment], heartRate: [PodWatchUpload.Sample]
         let breathing: [PodWatchUpload.Sample], hrv: [PodWatchUpload.Sample]
         do {
             // Read directly: `read` turns a failed query into no samples, which would look like an empty upload.
-            func readings(_ type: HKQuantityTypeIdentifier, _ unit: HKUnit) async throws -> [WatchComparison.Reading] {
-                Self.watchReadings(try await store.quantitySamples(type, start: start, end: now), unit: unit)
-            }
-            stages = PodWatchUpload.segments(Self.watchStages(try await store.sleepSamples(start: start, end: now)))
-            heartRate = PodWatchUpload.samples(try await readings(.heartRate, .count().unitDivided(by: .minute())),
+            stages = PodWatchUpload.segments(Self.watchStages(try await store.sleepSamples(start: start, end: now), device: device))
+            heartRate = PodWatchUpload.samples(Self.watchReadings(try await store.quantitySamples(.heartRate, start: start, end: now),
+                                                                  unit: .count().unitDivided(by: .minute()), device: device),
                                                in: PodWatchUpload.heartRateRange)
-            breathing = PodWatchUpload.samples(try await readings(.respiratoryRate, .count().unitDivided(by: .minute())),
-                                               in: PodWatchUpload.Metric.breathingRate.range)
-            hrv = PodWatchUpload.samples(try await readings(.heartRateVariabilitySDNN, .secondUnit(with: .milli)),
-                                         in: PodWatchUpload.Metric.hrvSDNN.range)
+            breathing = try await samples(.breathingRate)
+            hrv = try await samples(.hrvSDNN)
         } catch {
             podUploadError = "Apple Health couldn't be read: \(error.localizedDescription)"
             Log.health.error("Reading Watch data for the pod failed: \(error.localizedDescription, privacy: .public)")
@@ -316,6 +338,18 @@ final class HealthSyncService {
         } catch {
             podUploadError = error.localizedDescription
             Log.health.error("Sending Watch data to the pod failed: \(error.localizedDescription, privacy: .public)")
+        }
+        // Each is extra: one the device lacks, Health won't share or the pod refuses costs only itself.
+        for metric in device.metrics where !metric.isBaseline && capabilities.accepts(metric) {
+            do {
+                let readings = try await samples(metric)
+                report.matchedOptional += readings.count
+                for batch in PodWatchUpload.chunks(readings) {
+                    report.optional += try await api.importReferenceSamples(side: side, metric: metric, samples: batch)
+                }
+            } catch {
+                Log.health.notice("Skipped \(metric.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
         lastPodUpload = (now, report)
         Log.health.info("Sent Watch data to the pod: \(report.written) new rows, \(report.rejectedNights) nights refused")
@@ -593,14 +627,7 @@ final class HealthSyncService {
         }
     }
 
-    // Only what the Watch itself recorded counts; sleepypod's own writes are never compared against themselves.
-    // The source's productType is the usual tell, but some samples carry it only on the device.
-    static func isWatch(_ sample: HKSample) -> Bool {
-        guard sample.sourceRevision.source.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
-        return sample.sourceRevision.productType?.lowercased().hasPrefix("watch") == true
-            || sample.device?.model == "Watch"
-            || sample.device?.hardwareVersion?.lowercased().hasPrefix("watch") == true
-    }
+    static func isWatch(_ sample: HKSample) -> Bool { AppleWatchDevice().recorded(sample) }
 
     static func describeSources(_ samples: [HKSample]) -> String {
         let keys = Set(samples.map {
@@ -609,14 +636,14 @@ final class HealthSyncService {
         return keys.sorted().joined(separator: ", ")
     }
 
-    static func watchStages(_ samples: [HKCategorySample]) -> [WatchComparison.StageSample] {
-        samples.filter(isWatch).compactMap { sample in
+    static func watchStages(_ samples: [HKCategorySample], device: any ReferenceDevice = AppleWatchDevice()) -> [WatchComparison.StageSample] {
+        samples.filter(device.recorded).compactMap { sample in
             stage(for: sample.value).map { WatchComparison.StageSample(start: sample.startDate, end: sample.endDate, stage: $0) }
         }
     }
 
-    static func watchReadings(_ samples: [HKQuantitySample], unit: HKUnit) -> [WatchComparison.Reading] {
-        samples.filter(isWatch).map { WatchComparison.Reading(date: $0.startDate, value: $0.quantity.doubleValue(for: unit)) }
+    static func watchReadings(_ samples: [HKQuantitySample], unit: HKUnit, device: any ReferenceDevice = AppleWatchDevice()) -> [WatchComparison.Reading] {
+        samples.filter(device.recorded).map { WatchComparison.Reading(date: $0.startDate, value: $0.quantity.doubleValue(for: unit)) }
     }
 
     /// Agreement for the whole week plus one value per night, from a single Health read.

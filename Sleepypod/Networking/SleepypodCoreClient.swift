@@ -409,9 +409,21 @@ final class SleepypodCoreClient: SleepypodProtocol, @unchecked Sendable {
     func importReferenceSamples(side: Side, metric: PodWatchUpload.Metric, samples: [PodWatchUpload.Sample]) async throws -> Int {
         let result: TRPCWritten = try await mutate("biometrics.importReferenceSamples", input: [
             "side": side.rawValue, "source": "apple_watch", "metric": metric.rawValue,
-            "samples": samples.map { ["timestamp": $0.timestamp, "value": $0.value] }
+            "samples": samples.map(Self.podRow)
         ])
         return result.written
+    }
+
+    private static func podRow(_ sample: PodWatchUpload.Sample) -> [String: Any] {
+        var row: [String: Any] = ["timestamp": sample.timestamp, "value": sample.value]
+        row["endTimestamp"] = sample.end
+        row["device"] = sample.device
+        row["algorithm"] = sample.algorithm
+        return row
+    }
+
+    func referenceCapabilities() async throws -> PodWatchUpload.Capabilities {
+        try await query("biometrics.getReferenceCapabilities", input: [:])
     }
 
     // MARK: - Apple Watch movement recordings

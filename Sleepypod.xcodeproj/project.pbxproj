@@ -115,6 +115,7 @@
 		9D7F9E63ABF049359432DF0F /* DeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2941CA088FC1C77B69F36D60 /* DeviceManager.swift */; };
 		A01C7DDADC44DA3DCF50D894 /* TempSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 701ABC0806DCA609182E200C /* TempSliderView.swift */; };
 		A0711D54FE9EF5E664D13E9C /* SleepypodCoreClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87060AD52798647A518FA8BE /* SleepypodCoreClient.swift */; };
+		A0D7F02D8DA9AE6F1162B97F /* ReferenceDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16DAB85DCA893BE970A4F802 /* ReferenceDevice.swift */; };
 		A0F4BEF942158DB8DFA4A5BA /* LogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4849B345B1C029B80DB86F /* LogsView.swift */; };
 		A3BC5A89B6475BD1E789D8B3 /* AdaptiveSimulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C013D953D18958F2C4B435 /* AdaptiveSimulator.swift */; };
 		A58005D4A053A4021C7782D8 /* CurveGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85BD38479920F462D6470067 /* CurveGenerator.swift */; };
@@ -236,6 +237,7 @@
 		11D7A6E0B1458A3D80DFDC3C /* MarketingTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingTour.swift; sourceTree = "<group>"; };
 		1458956B4751A13CE39D3C2C /* WaterLevelSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterLevelSheet.swift; sourceTree = "<group>"; };
 		1680E783C6BA23F08E39895C /* StageChallengerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageChallengerTests.swift; sourceTree = "<group>"; };
+		16DAB85DCA893BE970A4F802 /* ReferenceDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceDevice.swift; sourceTree = "<group>"; };
 		18955C84857254C0B05ACDF6 /* WatchMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMotionTests.swift; sourceTree = "<group>"; };
 		1BA5BFA567D7FBA54153B602 /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
 		1BBB2DEABE79587F398DEB17 /* APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEndpoint.swift; sourceTree = "<group>"; };
@@ -661,6 +663,7 @@
 				C803665AE72E33B8B50730E9 /* PodDiscovery.swift */,
 				6E6D8E18E6C513B3608AC239 /* PodWatchUpload.swift */,
 				4748383FAE314C9B618AD6E1 /* PortableStageModel.swift */,
+				16DAB85DCA893BE970A4F802 /* ReferenceDevice.swift */,
 				A0EF147CC5E285EB9FCF9DBB /* ScheduleManager.swift */,
 				81EF4CCF024C14C6F5034605 /* SensorStreamService.swift */,
 				68BEE347AC8D43152FFBEE7B /* SettingsManager.swift */,
@@ -1038,6 +1041,7 @@
 				A723A40EBCB30E4352F9D4B1 /* ProfilePickerView.swift in Sources */,
 				56087F2DD514F7DAFD5F4C60 /* RangeSlider.swift in Sources */,
 				783B095FE1D933AE14D94C97 /* RawDataSheet.swift in Sources */,
+				A0D7F02D8DA9AE6F1162B97F /* ReferenceDevice.swift in Sources */,
 				92B1607F8D33BC281B15AAAE /* RunOnceActiveBanner.swift in Sources */,
 				89CC786871A5B3B08D0EC3C4 /* Schedule.swift in Sources */,
 				4B76AE90EF4105BC911F5102 /* ScheduleManager.swift in Sources */,
@@ -1143,7 +1147,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV, respiratory rate, blood oxygen, wrist temperature and breathing disturbances to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -1250,7 +1254,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = ZUR2343J7S;
 				INFOPLIST_FILE = Sleepypod/Info.plist;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV and respiratory rate to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV, respiratory rate, blood oxygen, wrist temperature and breathing disturbances to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;

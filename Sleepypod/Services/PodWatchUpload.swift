@@ -12,25 +12,77 @@ enum PodWatchUpload {
     struct Sample: Sendable, Equatable {
         let timestamp: Int
         let value: Double
+        /// Set when the reading covers a window rather than a moment.
+        var end: Int?
+        var device: String?
+        var algorithm: String?
     }
-    enum Metric: String, Sendable {
+    enum Metric: String, Sendable, CaseIterable {
         case breathingRate = "breathing_rate"
         case hrvSDNN = "hrv_sdnn"
+        case hrvRMSSD = "hrv_rmssd"
+        case bloodOxygen = "blood_oxygen"
+        case restingHeartRate = "resting_heart_rate"
+        case skinTemperature = "skin_temperature"
+        case breathingDisturbances = "breathing_disturbances"
 
-        /// The pod rejects a whole batch holding a value outside these (REFERENCE_SAMPLE_RANGE in core).
+        /// Every pod that stores samples takes these. The rest wait for the pod to say it accepts them.
+        var isBaseline: Bool { self == .breathingRate || self == .hrvSDNN }
+
+        /// The pod rejects a whole batch holding a value outside these (REFERENCE_SAMPLE_METRICS in core).
         var range: ClosedRange<Double> {
             switch self {
             case .breathingRate: 4...60
-            case .hrvSDNN: 1...500
+            case .hrvSDNN, .hrvRMSSD: 1...500
+            case .bloodOxygen: 50...100
+            case .restingHeartRate: 20...250
+            case .skinTemperature: 20...45
+            case .breathingDisturbances: 0...200
             }
         }
     }
+    /// What the pod says it accepts. A pod too old to answer takes only the baseline metrics as bare samples.
+    struct Capabilities: Sendable, Equatable, Decodable {
+        struct Entry: Sendable, Equatable, Decodable {
+            let metric: String
+            let min: Double
+            let max: Double
+        }
+
+        var sampleFields: [String] = []
+        var metrics: [Entry] = []
+
+        static let baseline = Capabilities()
+
+        func accepts(_ metric: Metric) -> Bool {
+            metric.isBaseline || metrics.contains { $0.metric == metric.rawValue }
+        }
+
+        /// The pod's own bounds when it gave them, so a change there needs no change here.
+        func range(of metric: Metric) -> ClosedRange<Double> {
+            metrics.first { $0.metric == metric.rawValue && $0.min <= $0.max }.map { $0.min...$0.max } ?? metric.range
+        }
+
+        /// `samples` as this pod can take them: in its bounds, oldest first, with only the fields it knows.
+        func prepared(_ samples: [Sample], of metric: Metric) -> [Sample] {
+            let range = range(of: metric)
+            return samples.filter { $0.value.isFinite && range.contains($0.value) }
+                .map { sample in
+                    var sample = sample
+                    if !sampleFields.contains("endTimestamp") { sample.end = nil }
+                    if !sampleFields.contains("device") { sample.device = nil }
+                    if !sampleFields.contains("algorithm") { sample.algorithm = nil }
+                    return sample
+                }
+                .sorted { $0.timestamp < $1.timestamp }
+        }
+    }
     struct Report: Sendable, Equatable {
-        var stages = 0, heartRate = 0, breathing = 0, hrv = 0
-        var matchedStages = 0, matchedHeartRate = 0, matchedBreathing = 0, matchedHRV = 0
+        var stages = 0, heartRate = 0, breathing = 0, hrv = 0, optional = 0
+        var matchedStages = 0, matchedHeartRate = 0, matchedBreathing = 0, matchedHRV = 0, matchedOptional = 0
         /// Nights the pod refused because they overlap stored segments with different boundaries.
         var rejectedNights = 0
-        var written: Int { stages + heartRate + breathing + hrv }
+        var written: Int { stages + heartRate + breathing + hrv + optional }
     }
 
     /// The API caps every import at 2000 items per call.
@@ -41,6 +93,8 @@ enum PodWatchUpload {
     static func isBoundaryConflict(_ message: String) -> Bool {
         message.contains("overlap stored reference stages")
     }
+
+    static func seconds(_ date: Date) -> Int { Int(date.timeIntervalSince1970.rounded(.down)) }
 
     static func podStage(_ stage: SleepAnalyzer.SleepStage) -> String {
         switch stage {
@@ -55,7 +109,6 @@ enum PodWatchUpload {
     /// starting latest wins) and runs of one stage merge, so a night posted from here matches the same night
     /// imported from an export and re-posting it is a no-op.
     static func segments(_ samples: [WatchComparison.StageSample]) -> [Segment] {
-        func seconds(_ date: Date) -> Int { Int(date.timeIntervalSince1970.rounded(.down)) }
         let floored: [Segment] = samples.map { Segment(start: seconds($0.start), end: seconds($0.end), stage: $0.stage) }
             .filter { $0.end > $0.start }
             .sorted { a, b in
@@ -91,7 +144,7 @@ enum PodWatchUpload {
 
     static func samples(_ readings: [WatchComparison.Reading], in range: ClosedRange<Double>) -> [Sample] {
         readings.filter { $0.value.isFinite && range.contains($0.value) }
-            .map { Sample(timestamp: Int($0.date.timeIntervalSince1970.rounded(.down)), value: $0.value) }
+            .map { Sample(timestamp: seconds($0.date), value: $0.value) }
             .sorted { $0.timestamp < $1.timestamp }
     }
 

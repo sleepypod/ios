@@ -23,6 +23,7 @@
 		14213FE824632EF617773E36 /* IBMPlexMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5C8D4D424A4CEC3378E85D58 /* IBMPlexMono-Medium.ttf */; };
 		148DFAE07760ED2F88A712F5 /* MotionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25144B52B22AB54483983387 /* MotionRecorder.swift */; };
 		1558A064C84FC3F65897D129 /* TemperatureConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D386CF79858C76A30F9B9E /* TemperatureConversion.swift */; };
+		15EEF0AE385057E69A9DDA6B /* NightStackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A407CA22B68C182B16C2F42 /* NightStackView.swift */; };
 		170ABA1BFA94168BFBC36E28 /* HealthSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B707F5F934F822B7D3D2C1 /* HealthSyncService.swift */; };
 		178824588D3CC952F0517CAC /* SleepRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0AFD07A8CB0082733ACB36 /* SleepRecord.swift */; };
 		183555484763CDB6368F4063 /* WaterLevelSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1458956B4751A13CE39D3C2C /* WaterLevelSheet.swift */; };
@@ -314,6 +315,7 @@
 		9794A5554B6C82E27ED4518E /* WatchBedRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBedRelay.swift; sourceTree = "<group>"; };
 		97C4FF2FF166CD9D12DEEBD0 /* WatchComparisonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComparisonTests.swift; sourceTree = "<group>"; };
 		987F4C796A69FBEA5B834DEF /* SetPointEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPointEditor.swift; sourceTree = "<group>"; };
+		9A407CA22B68C182B16C2F42 /* NightStackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightStackView.swift; sourceTree = "<group>"; };
 		9AA7286021C48AD5A6B7E3D9 /* WatchMotionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMotionView.swift; sourceTree = "<group>"; };
 		9B1F67C21593EE6EACF74EB4 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		9C23ED1E696702811954A0DA /* DataPipelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPipelineView.swift; sourceTree = "<group>"; };
@@ -405,6 +407,7 @@
 				0370A4FF64B61475AC0C1125 /* HealthScreen.swift */,
 				0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */,
 				452905BE65E698AC3C3419A6 /* MovementCardView.swift */,
+				9A407CA22B68C182B16C2F42 /* NightStackView.swift */,
 				355CB578673C1E0339D45850 /* PodMovementCardView.swift */,
 				50BD72013CAB411F125A77BC /* RawDataSheet.swift */,
 				A22017869B6697F13244EF76 /* ShareSheet.swift */,
@@ -1025,6 +1028,7 @@
 				3F3CA68DBFC6398C218DB8D0 /* MovementRecord.swift in Sources */,
 				B550262B3FAB41694790DA90 /* NightPhases.swift in Sources */,
 				D9706DA4AC4F0D618FF78A16 /* NightPhasesStore.swift in Sources */,
+				15EEF0AE385057E69A9DDA6B /* NightStackView.swift in Sources */,
 				59D63C6FB621C08C2D068AA7 /* NotificationRelay.swift in Sources */,
 				36740E4A775ACC858FFB9813 /* Onboarding.swift in Sources */,
 				F43BB4E4BD6341C7700A6480 /* PhaseBlockView.swift in Sources */,

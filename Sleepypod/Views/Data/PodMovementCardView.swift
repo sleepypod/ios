@@ -6,6 +6,8 @@ import Charts
 struct PodMovementCardView: View {
     let record: SleepRecord
     let side: Side
+    /// Set when drawn as a lane of the wide Night stack instead of its own card.
+    var lane: NightLaneContext?
     @Environment(WatchMotionReceiver.self) private var watchMotion
     @Environment(UserProfile.self) private var profile
     @State private var movement: [MovementRecord] = []
@@ -22,6 +24,14 @@ struct PodMovementCardView: View {
     }
 
     var body: some View {
+        content.task(id: "\(record.id)-\(side.rawValue)-\(watchMotion.recordings.count)") { await load() }
+    }
+
+    @ViewBuilder private var content: some View {
+        if let lane { laneRow(lane) } else { card }
+    }
+
+    private var card: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Eyebrow("MOVEMENT")
@@ -52,30 +62,56 @@ struct PodMovementCardView: View {
             }
         }
         .cardStyle()
-        .task(id: "\(record.id)-\(side.rawValue)-\(watchMotion.recordings.count)") { await load() }
     }
 
-    private var chart: some View {
+    private func laneRow(_ lane: NightLaneContext) -> some View {
+        let selected = lane.selection.wrappedValue.flatMap { date in
+            movement.first { abs($0.date.timeIntervalSince(date)) < 60 }
+        }
+        let value = !loaded || movement.isEmpty ? "—" : selected.map { "\($0.totalMovement)" } ?? "\(movement.count)"
+        return NightLane(title: "MOVEMENT", value: value, unit: selected == nil ? "min" : "score", color: Theme.amber,
+                         note: comparison == nil ? nil : "Watch", noteColor: Theme.cool) {
+            if !loaded {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if movement.isEmpty {
+                Text(error ?? "No movement recorded for this night").font(.caption).foregroundStyle(Theme.text3)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Chart {
+                    marks
+                    if let date = lane.selection.wrappedValue { NightLaneSelection(date: date) }
+                }
+                .nightLane(lane)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("The pod's movement through the night, \(movement.count) minutes")
+    }
+
+    /// Pod minutes as bars, the Watch's wrist movement as a line over them; each scaled to its own peak.
+    @ChartContentBuilder private var marks: some ChartContent {
         let podPeak = WatchMotionComparison.peak(movement.map { Double($0.totalMovement) })
         // A recording can run past the bed record; only the night shown is drawn and scaled.
         let watchPoints = comparison?.watch.filter { $0.date >= record.enteredBedDate && $0.date <= record.leftBedDate } ?? []
         let watchPeak = WatchMotionComparison.peak(watchPoints.map(\.value))
-        return Chart {
-            ForEach(movement) { minute in
-                BarMark(x: .value("Time", minute.date, unit: .minute),
-                        y: .value("Movement", min(Double(minute.totalMovement) / podPeak, 1.2)))
-                    .foregroundStyle(Theme.amber.opacity(comparison == nil ? 1 : 0.6))
-            }
-            // One series per run, so gaps without readings stay gaps.
-            ForEach(Array(WatchMotionComparison.runs(watchPoints).enumerated()), id: \.offset) { run, points in
-                ForEach(points) { point in
-                    LineMark(x: .value("Time", point.date), y: .value("Movement", min(point.value / watchPeak, 1.2)),
-                             series: .value("Source", "Watch \(run)"))
-                        .foregroundStyle(Theme.cool)
-                        .lineStyle(StrokeStyle(lineWidth: 1.2))
-                }
+        ForEach(movement) { minute in
+            BarMark(x: .value("Time", minute.date, unit: .minute),
+                    y: .value("Movement", min(Double(minute.totalMovement) / podPeak, 1.2)))
+                .foregroundStyle(Theme.amber.opacity(comparison == nil ? 1 : 0.6))
+        }
+        // One series per run, so gaps without readings stay gaps.
+        ForEach(Array(WatchMotionComparison.runs(watchPoints).enumerated()), id: \.offset) { run, points in
+            ForEach(points) { point in
+                LineMark(x: .value("Time", point.date), y: .value("Movement", min(point.value / watchPeak, 1.2)),
+                         series: .value("Source", "Watch \(run)"))
+                    .foregroundStyle(Theme.cool)
+                    .lineStyle(StrokeStyle(lineWidth: 1.2))
             }
         }
+    }
+
+    private var chart: some View {
+        Chart { marks }
         .chartXScale(domain: record.enteredBedDate...max(record.enteredBedDate, record.leftBedDate))
         .chartYAxis(.hidden)
         .chartXAxis {

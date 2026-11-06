@@ -4,6 +4,7 @@ struct SleepScreen: View {
     enum Period: String { case night = "Night", week = "Week", month = "Month" }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(MetricsManager.self) private var metrics
     @Environment(SettingsManager.self) private var settings
     @Environment(UserProfile.self) private var profile
@@ -17,6 +18,7 @@ struct SleepScreen: View {
     @State private var showWatch = false
     @State private var showStages = false
     @State private var monthRecords: [SleepRecord] = []
+    @State private var wideWidth: CGFloat = 0
 
     private var calendar: Calendar { .current }
     // A day can hold several records (naps, getting up and back in); the longest sleep is the night.
@@ -63,7 +65,7 @@ struct SleepScreen: View {
                     .padding(.horizontal, 4)
                     .padding(.bottom, 8)
                     switch period {
-                    case .night: nightContent
+                    case .night: if sizeClass == .regular { wideNightContent } else { nightContent }
                     case .week: weekContent
                     case .month: monthContent
                     }
@@ -71,8 +73,11 @@ struct SleepScreen: View {
                         Text(error).font(.footnote).foregroundStyle(Theme.amber)
                     }
                 }
-                .padding(.horizontal, 16)
+                .frame(maxWidth: sizeClass == .regular ? 1100 : .infinity)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { wideWidth = $0 }
+                .padding(.horizontal, sizeClass == .regular ? 32 : 16)
                 .padding(.bottom, 24)
+                .frame(maxWidth: .infinity)
             }
             .defaultScrollAnchor(DebugRoute.current == "weektrend" ? .bottom : nil)
             .background(Theme.background)
@@ -159,6 +164,35 @@ struct SleepScreen: View {
         } else {
             ContentUnavailableView("No sleep recorded", systemImage: "moon",
                                    description: Text("Choose another night to see sleep and vitals."))
+        }
+    }
+
+    /// Regular width: the summary beside the Watch and model comparisons, then every signal stacked on one time axis.
+    @ViewBuilder private var wideNightContent: some View {
+        if let record {
+            // The comparisons sit beside the summary when there is room, otherwise under the stack.
+            let besideSummary = canCompareWatch && wideWidth >= 800
+            HStack(alignment: .top, spacing: 12) {
+                SleepSummaryCardView(record: record, score: analyzer.qualityScore)
+                if besideSummary {
+                    VStack(spacing: 12) {
+                        watchRow
+                        stagesRow
+                    }
+                    .frame(width: 400)
+                }
+            }
+            NightStackView(record: record, stages: analyzer.stages, vitals: filteredVitals, side: metrics.selectedSide,
+                           source: analyzer.source, modelName: stageModels.active?.title)
+            if health.hasWriteAuthorization && metrics.selectedSide == profile.defaultSide && !isDemo {
+                healthReceipt(record)
+            }
+            if canCompareWatch && !besideSummary {
+                watchRow
+                stagesRow
+            }
+        } else {
+            nightContent
         }
     }
 

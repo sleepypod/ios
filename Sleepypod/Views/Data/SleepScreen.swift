@@ -79,7 +79,8 @@ struct SleepScreen: View {
                 .padding(.bottom, 24)
                 .frame(maxWidth: .infinity)
             }
-            .defaultScrollAnchor(DebugRoute.current == "weektrend" ? .bottom : nil)
+            // A regular-width Week fits on screen, so only the iPhone capture needs scrolling to the trend.
+            .defaultScrollAnchor(DebugRoute.current == "weektrend" && sizeClass != .regular ? .bottom : nil)
             .background(Theme.background)
             .navigationTitle("Sleep")
             .settingsToolbar()

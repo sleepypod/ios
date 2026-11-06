@@ -51,12 +51,13 @@ struct WatchComparison: Sendable {
     let stages: StageAgreement
     let heartRate: [HeartRatePair]
     let watchHeartRate: [Reading]
+    var watchRMSSD: [Reading] = []
     var watchHRV: [Reading] = []
     var watchBreathing: [Reading] = []
     let hrv: Averages
     let breathing: Averages
 
-    var hasWatchData: Bool { !watchStages.isEmpty || !watchHeartRate.isEmpty || hrv.watch != nil || breathing.watch != nil }
+    var hasWatchData: Bool { !watchRMSSD.isEmpty || !watchStages.isEmpty || !watchHeartRate.isEmpty || hrv.watch != nil || breathing.watch != nil }
     /// Mean absolute error in bpm over the matched minutes.
     var heartRateError: Double? {
         heartRate.isEmpty ? nil : heartRate.map { abs($0.ours - $0.watch) }.reduce(0, +) / Double(heartRate.count)
@@ -67,13 +68,14 @@ struct WatchComparison: Sendable {
     }
 
     static func build(epochs: [SleepAnalyzer.SleepEpoch], vitals: [VitalsRecord], watchStages: [StageSample],
-                      watchHeartRate: [Reading], watchHRV: [Reading], watchBreathing: [Reading],
+                      watchHeartRate: [Reading], watchHRV: [Reading], watchBreathing: [Reading], watchRMSSD: [Reading] = [],
                       heartRateTolerance: TimeInterval = 90) -> WatchComparison {
         WatchComparison(
             watchStages: watchStages.sorted { $0.start < $1.start },
             stages: stageAgreement(epochs: epochs, watch: watchStages),
             heartRate: heartRatePairs(vitals: vitals, watch: watchHeartRate, tolerance: heartRateTolerance),
             watchHeartRate: watchHeartRate.sorted { $0.date < $1.date },
+            watchRMSSD: watchRMSSD.sorted { $0.date < $1.date },
             watchHRV: watchHRV.sorted { $0.date < $1.date },
             watchBreathing: watchBreathing.sorted { $0.date < $1.date },
             hrv: Averages(ours: mean(vitals.compactMap(\.hrv)), watch: mean(watchHRV.map(\.value))),

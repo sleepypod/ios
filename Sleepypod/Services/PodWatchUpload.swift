@@ -16,21 +16,22 @@ enum PodWatchUpload {
     enum Metric: String, Sendable {
         case breathingRate = "breathing_rate"
         case hrvSDNN = "hrv_sdnn"
+        case hrvRMSSD = "hrv_rmssd"
 
         /// The pod rejects a whole batch holding a value outside these (REFERENCE_SAMPLE_RANGE in core).
         var range: ClosedRange<Double> {
             switch self {
             case .breathingRate: 4...60
-            case .hrvSDNN: 1...500
+            case .hrvSDNN, .hrvRMSSD: 1...500
             }
         }
     }
     struct Report: Sendable, Equatable {
-        var stages = 0, heartRate = 0, breathing = 0, hrv = 0
-        var matchedStages = 0, matchedHeartRate = 0, matchedBreathing = 0, matchedHRV = 0
+        var stages = 0, heartRate = 0, breathing = 0, hrv = 0, rmssd = 0
+        var matchedStages = 0, matchedHeartRate = 0, matchedBreathing = 0, matchedHRV = 0, matchedRMSSD = 0
         /// Nights the pod refused because they overlap stored segments with different boundaries.
         var rejectedNights = 0
-        var written: Int { stages + heartRate + breathing + hrv }
+        var written: Int { stages + heartRate + breathing + hrv + rmssd }
     }
 
     /// The API caps every import at 2000 items per call.

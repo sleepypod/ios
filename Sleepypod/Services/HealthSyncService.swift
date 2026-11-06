@@ -148,7 +148,11 @@ final class HealthSyncService {
         return types
     }
 
-    static let vitalsReadTypes: [HKQuantityTypeIdentifier] = [.heartRate, .heartRateVariabilitySDNN, .respiratoryRate]
+    static var vitalsReadTypes: [HKQuantityTypeIdentifier] {
+        var types: [HKQuantityTypeIdentifier] = [.heartRate, .heartRateVariabilitySDNN, .respiratoryRate]
+        if #available(iOS 27.0, *) { types.append(.heartRateVariabilityRMSSD) }
+        return types
+    }
 
     var readTypes: Set<HKObjectType> {
         var types: Set<HKObjectType> = []
@@ -265,7 +269,8 @@ final class HealthSyncService {
 
     /// Sends what the Watch itself recorded over the last `days` (stages, heart rate, HRV, breathing) to the
     /// pod's reference tables for `side`. Safe to repeat: the pod skips rows it already holds. A failure keeps the
-    /// counts already stored and sets `podUploadError`; a failed Health read sends nothing.
+    /// counts already stored and sets `podUploadError`; a failed required Health read sends nothing.
+    /// RMSSD is optional: its read failure is reported without blocking the other readings.
     @discardableResult
     func sendWatchData(api: SleepypodProtocol, side: Side, days: Int, now: Date = Date()) async -> PodWatchUpload.Report? {
         guard enabled, store.available, !isSendingToPod else { return nil }
@@ -292,8 +297,19 @@ final class HealthSyncService {
             Log.health.error("Reading Watch data for the pod failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
+        // This new, optional Health type must not prevent existing readings from syncing.
+        var rmssd: [PodWatchUpload.Sample] = []
+        if #available(iOS 27.0, *) {
+            do {
+                let samples = try await store.quantitySamples(.heartRateVariabilityRMSSD, start: start, end: now)
+                rmssd = PodWatchUpload.samples(Self.watchReadings(samples, unit: .secondUnit(with: .milli)),
+                                               in: PodWatchUpload.Metric.hrvRMSSD.range)
+            } catch {
+                podUploadError = "Watch RMSSD couldn't be read; other readings will still sync: \(error.localizedDescription)"
+            }
+        }
         var report = PodWatchUpload.Report(matchedStages: stages.count, matchedHeartRate: heartRate.count,
-                                           matchedBreathing: breathing.count, matchedHRV: hrv.count)
+                                           matchedBreathing: breathing.count, matchedHRV: hrv.count, matchedRMSSD: rmssd.count)
         do {
             for night in PodWatchUpload.nights(stages) {
                 do {
@@ -312,6 +328,9 @@ final class HealthSyncService {
             }
             for batch in PodWatchUpload.chunks(hrv) {
                 report.hrv += try await api.importReferenceSamples(side: side, metric: .hrvSDNN, samples: batch)
+            }
+            for batch in PodWatchUpload.chunks(rmssd) {
+                report.rmssd += try await api.importReferenceSamples(side: side, metric: .hrvRMSSD, samples: batch)
             }
         } catch {
             podUploadError = error.localizedDescription
@@ -651,17 +670,22 @@ final class HealthSyncService {
             }
         }
         var heartRate: [WatchComparison.Reading] = [], hrv: [WatchComparison.Reading] = [], breathing: [WatchComparison.Reading] = []
+        var rmssd: [WatchComparison.Reading] = []
         if preferences.readVitals {
             heartRate = Self.watchReadings(await read("heart rate") { try await store.quantitySamples(.heartRate, start: start, end: end) },
                                            unit: .count().unitDivided(by: .minute()))
             hrv = Self.watchReadings(await read("HRV") { try await store.quantitySamples(.heartRateVariabilitySDNN, start: start, end: end) },
                                      unit: .secondUnit(with: .milli))
+            if #available(iOS 27.0, *) {
+                rmssd = Self.watchReadings(await read("RMSSD") { try await store.quantitySamples(.heartRateVariabilityRMSSD, start: start, end: end) },
+                                           unit: .secondUnit(with: .milli))
+            }
             breathing = Self.watchReadings(await read("breathing") { try await store.quantitySamples(.respiratoryRate, start: start, end: end) },
                                            unit: .count().unitDivided(by: .minute()))
         }
         Log.health.notice("Watch samples kept: \(stages.count) stages, \(heartRate.count) HR, \(hrv.count) HRV, \(breathing.count) breathing")
         return WatchComparison.build(epochs: epochs, vitals: vitals, watchStages: stages,
-                                     watchHeartRate: heartRate, watchHRV: hrv, watchBreathing: breathing)
+                                     watchHeartRate: heartRate, watchHRV: hrv, watchBreathing: breathing, watchRMSSD: rmssd)
     }
 
     func sleepSamples(start: Date, end: Date) async -> [HKCategorySample] {

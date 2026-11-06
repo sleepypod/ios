@@ -126,6 +126,7 @@ struct PodWatchUploadTests {
 private final class WatchHealthStore: HealthSyncStore {
     var available = true
     var failReads = false
+    var failRMSSD = false
     var sleep: [HKCategorySample] = []
     var quantities: [HKQuantityTypeIdentifier: [HKQuantitySample]] = [:]
     func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus { .sharingAuthorized }
@@ -139,6 +140,7 @@ private final class WatchHealthStore: HealthSyncStore {
     }
     func quantitySamples(_ type: HKQuantityTypeIdentifier, start: Date, end: Date) async throws -> [HKQuantitySample] {
         if failReads { throw URLError(.cannotOpenFile) }
+        if #available(iOS 27.0, *), type == .heartRateVariabilityRMSSD, failRMSSD { throw URLError(.cannotOpenFile) }
         return quantities[type] ?? []
     }
 }
@@ -167,6 +169,34 @@ struct PodWatchSendTests {
         store.quantities = [.heartRate: [quantity(.heartRate, .count().unitDivided(by: .minute()), 55)],
                             .respiratoryRate: [quantity(.respiratoryRate, .count().unitDivided(by: .minute()), 15)],
                             .heartRateVariabilitySDNN: [quantity(.heartRateVariabilitySDNN, .secondUnit(with: .milli), 40)]]
+    }
+
+    @Test func rmssdSyncKeepsBreathingAndSDNNSeparate() async {
+        guard #available(iOS 27.0, *) else { return }
+        let store = WatchHealthStore()
+        watchNight(store)
+        store.quantities[.heartRateVariabilityRMSSD] = [HKQuantitySample(type: HKQuantityType(.heartRateVariabilityRMSSD),
+            quantity: HKQuantity(unit: .secondUnit(with: .milli), doubleValue: 32), start: now, end: now, device: watch, metadata: nil)]
+        let health = service(store)
+        let report = await health.sendWatchData(api: MockAPIClient(), side: .left, days: 2, now: now)
+        #expect(report?.rmssd == 1)
+        #expect(report?.matchedRMSSD == 1)
+        #expect(report?.hrv == 1)
+        #expect(report?.breathing == 1)
+        #expect(health.podUploadError == nil)
+    }
+
+    @Test func optionalRMSSDReadFailureStillSyncsBreathing() async {
+        guard #available(iOS 27.0, *) else { return }
+        let store = WatchHealthStore()
+        watchNight(store)
+        store.failRMSSD = true
+        let health = service(store)
+        let report = await health.sendWatchData(api: MockAPIClient(), side: .left, days: 2, now: now)
+        #expect(report?.rmssd == 0)
+        #expect(report?.hrv == 1)
+        #expect(report?.breathing == 1)
+        #expect(health.podUploadError?.contains("RMSSD") == true)
     }
 
     @Test func aFailedHealthReadSendsNothing() async {

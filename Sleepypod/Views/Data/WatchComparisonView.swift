@@ -32,7 +32,7 @@ struct WatchComparisonView: View {
                     vitalCard(heartRateMetric(comparison))
                     vitalCard(hrvMetric(comparison))
                     vitalCard(breathingMetric(comparison))
-                    Text("Touch and hold any chart to read both sources at that minute. sleepypod reports HRV as RMSSD and the Watch as SDNN from a few spot readings, so compare how they move, not their level. Agreement counts only minutes where the Watch recorded a stage.")
+                    Text("Touch and hold any chart to read both sources at that minute. Pod HRV is a window-based IBI variability index. Watch SDNN and RMSSD use different calculations; compare their trends, not their absolute values. Agreement counts only minutes where the Watch recorded a stage.")
                         .font(.footnote).foregroundStyle(Theme.text3).fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
                 } else if loaded {
                     ContentUnavailableView("No Apple Watch data", systemImage: "applewatch",
@@ -301,6 +301,8 @@ struct WatchComparisonView: View {
         let stat: String?
         let accessibility: String
         let footer: String
+        var rmssd: [WatchComparison.Reading] = []
+        var watchLabel: String = "Apple Watch"
     }
 
     private func podReadings(_ value: (VitalsRecord) -> Double?) -> [WatchComparison.Reading] {
@@ -327,7 +329,7 @@ struct WatchComparisonView: View {
                ours: podReadings(\.hrv), watch: comparison.watchHRV, watchTolerance: 20 * 60,
                stat: averagesText(comparison.hrv, decimals: 0, unit: "ms"),
                accessibility: averagesSummary("HRV", comparison.hrv, decimals: 0, unit: "milliseconds"),
-               footer: "RMSSD vs SDNN")
+               footer: "Pod index / Watch SDNN", rmssd: comparison.watchRMSSD, watchLabel: "Watch SDNN")
     }
 
     private func breathingMetric(_ comparison: WatchComparison) -> Metric {
@@ -352,7 +354,7 @@ struct WatchComparisonView: View {
                     Text(stat).font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
                 }
             }
-            if metric.ours.isEmpty && metric.watch.isEmpty {
+            if metric.ours.isEmpty && metric.watch.isEmpty && metric.rmssd.isEmpty {
                 Text("Neither source recorded this night").font(.subheadline).foregroundStyle(Theme.text2)
             } else {
                 Chart {
@@ -366,6 +368,10 @@ struct WatchComparisonView: View {
                             .foregroundStyle(Self.watchColor).lineStyle(StrokeStyle(lineWidth: 1.5))
                         PointMark(x: .value("Time", reading.date), y: .value(metric.unit, reading.value))
                             .foregroundStyle(Self.watchColor).symbolSize(metric.watch.count < 20 ? 24 : 10)
+                    }
+                    ForEach(metric.rmssd) { reading in
+                        PointMark(x: .value("Time", reading.date), y: .value(metric.unit, reading.value))
+                            .foregroundStyle(Theme.green).symbol(.diamond).symbolSize(20)
                     }
                     if let selection {
                         selectionRule(selection)
@@ -395,15 +401,16 @@ struct WatchComparisonView: View {
                 .chartXAxis { hourAxis }
                 .frame(height: 150)
                 .accessibilityElement()
-                .accessibilityLabel(metric.accessibility)
+                .accessibilityLabel(metric.accessibility + (metric.rmssd.isEmpty ? "" : ", \(metric.rmssd.count) Watch RMSSD readings"))
                 HStack(spacing: 14) {
                     seriesKey("sleepypod", color: metric.color)
-                    seriesKey("Apple Watch", color: Self.watchColor)
-                    Spacer()
-                    Text(metric.watch.isEmpty ? "No Watch readings" : metric.footer)
-                        .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text3)
+                    seriesKey(metric.watchLabel, color: Self.watchColor)
+                    if !metric.rmssd.isEmpty { seriesKey("Watch RMSSD ◆", color: Theme.green) }
                 }
                 .accessibilityHidden(true)
+                Text(metric.watch.isEmpty && metric.rmssd.isEmpty ? "No Watch readings" : metric.footer)
+                    .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text3)
+                    .accessibilityHidden(true)
             }
         }
         .cardStyle()
@@ -415,7 +422,9 @@ struct WatchComparisonView: View {
         }
         let pod = WatchComparison.nearest(metric.ours, to: date, within: 120)
         let watch = WatchComparison.nearest(metric.watch, to: date, within: metric.watchTolerance)
-        return "\(date.formatted(date: .omitted, time: .shortened))  ·  \(text(pod)) / \(text(watch)) \(metric.unit)"
+        let rmssd = WatchComparison.nearest(metric.rmssd, to: date, within: metric.watchTolerance)
+        let extra = metric.rmssd.isEmpty ? "" : " · RMSSD \(text(rmssd)) \(metric.unit)"
+        return "\(date.formatted(date: .omitted, time: .shortened))  ·  \(text(pod)) / \(text(watch)) \(metric.unit)\(extra)"
     }
 
     private func selectionRule(_ date: Date) -> some ChartContent {

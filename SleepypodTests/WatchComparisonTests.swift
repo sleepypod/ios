@@ -15,6 +15,17 @@ struct WatchComparisonTests {
                                     end: Date(timeIntervalSince1970: Double(to) * 60), stage: stage)
     }
 
+    @Test func optionalRMSSDDoesNotBecomeSDNNOrBreathing() {
+        let samples = [WatchComparison.Reading(date: Date(timeIntervalSince1970: 60), value: 32)]
+        let result = WatchComparison.build(epochs: [], vitals: [], watchStages: [], watchHeartRate: [],
+                                           watchHRV: [], watchBreathing: [], watchRMSSD: samples)
+        #expect(result.hasWatchData)
+        #expect(result.watchRMSSD.map(\.value) == [32])
+        #expect(result.watchHRV.isEmpty)
+        #expect(result.watchBreathing.isEmpty)
+        #expect(result.hrv.watch == nil)
+    }
+
     @Test func agreementCountsOnlyMinutesTheWatchStaged() {
         let epochs = [epoch(0, .light), epoch(1, .light), epoch(2, .deep), epoch(3, .deep), epoch(4, .rem), epoch(10, .wake)]
         let samples = [watch(0, 2, .light), watch(2, 3, .light), watch(3, 4, .deep), watch(4, 5, .rem)]

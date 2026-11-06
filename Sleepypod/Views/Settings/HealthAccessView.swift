@@ -190,7 +190,7 @@ struct HealthAccessView: View {
 
     /// A resend that adds nothing is a success, so it reads as up to date instead of a row of zeros.
     static func podUploadSummary(_ report: PodWatchUpload.Report) -> String {
-        let matched = report.matchedStages + report.matchedHeartRate + report.matchedHRV + report.matchedBreathing
+        let matched = report.matchedStages + report.matchedHeartRate + report.matchedHRV + report.matchedBreathing + report.matchedRMSSD
         var parts: [String]
         if matched == 0 {
             parts = ["No Apple Watch data found"]

@@ -150,6 +150,8 @@ extension View {
         modifier(ChromeSurface(shape: shape, interactive: interactive))
     }
     func settingsToolbar() -> some View { modifier(SettingsToolbar()) }
+    /// Caps a single-column screen at a readable width and centres it; a no-op at iPhone widths.
+    func readableWidth(_ width: CGFloat = 900) -> some View { frame(maxWidth: width).frame(maxWidth: .infinity) }
 }
 
 // MARK: - Segmented control

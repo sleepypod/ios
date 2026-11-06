@@ -84,6 +84,7 @@ struct StageComparisonView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
+            .readableWidth()
         }
         .background(Theme.background)
         .navigationTitle("Stage models")

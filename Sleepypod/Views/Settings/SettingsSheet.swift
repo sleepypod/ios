@@ -102,7 +102,9 @@ struct SettingsSheet: View {
             .navigationDestination(isPresented: $showHealth) { HealthAccessView() }
         }
         .tint(Theme.text1)
-        .presentationDetents([.medium, .large])
+        // iPad shows the gear sheet as a centred form at full height; iPhone keeps the half-height detent.
+        .presentationDetents(UIDevice.current.userInterfaceIdiom == .pad ? [.large] : [.medium, .large])
+        .presentationSizing(.form)
         .presentationDragIndicator(.visible)
         .modifier(SettingsSheetBackground())
         .fullScreenCover(isPresented: $showWatchMotion) {
@@ -275,6 +277,7 @@ struct AllSettingsScreen: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 32)
+            .readableWidth(720)
         }
         .tint(Theme.green)
         .background(Theme.background)

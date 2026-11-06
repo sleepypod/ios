@@ -13,7 +13,7 @@ struct WatchMotionNightView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Wrist movement from the Watch and the pod's movement score for \(settings.sideName(for: profile.defaultSide)), each scaled to its own night. Peaks that line up are movements both sensors caught.")
+                Text("Wrist movement from the Watch above the line and the pod's movement score for \(settings.sideName(for: profile.defaultSide)) below it, in 5-minute bars, each scaled to its own night. Bars that meet at the line are movements both sensors caught.")
                     .font(.footnote).foregroundStyle(Theme.text2).lineSpacing(3)
                     .padding(.horizontal, 8)
                 if let error {
@@ -66,34 +66,37 @@ struct WatchMotionNightView: View {
     }
 }
 
-/// Wrist movement from the Watch over the pod's movement score, each scaled to its own night.
+/// Watch movement above the line and the pod's below it, in the same time buckets, so a movement both sensors caught
+/// reads as two bars meeting at the line. Each is scaled to its own night.
 struct WatchMotionChart: View {
     let comparison: WatchMotionComparison
+    /// The x-axis, when the chart shows a night rather than the whole recording.
+    var domain: ClosedRange<Date>?
+    var height: CGFloat = 200
 
     var body: some View {
-        let watchPeak = comparison.watchPeak, podPeak = comparison.podPeak
+        let watch = comparison.watchBuckets, pod = comparison.podBuckets
+        let watchPeak = WatchMotionComparison.peak(watch.map(\.value)), podPeak = WatchMotionComparison.peak(pod.map(\.value))
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
                 legend("Watch", color: Theme.cool)
                 legend("Pod", color: Theme.amber)
             }
             Chart {
-                ForEach(comparison.pod) { point in
-                    BarMark(x: .value("Time", point.date, unit: .minute), y: .value("Movement", min(point.value / podPeak, 1.2)))
-                        .foregroundStyle(Theme.amber.opacity(0.6))
+                ForEach(watch) { point in
+                    RectangleMark(xStart: .value("Start", point.date), xEnd: .value("End", barEnd(point)),
+                                  yStart: .value("Base", 0), yEnd: .value("Movement", min(point.value / watchPeak, 1.2)))
+                        .foregroundStyle(Theme.cool)
                 }
-                // One series per run, so gaps without readings stay gaps.
-                ForEach(Array(WatchMotionComparison.runs(comparison.watch).enumerated()), id: \.offset) { run, points in
-                    ForEach(points) { point in
-                        LineMark(x: .value("Time", point.date), y: .value("Movement", min(point.value / watchPeak, 1.2)),
-                                 series: .value("Source", "Watch \(run)"))
-                            .foregroundStyle(Theme.cool)
-                            .lineStyle(StrokeStyle(lineWidth: 1.2))
-                            .interpolationMethod(.linear)
-                    }
+                ForEach(pod) { point in
+                    RectangleMark(xStart: .value("Start", point.date), xEnd: .value("End", barEnd(point)),
+                                  yStart: .value("Base", 0), yEnd: .value("Movement", -min(point.value / podPeak, 1.2)))
+                        .foregroundStyle(Theme.amber)
                 }
+                RuleMark(y: .value("Base", 0)).foregroundStyle(Theme.cardBorder).lineStyle(StrokeStyle(lineWidth: 1))
             }
-            .chartXScale(domain: comparison.span)
+            .chartXScale(domain: domain ?? comparison.span)
+            .chartYScale(domain: -1.2...1.2)
             .chartYAxis(.hidden)
             .chartXAxis {
                 AxisMarks(values: .stride(by: .hour)) { value in
@@ -105,8 +108,14 @@ struct WatchMotionChart: View {
                     }
                 }
             }
-            .frame(height: 200)
+            .frame(height: height)
+            .accessibilityLabel("Watch movement above the line and the pod's below it, in 5-minute bars")
         }
+    }
+
+    /// Short of the next bar, so neighbours stay apart.
+    private func barEnd(_ point: WatchMotionComparison.Point) -> Date {
+        point.date.addingTimeInterval(WatchMotionComparison.bucketSeconds - 40)
     }
 
     private func legend(_ title: String, color: Color) -> some View {

@@ -1,7 +1,7 @@
 import SwiftUI
 import Charts
 
-/// The pod's per-minute movement score across one night, with the Watch's wrist movement drawn over it when a
+/// The pod's per-minute movement score across one night, or the pod set against the Watch's wrist movement when a
 /// Watch recording covers the same night.
 struct PodMovementCardView: View {
     let record: SleepRecord
@@ -26,7 +26,10 @@ struct PodMovementCardView: View {
             HStack {
                 Eyebrow("MOVEMENT")
                 Spacer()
-                if loaded && !movement.isEmpty {
+                if let r = comparison?.correlation {
+                    Text("r \(r.formatted(.number.precision(.fractionLength(2))))")
+                        .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
+                } else if loaded && !movement.isEmpty {
                     Text("\(movement.count) min").font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
                 }
             }
@@ -36,47 +39,28 @@ struct PodMovementCardView: View {
                 Text(error ?? "No movement recorded for this night")
                     .font(.subheadline).foregroundStyle(Theme.text3)
                     .frame(maxWidth: .infinity, minHeight: 120)
+            } else if let comparison {
+                WatchMotionChart(comparison: comparison, domain: nightSpan, height: 140)
             } else {
                 chart
-                if let comparison {
-                    HStack(spacing: 14) {
-                        legend("Pod", color: Theme.amber)
-                        legend("Watch", color: Theme.cool)
-                        Spacer()
-                        if let r = comparison.correlation {
-                            Text("r \(r.formatted(.number.precision(.fractionLength(2))))")
-                                .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
-                        }
-                    }
-                }
             }
         }
         .cardStyle()
         .task(id: "\(record.id)-\(side.rawValue)-\(watchMotion.recordings.count)") { await load() }
     }
 
+    private var nightSpan: ClosedRange<Date> { record.enteredBedDate...max(record.enteredBedDate, record.leftBedDate) }
+
     private var chart: some View {
         let podPeak = WatchMotionComparison.peak(movement.map { Double($0.totalMovement) })
-        // A recording can run past the bed record; only the night shown is drawn and scaled.
-        let watchPoints = comparison?.watch.filter { $0.date >= record.enteredBedDate && $0.date <= record.leftBedDate } ?? []
-        let watchPeak = WatchMotionComparison.peak(watchPoints.map(\.value))
         return Chart {
             ForEach(movement) { minute in
                 BarMark(x: .value("Time", minute.date, unit: .minute),
                         y: .value("Movement", min(Double(minute.totalMovement) / podPeak, 1.2)))
-                    .foregroundStyle(Theme.amber.opacity(comparison == nil ? 1 : 0.6))
-            }
-            // One series per run, so gaps without readings stay gaps.
-            ForEach(Array(WatchMotionComparison.runs(watchPoints).enumerated()), id: \.offset) { run, points in
-                ForEach(points) { point in
-                    LineMark(x: .value("Time", point.date), y: .value("Movement", min(point.value / watchPeak, 1.2)),
-                             series: .value("Source", "Watch \(run)"))
-                        .foregroundStyle(Theme.cool)
-                        .lineStyle(StrokeStyle(lineWidth: 1.2))
-                }
+                    .foregroundStyle(Theme.amber)
             }
         }
-        .chartXScale(domain: record.enteredBedDate...max(record.enteredBedDate, record.leftBedDate))
+        .chartXScale(domain: nightSpan)
         .chartYAxis(.hidden)
         .chartXAxis {
             AxisMarks(values: .stride(by: .hour, count: 2)) { value in
@@ -90,13 +74,6 @@ struct PodMovementCardView: View {
         }
         .frame(height: 120)
         .accessibilityLabel("The pod's movement through the night, \(movement.count) minutes")
-    }
-
-    private func legend(_ title: String, color: Color) -> some View {
-        HStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 10, height: 10)
-            Text(title).font(.caption).foregroundStyle(Theme.text2)
-        }
     }
 
     private func load() async {

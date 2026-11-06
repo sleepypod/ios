@@ -74,11 +74,35 @@ struct PodWatchUploadTests {
         #expect(comparison.span == Date(timeIntervalSince1970: 1_800_000_000)...Date(timeIntervalSince1970: 1_800_000_180))
     }
 
-    @Test func watchLineBreaksAcrossGapsLongerThanTwoMinutes() {
-        let points = [0, 60, 180, 600, 660].map { WatchMotionComparison.Point(date: Date(timeIntervalSince1970: $0), value: 1) }
-        let runs = WatchMotionComparison.runs(points.reversed())
-        #expect(runs.map { $0.map(\.date.timeIntervalSince1970) } == [[0, 60, 180], [600, 660]])
-        #expect(WatchMotionComparison.runs([]).isEmpty)
+    @Test func chartBucketsSumMinutesAndLeaveEmptyWindowsAbsent() {
+        let base: TimeInterval = 1_800_000_000
+        let minutes: [(TimeInterval, Double)] = [(0, 1), (60, 2), (240, 3), (300, 4), (900, 5)]
+        let points = minutes.map { WatchMotionComparison.Point(date: Date(timeIntervalSince1970: base + $0.0), value: $0.1) }
+        let buckets = WatchMotionComparison.buckets(points.reversed())
+        #expect(buckets.map(\.date.timeIntervalSince1970) == [base, base + 300, base + 900])
+        #expect(buckets.map(\.value) == [6, 4, 5])
+        #expect(WatchMotionComparison.buckets([]).isEmpty)
+    }
+
+    @Test func aPodMinuteLandsInTheSameBucketAsTheWatchMinuteItCovers() {
+        // The pod's reading at +300 s covers the minute starting at +240 s, the last of the first bucket.
+        let start: Int64 = 1_800_000_000_000
+        var bins = WatchMotionFile.Bins()
+        for index in 0..<150 {
+            bins.startMs.append(start + Int64(index) * 2000)
+            bins.samples.append(100)
+            bins.meanMagnitude.append(1)
+            bins.magnitudeVariance.append(0)
+            bins.maxJerk.append(0)
+            bins.movingSamples.append(1)
+        }
+        let file = WatchMotionFile(recordedFromMs: start, recordedToMs: start + 300_000, timeZone: "UTC", utcOffsetSeconds: 0,
+                                   sampleRateHz: 50, binSeconds: 2, jerkThresholdGPerSecond: 1, device: "test", bins: bins)
+        let pod = (1...5).map { MovementRecord(id: $0, totalMovement: 2, date: Date(timeIntervalSince1970: 1_800_000_000 + Double($0) * 60)) }
+        let comparison = WatchMotionComparison.build(file: file, pod: pod)
+        #expect(comparison.watchBuckets.map(\.date) == comparison.podBuckets.map(\.date))
+        #expect(comparison.podBuckets.map(\.value) == [10])
+        #expect(comparison.watchBuckets.map(\.value) == [150])
     }
 
     @Test func onlyTheSpanBothSensorsCoverIsKept() {

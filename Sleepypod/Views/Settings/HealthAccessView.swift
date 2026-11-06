@@ -244,7 +244,7 @@ struct HealthAccessView: View {
                 requesting = false
             }
         } label: {
-            BusyLabel(title: "Allow Health access", busyTitle: "Requesting access…", isBusy: requesting)
+            BusyLabel(title: "Continue", busyTitle: "Continuing…", isBusy: requesting)
         }
         .buttonStyle(PrimaryButtonStyle()).disabled(requesting)
     }

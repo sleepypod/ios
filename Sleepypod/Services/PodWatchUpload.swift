@@ -242,9 +242,14 @@ struct WatchMotionComparison: Sendable {
     /// Pod minutes paired with the Watch bins inside the same 60 s window.
     let pairs: [(pod: Double, watch: Double)]
 
+    /// One bar on the chart. Minutes are too spiky to compare at phone width; this still places a movement in the
+    /// night and matches the pod's bars on the web.
+    static let bucketSeconds: TimeInterval = 300
+
     var correlation: Double? { Self.pearson(pairs) }
-    var watchPeak: Double { Self.peak(watch.map(\.value)) }
-    var podPeak: Double { Self.peak(pod.map(\.value)) }
+    var watchBuckets: [Point] { Self.buckets(watch) }
+    /// A pod reading summarises the minute before its timestamp, so it counts toward that minute.
+    var podBuckets: [Point] { Self.buckets(pod, shift: -60) }
 
     static func build(file: WatchMotionFile, pod records: [MovementRecord]) -> WatchMotionComparison {
         let bins = file.bins
@@ -286,17 +291,13 @@ struct WatchMotionComparison: Sendable {
         return WatchMotionComparison(watch: watch, pod: pod, span: from...max(from, to.addingTimeInterval(60)), pairs: pairs)
     }
 
-    /// Runs of points no more than `maxGap` apart, so a line is never drawn across a stretch without readings.
-    static func runs(_ points: [Point], maxGap: TimeInterval = 120) -> [[Point]] {
-        var runs: [[Point]] = []
-        for point in points.sorted(by: { $0.date < $1.date }) {
-            if let last = runs.last?.last, point.date.timeIntervalSince(last.date) <= maxGap {
-                runs[runs.count - 1].append(point)
-            } else {
-                runs.append([point])
-            }
+    /// Points summed into fixed windows, dated by each window's start. A window without readings stays absent.
+    static func buckets(_ points: [Point], shift: TimeInterval = 0, size: TimeInterval = bucketSeconds) -> [Point] {
+        var sums: [TimeInterval: Double] = [:]
+        for point in points {
+            sums[((point.date.timeIntervalSince1970 + shift) / size).rounded(.down) * size, default: 0] += point.value
         }
-        return runs
+        return sums.sorted { $0.key < $1.key }.map { Point(date: Date(timeIntervalSince1970: $0.key), value: $0.value) }
     }
 
     private static func lowerBound(_ sorted: [Int64], _ value: Int64) -> Int {

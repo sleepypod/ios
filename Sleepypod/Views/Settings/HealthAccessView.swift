@@ -179,7 +179,7 @@ struct HealthAccessView: View {
                         Haptics.light()
                         Task { _ = await health.requestAuthorization() }
                     } label: {
-                        SettingsRow("Allow more Watch readings", subtitle: "Optional: blood oxygen, resting heart rate, wrist temperature and more",
+                        SettingsRow("More Watch readings", subtitle: "Optional: blood oxygen, resting heart rate, wrist temperature and more",
                                     icon: "plus.circle", height: 56) {}
                     }
                     .buttonStyle(.plain)

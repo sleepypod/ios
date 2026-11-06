@@ -66,6 +66,20 @@ Native iOS app for controlling and monitoring your [sleepypod](https://github.co
 - System log viewer (journalctl)
 - mDNS network discovery
 
+### Apple Watch
+- Bed control: set the target with the Digital Crown, turn a side on or off, and pick left, right or both sides
+- Alarm screen: stop or snooze a vibrating alarm with one tap
+- Movement recorder: tap **Movement** (top right of the bed screen) or swipe up to reach it; set the length with the Crown and tap **Record**. The button turns red while a recording runs
+- Send to pod: in the morning, one tap sends the night's wrist movement and Apple Health readings to the pod through the iPhone
+
+<p align="center">
+  <img src="docs/images/watch-bed.png" width="180" alt="Watch bed control" />
+  <img src="docs/images/watch-movement.png" width="180" alt="Watch movement recorder" />
+  <img src="docs/images/watch-recording.png" width="180" alt="Watch recording in progress" />
+  <img src="docs/images/watch-send.png" width="180" alt="Watch send to pod" />
+  <img src="docs/images/watch-alarm.png" width="180" alt="Watch alarm" />
+</p>
+
 ### Connection
 - Automatic mDNS discovery (`_sleepypod._tcp`)
 - Step-by-step connection progress UI

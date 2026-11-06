@@ -3,8 +3,11 @@ import SwiftUI
 /// The bed on one screen: the target on the Crown, the bed's own temperature under it, and power below.
 struct BedView: View {
     @Environment(BedController.self) private var bed
+    @Environment(RecordingController.self) private var recorder
     @Environment(\.scenePhase) private var scenePhase
     @State private var choosingSide = false
+    /// The Crown sets the target here, so the recorder below needs a button as well as a swipe.
+    var showMovement: () -> Void = {}
 
     var body: some View {
         @Bindable var bed = bed
@@ -45,6 +48,12 @@ struct BedView: View {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Side", systemImage: bed.selection == .both ? "person.2" : "person") { choosingSide = true }
                     .disabled(bed.snapshot == nil)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                let recording = if case .recording = recorder.phase() { true } else { false }
+                Button("Movement", systemImage: recording ? "record.circle.fill" : "waveform.path", action: showMovement)
+                    .foregroundStyle(recording ? .red : .primary)
+                    .accessibilityValue(recording ? "Recording" : "")
             }
         }
         .sheet(isPresented: $choosingSide) { SidePicker() }

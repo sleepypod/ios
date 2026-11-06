@@ -32,6 +32,8 @@ DEFAULT_SIZE = (1320, 2868)  # Apple's 6.9-inch portrait screenshot size.
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_MANIFEST = SCRIPT_DIR / "manifest.example.json"
 APPEARANCE_KEYS = ("accent", "text", "muted", "background", "glow", "bezel")
+# Device drawn around the capture: an iPhone, an iPad, or the unfolded iPhone Duo with its hinge.
+FRAMES = ("phone", "tablet", "foldable")
 
 
 def parse_args() -> argparse.Namespace:
@@ -109,6 +111,8 @@ def load_manifest(path: Path) -> tuple[dict[str, Any], Path]:
             raise ValueError(f"appearances.{name}.background must contain at least two colors")
         for value in [palette[key] for key in APPEARANCE_KEYS if key != "background"] + palette["background"]:
             ImageColor.getrgb(value)
+    if manifest.get("frame", "phone") not in FRAMES:
+        raise ValueError(f"frame must be one of {FRAMES}")
     if ("screenshots" in manifest) == ("artwork" in manifest):
         raise ValueError("Manifest must contain exactly one of 'screenshots' or 'artwork'")
     kind = manifest_kind(manifest)
@@ -344,7 +348,8 @@ def render_one(
     icon_image: Image.Image,
 ) -> None:
     width, height = size
-    scale = width / DEFAULT_SIZE[0]
+    frame = manifest.get("frame", "phone")
+    scale = layout_scale(size, frame)
     canvas = add_sky(gradient(size, palette["background"]), palette, manifest["app_name"] + item["output"], scale)
     draw = ImageDraw.Draw(canvas)
     accent, text_rgb, muted = color(palette["accent"]), color(palette["text"]), color(palette["muted"])
@@ -402,15 +407,20 @@ def render_one(
             raise ValueError(f"Raw screenshot must be portrait-oriented: {input_path}")
         screenshot = raw.convert("RGB")
 
-    # Phone: the full capture inside a dark bezel, centred under the caption.
-    bezel = round(24 * scale)
-    phone_top = round(760 * scale)
+    # Device: the full capture inside a dark bezel, centred under the caption.
+    bezel_ratio, corner_ratio = FRAME_SHAPES[frame]
+    bezel = round(bezel_ratio * scale)
+    # Wider tablet and foldable canvases wrap captions into fewer lines, so the device starts higher.
+    phone_top = round((760 if frame == "phone" else 690) * scale)
     available = height - phone_top - round(70 * scale) - 2 * bezel
     screen_height = available
     screen_width = round(screen_height * screenshot.width / screenshot.height)
+    if screen_width > width - 2 * margin:  # A wide capture on a narrow canvas: fit the width instead.
+        screen_width = width - 2 * margin
+        screen_height = round(screen_width * screenshot.height / screenshot.width)
     screen_left = (width - screen_width) // 2
     screen_top = phone_top + bezel
-    corner = round(screen_width * 0.135)
+    corner = round(screen_width * corner_ratio)
     outer = (screen_left - bezel, phone_top, screen_left + screen_width + bezel, screen_top + screen_height + bezel)
 
     phone_shadow = Image.new("RGBA", size, (0, 0, 0, 0))
@@ -426,6 +436,11 @@ def render_one(
         outer, radius=corner + bezel,
         outline=blend(bezel_rgb, (255, 255, 255), 0.28), width=max(2, round(4 * scale)),
     )
+    if frame == "tablet":
+        # Front camera centred in the top bezel, as on a portrait iPad.
+        camera = max(3, round(5 * scale))
+        cx, cy = (outer[0] + outer[2]) // 2, outer[1] + bezel // 2
+        draw.ellipse((cx - camera, cy - camera, cx + camera, cy + camera), fill=blend(bezel_rgb, (255, 255, 255), 0.18))
     rgb = canvas.convert("RGB")
     rounded_paste(
         rgb,
@@ -433,12 +448,45 @@ def render_one(
         (screen_left, screen_top, screen_left + screen_width, screen_top + screen_height),
         radius=corner,
     )
+    if frame == "foldable":
+        rgb = draw_hinge(rgb, outer, (screen_top, screen_top + screen_height), scale, bezel_rgb)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     rgb.save(output_path, format="PNG", optimize=True)
     with Image.open(output_path) as result:
         if result.size != size or result.mode != "RGB":
             raise RuntimeError(f"Output verification failed for {output_path}: {result.size}, {result.mode}")
+
+
+# (bezel in layout units, screen corner radius as a fraction of the screen width) per frame.
+FRAME_SHAPES = {"phone": (24, 0.135), "tablet": (34, 0.035), "foldable": (22, 0.06)}
+
+
+def layout_scale(size: tuple[int, int], frame: str) -> float:
+    """Phones scale with the width, as before; wider tablet and foldable canvases scale with the height."""
+    if frame == "phone":
+        return size[0] / DEFAULT_SIZE[0]
+    return min(size[0] / DEFAULT_SIZE[0], size[1] / DEFAULT_SIZE[1])
+
+
+def draw_hinge(
+    rgb: Image.Image, outer: tuple[int, int, int, int], screen_span: tuple[int, int], scale: float,
+    bezel_rgb: tuple[int, int, int],
+) -> Image.Image:
+    """The unfolded Duo: a faint crease down the middle of the screen and hinge notches in the frame."""
+    centre = (outer[0] + outer[2]) // 2
+    overlay = Image.new("RGBA", rgb.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    half = max(2, round(10 * scale))
+    for offset in range(-half, half + 1):
+        alpha = round(22 * (1 - abs(offset) / (half + 1)))
+        draw.line((centre + offset, screen_span[0], centre + offset, screen_span[1]), fill=(255, 255, 255, alpha))
+    draw.line((centre, screen_span[0], centre, screen_span[1]), fill=(0, 0, 0, 28), width=max(1, round(2 * scale)))
+    notch_w, notch_h = max(4, round(14 * scale)), max(2, round(6 * scale))
+    hinge = blend(bezel_rgb, (255, 255, 255), 0.35)
+    for y in (outer[1] - notch_h // 2, outer[3] - notch_h // 2):
+        draw.rounded_rectangle((centre - notch_w, y, centre + notch_w, y + notch_h), radius=notch_h // 2, fill=(*hinge, 255))
+    return Image.alpha_composite(rgb.convert("RGBA"), overlay).convert("RGB")
 
 
 def draw_phone(
@@ -680,7 +728,7 @@ def check_config(manifest: dict[str, Any], base: Path, size: tuple[int, int]) ->
             f"({', '.join(manifest['appearances'])}); icon {path.name} {icon.width}x{icon.height}; "
             f"{', '.join(placements)}"
         )
-    scale = size[0] / DEFAULT_SIZE[0]
+    scale = layout_scale(size, manifest.get("frame", "phone"))
     draw = ImageDraw.Draw(Image.new("RGB", size))
     margin = round(96 * scale)
     for item in manifest["screenshots"]:

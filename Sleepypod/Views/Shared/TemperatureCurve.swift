@@ -8,6 +8,8 @@ struct TemperatureCurve: View {
     let wake: String
     var bedTemperature: Int = TemperatureConversion.baseTempF
     var compact = false
+    /// Plot height; wide layouts pass a taller one.
+    var height: CGFloat?
 
     private var start: Int { DisplayTime.minutes(bedtime) }
     private func offset(_ time: String) -> Int { (DisplayTime.minutes(time) - start + 1440) % 1440 }
@@ -55,7 +57,7 @@ struct TemperatureCurve: View {
                     }
                 }
             }
-            .frame(height: compact ? 56 : 130)
+            .frame(height: height ?? (compact ? 56 : 130))
             if !compact {
                 HStack {
                     Text(DisplayTime.tick(minutes: start))

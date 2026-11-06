@@ -5,9 +5,14 @@ struct BothSidesView: View {
     @Environment(DeviceManager.self) private var device
     @Environment(SettingsManager.self) private var settings
     @Environment(SensorStreamService.self) private var sensor
+    @Environment(\.horizontalSizeClass) private var sizeClass
     let curve: ActiveCurve?
 
     var body: some View {
+        if sizeClass == .regular { wide } else { stacked }
+    }
+
+    private var stacked: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(subtitle).font(.mono(12, relativeTo: .caption)).foregroundStyle(Theme.text2)
                 .padding(.horizontal, 4).padding(.top, -4).padding(.bottom, 2)
@@ -16,6 +21,34 @@ struct BothSidesView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 24)
+    }
+
+    /// Regular width: the two sides next to each other, as they lie in the bed, with tonight's curve below.
+    private var wide: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(subtitle).font(.mono(12, relativeTo: .caption)).foregroundStyle(Theme.text2)
+                .padding(.horizontal, 4).padding(.top, -4)
+            HStack(alignment: .top, spacing: 16) {
+                ForEach(Side.allCases) { side in SideTempCard(side: side) }
+            }
+            if let next { nextCard(next) }
+            if let curve {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Eyebrow("TONIGHT")
+                        Spacer(minLength: 8)
+                        Text("\(DisplayTime.clock(curve.bedtime)) → \(DisplayTime.clock(curve.wakeTime))")
+                            .font(.mono(12, relativeTo: .caption)).foregroundStyle(Theme.text2)
+                    }
+                    TemperatureCurve(points: curve.setPoints, bedtime: curve.bedtime, wake: curve.wakeTime, height: 150)
+                }
+                .cardStyle()
+            }
+        }
+        .frame(maxWidth: 900)
+        .padding(.horizontal, 32)
+        .padding(.bottom, 32)
+        .frame(maxWidth: .infinity)
     }
 
     private var subtitle: String {

@@ -18,6 +18,7 @@ struct TempScreen: View {
 
     @Environment(SensorStreamService.self) private var sensor
     @Environment(UserProfile.self) private var profile
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var curveError: String?
     @State private var activeCurve: ActiveCurve?
     @State private var nightPhases = NightPhasesStore()
@@ -133,9 +134,11 @@ struct TempScreen: View {
             Group {
                 if deviceManager.isConnected {
                     switch profile.tempControl {
-                    case .dial, .stepper: centeredControl
+                    case .dial, .stepper:
+                        if sizeClass == .regular { wideControl } else { centeredControl }
                     case .slider:
                         TempSliderView(curve: activeCurve, profileName: activeCurve.map { profileName($0.setPoints) } ?? "")
+                            .frame(maxWidth: sizeClass == .regular ? 560 : .infinity)
                     case .sides:
                         ScrollView { BothSidesView(curve: activeCurve) }
                             .refreshable { await deviceManager.fetchStatus(); await fetchActiveCurve() }
@@ -183,40 +186,83 @@ struct TempScreen: View {
     private var centeredControl: some View {
         ScrollView {
             VStack(spacing: 0) {
-                SideSelectorView()
-                if profile.tempControl == .stepper {
-                    TempStepperView(store: nightPhases, tab: $stepperTab).padding(.top, 20)
-                    TempControlsView(powerOnly: true).padding(.top, 20)
-                } else {
-                    TemperatureDialView().padding(.top, 28)
-                    TempControlsView().padding(.top, 14)
-                }
-                environmentLine.padding(.top, 26)
-                VStack(spacing: 12) {
-                    if let curveError {
-                        Text(curveError).font(.footnote).foregroundStyle(Theme.amber)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    if deviceManager.isAlarmActive, let side = deviceManager.alarmSide { alarmCard(side) }
-                    if let curve = activeCurve {
-                        if let session = curve.session {
-                            RunOnceActiveBanner(session: session, onCancel: stopCurve, compact: true)
-                        } else {
-                            tonightCard(curve)
-                        }
-                    }
-                }
-                .padding(.top, 24)
+                controlStack
+                contextCards(wide: false).padding(.top, 24)
             }
             .padding(.horizontal, profile.tempControl == .stepper ? 16 : 20)
             .padding(.top, 16)
             .padding(.bottom, 24)
         }
-        .refreshable {
-            await deviceManager.fetchStatus()
-            await fetchActiveCurve()
-            if profile.tempControl == .stepper { await nightPhases.load([.left, .right]) }
+        .refreshable { await refreshControl() }
+    }
+
+    /// Regular width: the control in its own column, tonight's context beside it; one capped column when narrower.
+    private var wideControl: some View {
+        let hasContext = curveError != nil || activeCurve != nil || (deviceManager.isAlarmActive && deviceManager.alarmSide != nil)
+        let column = VStack(spacing: 0) {
+            controlStack
+            contextCards(wide: true).padding(.top, 24)
         }
+        .frame(maxWidth: 520)
+        // Centred in the window when it fits, so a tall iPad doesn't leave the lower half empty.
+        return GeometryReader { geo in
+            ScrollView {
+                Group {
+                    if hasContext {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .center, spacing: 40) {
+                                VStack(spacing: 0) { controlStack }.frame(width: 400)
+                                contextCards(wide: true).frame(width: 420)
+                            }
+                            column
+                        }
+                    } else {
+                        column
+                    }
+                }
+                .padding(.horizontal, 32)
+                .padding(.vertical, 32)
+                .frame(maxWidth: .infinity, minHeight: geo.size.height * 0.75)
+            }
+            .refreshable { await refreshControl() }
+        }
+    }
+
+    /// Side switcher, then the dial or Night & Dawn stepper with its buttons and the room line.
+    @ViewBuilder private var controlStack: some View {
+        SideSelectorView()
+        if profile.tempControl == .stepper {
+            TempStepperView(store: nightPhases, tab: $stepperTab).padding(.top, 20)
+            TempControlsView(powerOnly: true).padding(.top, 20)
+        } else {
+            TemperatureDialView().padding(.top, 28)
+            TempControlsView().padding(.top, 14)
+        }
+        environmentLine.padding(.top, 26)
+    }
+
+    /// Today's context: errors, a ringing alarm and tonight's curve or run-once session.
+    private func contextCards(wide: Bool) -> some View {
+        VStack(spacing: 12) {
+            if let curveError {
+                Text(curveError).font(.footnote).foregroundStyle(Theme.amber)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if deviceManager.isAlarmActive, let side = deviceManager.alarmSide { alarmCard(side) }
+            if let curve = activeCurve {
+                if let session = curve.session {
+                    RunOnceActiveBanner(session: session, onCancel: stopCurve, compact: !wide)
+                } else {
+                    tonightCard(curve, wide: wide)
+                }
+            }
+        }
+    }
+
+    private func refreshControl() async {
+        await deviceManager.fetchStatus()
+        await fetchActiveCurve()
+        if profile.tempControl == .stepper { await nightPhases.load([.left, .right]) }
     }
 
     /// 1c puts the side picker in a glass menu instead of the segmented switcher.
@@ -280,7 +326,7 @@ struct TempScreen: View {
         .frame(minHeight: 16)
     }
 
-    private func tonightCard(_ curve: ActiveCurve) -> some View {
+    private func tonightCard(_ curve: ActiveCurve, wide: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             ViewThatFits(in: .horizontal) {
                 HStack {
@@ -293,7 +339,8 @@ struct TempScreen: View {
                     range(curve)
                 }
             }
-            TemperatureCurve(points: curve.setPoints, bedtime: curve.bedtime, wake: curve.wakeTime, compact: true)
+            TemperatureCurve(points: curve.setPoints, bedtime: curve.bedtime, wake: curve.wakeTime, compact: !wide,
+                             height: wide ? 170 : nil)
         }
         .cardStyle()
     }

@@ -1150,6 +1150,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV, respiratory rate, blood oxygen, wrist temperature and breathing disturbances to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1158,7 +1159,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod;
 				PRODUCT_NAME = Sleepypod;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -1257,6 +1258,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV, respiratory rate, blood oxygen, wrist temperature and breathing disturbances to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1265,7 +1267,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanng.com.ios.sleepypod;
 				PRODUCT_NAME = Sleepypod;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};

@@ -41,9 +41,10 @@ targets:
         INFOPLIST_KEY_NSHealthShareUsageDescription: "sleepypod reads sleep samples to infer bedtimes, and Apple Watch sleep, heart rate, HRV, respiratory rate, blood oxygen, wrist temperature and breathing disturbances to compare them with the pod. They stay on this iPhone unless you choose to send them to your own pod."
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "sleepypod connects to your sleep pod on the local network to control temperature, view sensor data, and track sleep."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        TARGETED_DEVICE_FAMILY: 1
+        TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ZUR2343J7S
         PRODUCT_NAME: Sleepypod

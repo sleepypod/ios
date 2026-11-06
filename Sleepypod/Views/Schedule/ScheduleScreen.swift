@@ -4,6 +4,7 @@ struct ScheduleScreen: View {
     @Environment(ScheduleManager.self) private var schedule
     @Environment(SettingsManager.self) private var settings
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var editingPhase: SchedulePhase?
     @State private var alarmEditor = false
     @State private var showCurvePicker = false
@@ -23,38 +24,12 @@ struct ScheduleScreen: View {
             ScrollView {
                 VStack(spacing: 16) {
                     DaySelectorView().padding(.horizontal, 4)
-                    if let daily {
+                    if let daily, sizeClass == .regular {
+                        wideContent(daily)
+                    } else if let daily {
                         curveCard(daily)
                         phaseList(daily)
-                        GroupedCard {
-                            SettingsRow("Schedule active", icon: "power") {
-                                Toggle("Schedule active", isOn: Binding(get: { daily.power.enabled }, set: { _ in
-                                    Task { await schedule.togglePowerSchedule() }
-                                })).labelsHidden().tint(Theme.green)
-                            }
-                            if settings.supportsScheduleEndAction {
-                                Menu {
-                                    Picker("At wake", selection: Binding(get: { daily.power.endAction ?? .turnOff }, set: { action in
-                                        Task { await schedule.setPowerEndAction(action) }
-                                    })) {
-                                        ForEach(ScheduleEndAction.allCases, id: \.self) { Text($0.label).tag($0) }
-                                    }
-                                } label: {
-                                    SettingsRow("At wake", icon: "sun.max", chevron: true) { RowValue((daily.power.endAction ?? .turnOff).label) }
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            Menu {
-                                ForEach(SleepProfile.allCases) { profile in
-                                    Button(profile.rawValue) { Task { await schedule.applyProfile(profile) } }
-                                }
-                                Divider()
-                                Button("Design a curve", systemImage: "wand.and.stars") { showDesigner = true }
-                            } label: {
-                                SettingsRow("Sleep profile", icon: "slider.horizontal.3", chevron: true) { RowValue(profile) }
-                            }
-                            .buttonStyle(.plain)
-                        }
+                        settingsGroup(daily)
                     } else if schedule.isLoading {
                         ProgressView().padding(.top, 40)
                     } else {
@@ -65,9 +40,11 @@ struct ScheduleScreen: View {
                         Text(error).font(.footnote).foregroundStyle(Theme.amber).frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .padding(.horizontal, 16)
+                .frame(maxWidth: sizeClass == .regular ? 1100 : .infinity)
+                .padding(.horizontal, sizeClass == .regular ? 32 : 16)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
+                .frame(maxWidth: .infinity)
             }
             .background(Theme.background)
             .navigationTitle("Schedule")
@@ -111,7 +88,60 @@ struct ScheduleScreen: View {
         }
     }
 
-    private func curveCard(_ daily: DailySchedule) -> some View {
+    /// Regular width: the curve gets the wide column, the set points and schedule settings sit beside it.
+    /// Narrower regular windows (the unfolded Duo, iPad split view) stack them under a taller curve.
+    private func wideContent(_ daily: DailySchedule) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 20) {
+                curveCard(daily, height: 330)
+                    .frame(minWidth: 440, maxWidth: .infinity)
+                VStack(spacing: 16) {
+                    phaseList(daily)
+                    settingsGroup(daily)
+                }
+                .frame(width: 400)
+            }
+            VStack(spacing: 16) {
+                curveCard(daily, height: 200)
+                phaseList(daily)
+                settingsGroup(daily)
+            }
+        }
+    }
+
+    private func settingsGroup(_ daily: DailySchedule) -> some View {
+        GroupedCard {
+            SettingsRow("Schedule active", icon: "power") {
+                Toggle("Schedule active", isOn: Binding(get: { daily.power.enabled }, set: { _ in
+                    Task { await schedule.togglePowerSchedule() }
+                })).labelsHidden().tint(Theme.green)
+            }
+            if settings.supportsScheduleEndAction {
+                Menu {
+                    Picker("At wake", selection: Binding(get: { daily.power.endAction ?? .turnOff }, set: { action in
+                        Task { await schedule.setPowerEndAction(action) }
+                    })) {
+                        ForEach(ScheduleEndAction.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                } label: {
+                    SettingsRow("At wake", icon: "sun.max", chevron: true) { RowValue((daily.power.endAction ?? .turnOff).label) }
+                }
+                .buttonStyle(.plain)
+            }
+            Menu {
+                ForEach(SleepProfile.allCases) { profile in
+                    Button(profile.rawValue) { Task { await schedule.applyProfile(profile) } }
+                }
+                Divider()
+                Button("Design a curve", systemImage: "wand.and.stars") { showDesigner = true }
+            } label: {
+                SettingsRow("Sleep profile", icon: "slider.horizontal.3", chevron: true) { RowValue(profile) }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func curveCard(_ daily: DailySchedule, height: CGFloat? = nil) -> some View {
         let minutes = (DisplayTime.minutes(daily.power.off) - DisplayTime.minutes(daily.power.on) + 1440) % 1440
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -120,7 +150,8 @@ struct ScheduleScreen: View {
                 Text(settings.temperatureFormat == .celsius ? "°C" : "°F")
                     .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text3)
             }
-            TemperatureCurve(points: points, bedtime: daily.power.on, wake: daily.power.off, bedTemperature: bedTemperature)
+            TemperatureCurve(points: points, bedtime: daily.power.on, wake: daily.power.off, bedTemperature: bedTemperature,
+                             height: height)
         }
         .cardStyle()
     }

@@ -22,7 +22,19 @@ import time
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 DERIVED = REPO / 'build' / 'marketing'
-DEVICES = {'iphone-6.9': 'iPhone 17 Pro Max'}
+# Capture profile: simulator, the store sets rendered from its captures (manifest variant, size)
+# and the app-preview size. Social cuts are only made from the iPhone tours.
+DEVICES = {
+    'iphone-6.9': {'simulator': 'iPhone 17 Pro Max', 'preview': (886, 1920), 'social': True,
+                   'renders': [('iphone-6.9', '1320x2868'), ('iphone-6.5', '1284x2778')]},
+    # 13-inch iPad slot: 2064x2752 screenshots, 1200x1600 previews (4:3).
+    'ipad-13': {'simulator': 'iPad Pro 13-inch (M5)', 'preview': (1200, 1600), 'social': False,
+                'renders': [('ipad-13', '2064x2752')]},
+    # iPhone Duo, unfolded: the inner display upright gives 2007x2853 screenshots; previews use
+    # the iPhone 886x1920 size. simctl captures name the inner display, LCD-1.
+    'iphone-duo': {'simulator': 'iPhone Duo', 'preview': (886, 1920), 'social': False, 'display': 'LCD-1',
+                   'unfold': True, 'renders': [('iphone-duo', '2007x2853')]},
+}
 APPEARANCES = {'dark': 'Dark', 'light': 'Light'}
 # Matches the app's `background` colour so letterboxing disappears into the UI.
 PAD = {'dark': '0x0B0B0C', 'light': '0xF6F6F5'}
@@ -47,7 +59,6 @@ TOURS = [
     ('clip-sleep-watch', 'testClipSleepAndWatch', (15, 30)),
     ('walkthrough-sleepypod', 'testWalkthrough', (60, 120)),
 ]
-PREVIEW = (886, 1920)
 SOCIAL = (1080, 1920)
 MARK = re.compile(r'MARKETING_MARK (begin|end) (\d+\.\d+)')
 
@@ -63,9 +74,11 @@ def sim(*args, check=True):
 def device(name):
     # Isolate clean installs from developers' normal simulator app data.
     runtime_list = json.loads(sim('list', 'runtimes', '-j').stdout)['runtimes']
-    runtimes = [r for r in runtime_list if r.get('isAvailable') and '.iOS-' in r['identifier']]
+    # Newest iOS runtime that can run this device type; a beta runtime may support only a few devices.
+    runtimes = [r for r in runtime_list if r.get('isAvailable') and '.iOS-' in r['identifier']
+                and any(t['name'] == name for t in r.get('supportedDeviceTypes', [{'name': name}]))]
     if not runtimes:
-        raise RuntimeError('No available iOS simulator runtime')
+        raise RuntimeError(f'No available iOS simulator runtime for {name}')
     runtime = max(runtimes, key=lambda r: tuple(map(int, r['version'].split('.'))))['identifier']
     capture_name = f'sleepypod Marketing — {name}'
     listing = json.loads(sim('list', 'devices', 'available', '-j').stdout)
@@ -86,6 +99,28 @@ def launch(udid, bundle, appearance, overrides):
     sim('launch', udid, bundle, *[part for key, value in args.items() for part in (f'-{key}', value)])
 
 
+def unfold(udid):
+    """Opens an iPhone Duo flat with its inner display upright, then checks that display hosts the UI."""
+    source = HERE / 'duo_hinge.m'
+    helper = DERIVED / 'duo_hinge'
+    if not helper.exists() or helper.stat().st_mtime < source.stat().st_mtime:
+        DERIVED.mkdir(parents=True, exist_ok=True)
+        run('xcrun', '-sdk', 'iphonesimulator', 'clang', '-arch', 'arm64', '-mios-simulator-version-min=17.0', '-O2',
+            '-o', helper, source, '-framework', 'IOKit', '-framework', 'CoreFoundation')
+        run('codesign', '-f', '-s', '-', helper)
+    sim('spawn', udid, helper, '180')
+    # Device Hub's Rotate Left: with the hinge open this stands the inner display upright.
+    sim('spawn', udid, helper, 'orient', 'landscape-left')
+    for _ in range(40):
+        result = run('xcrun', 'devicectl', 'device', 'info', 'displays', '-d', udid, '-q', '-j', '-', check=False)
+        displays = json.loads(result.stdout or '{}').get('result', {}).get('displays', []) if not result.returncode else []
+        inner = next((d for d in displays if d.get('name') == 'LCD-1'), None)
+        if inner and inner.get('active') and inner.get('currentOrientation') == 'rot0':
+            return
+        time.sleep(0.5)
+    raise RuntimeError('The iPhone Duo did not unfold with its inner display upright')
+
+
 def png_size(path):
     with path.open('rb') as handle:
         header = handle.read(24)
@@ -102,14 +137,16 @@ def xctestrun():
 class Recorder:
     """`simctl io recordVideo`, timestamped when it reports the first frame."""
 
-    def __init__(self, udid, path):
+    def __init__(self, udid, path, display=None):
         path.unlink(missing_ok=True)
         self.path = path
         self.started = None
         self.log = []
         self.ready = threading.Event()
         launched = time.time()
+        display_args = [f'--display={display}'] if display else []
         self.process = subprocess.Popen(['xcrun', 'simctl', 'io', udid, 'recordVideo', '--codec=h264', '--force',
+                                         *display_args,
                                          str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         threading.Thread(target=self._drain, daemon=True).start()
         if not self.ready.wait(15):
@@ -137,7 +174,7 @@ class Recorder:
             raise RuntimeError(f'Recording failed: {"".join(self.log)}')
 
 
-def record_tour(udid, test, raw, appearance):
+def record_tour(udid, test, raw, appearance, display=None):
     env = dict(os.environ, TEST_RUNNER_MARKETING_TOUR='1', TEST_RUNNER_MARKETING_APPEARANCE=APPEARANCES[appearance])
     command = ['xcodebuild', 'test-without-building', '-xctestrun', str(xctestrun()),
                '-destination', f'id={udid}', '-parallel-testing-enabled', 'NO',
@@ -162,7 +199,7 @@ def record_tour(udid, test, raw, appearance):
                     raise RuntimeError('Capture marker delivery was delayed; recapture on an idle simulator')
                 marks.add(name)
                 if name == 'begin':
-                    recorder = Recorder(udid, raw)
+                    recorder = Recorder(udid, raw, display)
                     if time.time() - float(timestamp) >= 3:
                         raise RuntimeError('Recorder startup exceeded the opening hold; recapture on an idle simulator')
                 elif recorder is not None:
@@ -222,6 +259,8 @@ def main():
     parser.add_argument('--video-appearance', choices=APPEARANCES, default='dark')
     parser.add_argument('--only', choices=[name for name, _ in SHOTS] + [name for name, _, _ in TOURS], action='append', help='Only this screenshot or tour name (repeatable)')
     parser.add_argument('--keep-booted', action='store_true')
+    parser.add_argument('--settle', type=float, default=9,
+                        help='Seconds each screenshot launch settles before capture (raise on a busy host)')
     args = parser.parse_args()
     selected = args.device or list(DEVICES)
     looks = args.appearance or list(APPEARANCES)
@@ -241,12 +280,16 @@ def main():
     with (app / 'Info.plist').open('rb') as handle:
         bundle = plistlib.load(handle)['CFBundleIdentifier']
     for family in selected:
-        d = device(DEVICES[family]); udid = d['udid']; started = d['state'] != 'Booted'
+        profile = DEVICES[family]
+        d = device(profile['simulator']); udid = d['udid']; started = d['state'] != 'Booted'
         raw = HERE / 'raw' / family; output = HERE / 'output'
         try:
             if started:
                 sim('boot', udid)
             sim('bootstatus', udid, '-b')
+            if profile.get('unfold'):
+                unfold(udid)
+            display_args = [f'--display={profile["display"]}'] if profile.get('display') else []
             # A clean install drops any notification prompt left pending by an earlier non-capture launch.
             sim('uninstall', udid, bundle, check=False)
             sim('install', udid, app)
@@ -261,9 +304,9 @@ def main():
                         continue
                     print(f'Capturing {family} {appearance}: {filename}', flush=True)
                     launch(udid, bundle, appearance, overrides)
-                    time.sleep(9)
+                    time.sleep(args.settle)
                     path = raw / appearance / f'{filename}.png'
-                    sim('io', udid, 'screenshot', '--type=png', path)
+                    sim('io', udid, 'screenshot', '--type=png', *display_args, path)
                     print(f'  {path.relative_to(HERE)} {"x".join(map(str, png_size(path)))}', flush=True)
                 sim('terminate', udid, bundle, check=False)
             if args.video:
@@ -275,12 +318,15 @@ def main():
                         continue
                     print(f'Recording {family} {look}: {name} ({test})…', flush=True)
                     source = raw / 'video' / f'{name}.mp4'
-                    begin, end = record_tour(udid, test, source, look)
+                    begin, end = record_tour(udid, test, source, look, profile.get('display'))
                     start, duration = begin, end - begin
                     preview = output / family / f'{name}.mp4'
                     preview.parent.mkdir(parents=True, exist_ok=True)
-                    seconds = encode(source, preview, PREVIEW, start, duration, PAD[look], limits)
-                    print(f'  {preview.relative_to(HERE)} {PREVIEW[0]}x{PREVIEW[1]} {seconds:.1f}s', flush=True)
+                    size = profile['preview']
+                    seconds = encode(source, preview, size, start, duration, PAD[look], limits)
+                    print(f'  {preview.relative_to(HERE)} {size[0]}x{size[1]} {seconds:.1f}s', flush=True)
+                    if not profile['social']:
+                        continue
                     social = output / 'social' / f'{name}-{SOCIAL[0]}x{SOCIAL[1]}.mp4'
                     social.parent.mkdir(parents=True, exist_ok=True)
                     encode(source, social, SOCIAL, start, duration, PAD[look], limits)
@@ -290,8 +336,8 @@ def main():
             sim('status_bar', udid, 'clear', check=False)
             if started and not args.keep_booted:
                 sim('shutdown', udid, check=False)
-        if family == 'iphone-6.9' and any(wanted(name) for name, _ in SHOTS):
-            for variant, size in [('iphone-6.9', '1320x2868'), ('iphone-6.5', '1284x2778')]:
+        if any(wanted(name) for name, _ in SHOTS):
+            for variant, size in profile['renders']:
                 print(f'Rendering {variant} ({", ".join(looks)})…', flush=True)
                 appearance_args = [part for look in looks for part in ('--appearance', look)]
                 selection_args = [part for name, _ in SHOTS if wanted(name) for part in ('--only', name)]

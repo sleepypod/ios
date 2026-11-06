@@ -7,19 +7,20 @@ and record app-preview clips plus a full walkthrough video.
 python3 Marketing/AppStore/capture.py --video
 ```
 
-Run from the repository root. Requires Xcode with an iPhone 17 Pro Max
-device type and an installed iOS runtime, `uv`, and `ffmpeg`/`ffprobe`. No desktop taps or window positioning
+Run from the repository root. Requires Xcode with the iPhone 17 Pro Max, iPad Pro
+13-inch (M5) and iPhone Duo device types and iOS runtimes for them, `uv`, and `ffmpeg`/`ffprobe`. No desktop taps or window positioning
 are required. The script builds the Debug app and UI tests into
-`build/marketing`, creates or reuses a dedicated `sleepypod Marketing` simulator,
+`build/marketing`, creates or reuses a dedicated `sleepypod Marketing` simulator per device,
 and reinstalls sleepypod there (only that capture simulator's app data is reset), captures eight screens in dark and light, records the tours, and
 renders the compositions. It pins the status bar to 9:41 with full battery and
 Wi-Fi, clears the override afterwards, and shuts down only simulators it
-booted. A full run with video takes about 10 minutes.
+booted. A full run with video takes about 10 minutes per device.
 
-Options: `--skip-build` (reuse the last marketing build), `--device iphone-6.9`,
+Options: `--skip-build` (reuse the last marketing build), `--device iphone-6.9|ipad-13|iphone-duo`
+(repeatable; default all three, see [Devices](#devices)),
 `--appearance dark|light` (repeatable; default both), `--video-appearance`
 (default `dark`), `--only NAME` (repeatable; a screenshot or tour name such as
-`04-schedule` or `clip-schedule`; only selected screenshots are rendered), `--keep-booted`. Omit `--video` to produce
+`04-schedule` or `clip-schedule`; only selected screenshots are rendered), `--keep-booted`, `--settle SECONDS` (default 9; raise it when a busy host leaves screens half loaded). Omit `--video` to produce
 screenshots only.
 
 | Output | Dimensions | Content |
@@ -27,9 +28,13 @@ screenshots only.
 | `output/iphone-6.9/dark/*.png` | 1320×2868 | Primary App Store set: eight framed screens |
 | `output/iphone-6.9/light/*.png` | 1320×2868 | Same eight screens in light mode |
 | `output/iphone-6.5/{dark,light}/*.png` | 1284×2778 | 6.5-inch renders of the same captures |
+| `output/ipad-13/{dark,light}/*.png` | 2064×2752 | 13-inch iPad set, captured on iPad Pro 13-inch (M5), in a tablet frame |
+| `output/iphone-duo/{dark,light}/*.png` | 2007×2853 | iPhone Duo set, captured unfolded on the inner display, in a foldable frame |
 | `output/iphone-6.9/clip-*.mp4` | 886×1920 | 16–20 s app previews (temperature, Night & Dawn, schedule, sleep → Watch) |
 | `output/iphone-6.9/walkthrough-sleepypod.mp4` | 886×1920 | ~100 s tour of every tab, each control, the Watch page and Health |
-| `output/social/*-1080x1920.mp4` | 1080×1920 | Each video letterboxed for social, padded with the app background |
+| `output/ipad-13/*.mp4` | 1200×1600 | The same clips and walkthrough recorded on the iPad |
+| `output/iphone-duo/*.mp4` | 886×1920 | The same clips and walkthrough recorded on the unfolded Duo, letterboxed |
+| `output/social/*-1080x1920.mp4` | 1080×1920 | Each iPhone video letterboxed for social, padded with the app background |
 | `output/artwork/{dark,light}/header-21x9-3840x1646.png` | 3840×1646 | Product-page header creative asset (temperature dial) |
 | `output/artwork/{dark,light}/search-3x2-3840x2560.png` | 3840×2560 | Search-results creative asset (sleep night) |
 | `output/artwork/{dark,light}/universal-16x9-5244x2950.png` | 5244×2950 | Universal creative asset, accepted in both placements |
@@ -45,12 +50,37 @@ to just below the limit; anything requiring more than 1.5× speed fails and need
 a recapture on an idle simulator. Raw captures and
 generated deliverables are local and ignored by Git.
 
+## Devices
+
+| `--device` | Simulator | Screenshots | Previews | Frame (`frame` in the manifest) |
+| --- | --- | --- | --- | --- |
+| `iphone-6.9` | iPhone 17 Pro Max | 1320×2868, plus a 1284×2778 render | 886×1920 | `phone` |
+| `ipad-13` | iPad Pro 13-inch (M5) | 2064×2752 (`manifest.ipad-13.json`) | 1200×1600 | `tablet`: thicker bezel, tighter corners, front camera |
+| `iphone-duo` | iPhone Duo | 2007×2853 (`manifest.iphone-duo.json`) | 886×1920 | `foldable`: the crease and hinge notches down the middle |
+
+Each device gets its own `sleepypod Marketing — <simulator>` simulator on the newest
+iOS runtime that supports that device type (a beta runtime may support only a few).
+Sizes follow Apple's
+[screenshot](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)
+and [app preview](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications)
+specifications (reviewed November 6, 2026): the 13-inch iPad slot takes 2064×2752 and
+1200×1600 previews; the iPhone Duo slot takes its inner display, 2007×2853, or its outer
+display, 1398×2034, and the standard 886×1920 iPhone previews. Apple requires Duo
+screenshots from April 2027 for apps built with the iOS 27.1 SDK or later.
+
+simctl has no fold command, so `capture.py` builds `duo_hinge.m` for the simulator SDK into
+`build/marketing` and runs it with `simctl spawn`: it posts the HID events Xcode's Device
+Hub sends for its hinge slider and Rotate Left, opening the Duo flat with the inner display
+upright, then checks with `devicectl` that the inner display (`LCD-1`) hosts the UI.
+Screenshots and recordings name that display. The helper uses private simulator API and
+never ships in the app. The iPad and Duo videos are recorded but not cut for social.
+
 ## Upload checks (reviewed October 7, 2026)
 
-The shipping target is iPhone-only (`TARGETED_DEVICE_FAMILY = 1`). Apple currently
+The app targets iPhone and iPad (`TARGETED_DEVICE_FAMILY = "1,2"`). Apple currently
 names Dynamic Island medium (1206×2622 or 1179×2556) as the required screenshot
 slot and documents scaled fallbacks from other iPhone sizes. This pipeline
-produces the large-display and 6.5-inch sets above; check inherited assets in
+produces the large-display, 6.5-inch, 13-inch iPad and iPhone Duo sets above; check inherited assets in
 App Store Connect's Media Manager before submission and add a medium-size export
 if the slot is not covered. Generated files do not establish upload acceptance.
 See [Apple's current screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications).
@@ -160,6 +190,8 @@ marketing binary. The upload build remains separate from this Debug capture buil
 ```sh
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.iphone-6.9.json
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.iphone-6.5.json --size 1284x2778
+uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.ipad-13.json --size 2064x2752
+uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.iphone-duo.json --size 2007x2853
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.example.json --check-config
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.example.json --self-test
 ```

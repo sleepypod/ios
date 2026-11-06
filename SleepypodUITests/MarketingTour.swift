@@ -101,14 +101,14 @@ final class MarketingTour: XCTestCase {
         tap(app.buttons["Warmer dawn"], hold: 1.2)
 
         // Schedule
-        tap(app.tabBars.buttons["Schedule"], hold: 1.8)
+        tap(tab("Schedule"), hold: 1.8)
         tap(button(containing: "Deep"), hold: 1.2)
         tap(app.buttons["Cooler"], hold: 0.5)
         tap(app.buttons["Cooler"], hold: 1.0)
         tap(app.buttons["Save"], hold: 1.5)
 
         // Sleep: last night, the Watch comparison, then the week
-        tap(app.tabBars.buttons["Sleep"], hold: 2.0)
+        tap(tab("Sleep"), hold: 2.0)
         tap(app.buttons["compareWatch"], hold: 1.8)
         scroll(up: 0.35, hold: 1.4)
         scroll(up: 0.35, hold: 1.4)
@@ -126,7 +126,7 @@ final class MarketingTour: XCTestCase {
 
         // Back to the bed
         chooseControl("Dial")
-        tap(app.tabBars.buttons["Temp"], hold: 2.2)
+        tap(tab("Temp"), hold: 2.2)
         end()
     }
 
@@ -156,6 +156,12 @@ final class MarketingTour: XCTestCase {
         XCTAssertTrue(element.exists || element.waitForExistence(timeout: 10), "Missing \(element)")
         element.tap()
         pause(hold)
+    }
+
+    /// iPhone has a bottom tab bar; iPad and the unfolded Duo put the tabs in a bar at the top.
+    private func tab(_ title: String) -> XCUIElement {
+        let bottom = app.tabBars.buttons[title]
+        return bottom.exists ? bottom : app.buttons.matching(NSPredicate(format: "label == %@", title)).firstMatch
     }
 
     private func button(prefix: String) -> XCUIElement {

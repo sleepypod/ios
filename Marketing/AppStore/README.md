@@ -16,8 +16,8 @@ renders the compositions. It pins the status bar to 9:41 with full battery and
 Wi-Fi, clears the override afterwards, and shuts down only simulators it
 booted. A full run with video takes about 10 minutes per device.
 
-Options: `--skip-build` (reuse the last marketing build), `--device iphone-6.9|ipad-13|iphone-duo`
-(repeatable; default all three, see [Devices](#devices)),
+Options: `--skip-build` (reuse the last marketing build), `--device iphone-6.9|ipad-13|iphone-duo|iphone-duo-cover`
+(repeatable; default all four, see [Devices](#devices)),
 `--appearance dark|light` (repeatable; default both), `--video-appearance`
 (default `dark`), `--only NAME` (repeatable; a screenshot or tour name such as
 `04-schedule` or `clip-schedule`; only selected screenshots are rendered), `--keep-booted`, `--settle SECONDS` (default 9; raise it when a busy host leaves screens half loaded). Omit `--video` to produce
@@ -29,11 +29,14 @@ screenshots only.
 | `output/iphone-6.9/light/*.png` | 1320×2868 | Same eight screens in light mode |
 | `output/iphone-6.5/{dark,light}/*.png` | 1284×2778 | 6.5-inch renders of the same captures |
 | `output/ipad-13/{dark,light}/*.png` | 2064×2752 | 13-inch iPad set, captured on iPad Pro 13-inch (M5), in a tablet frame |
-| `output/iphone-duo/{dark,light}/*.png` | 2007×2853 | iPhone Duo set, captured unfolded on the inner display, in a foldable frame |
+| `output/iphone-duo/{dark,light}/*.png` | 2853×2007 | iPhone Duo set: the inner display unfolded in landscape, in an open foldable frame |
+| `output/iphone-duo-cover/{dark,light}/*.png` | 1398×2034 | iPhone Duo folded: the cover display, in a closed frame with the hinge spine |
 | `output/iphone-6.9/clip-*.mp4` | 886×1920 | 16–20 s app previews (temperature, Night & Dawn, schedule, sleep → Watch) |
 | `output/iphone-6.9/walkthrough-sleepypod.mp4` | 886×1920 | ~100 s tour of every tab, each control, the Watch page and Health |
 | `output/ipad-13/*.mp4` | 1200×1600 | The same clips and walkthrough recorded on the iPad |
-| `output/iphone-duo/*.mp4` | 886×1920 | The same clips and walkthrough recorded on the unfolded Duo, letterboxed |
+| `output/iphone-duo/*.mp4` | 1920×886 | The same clips and walkthrough on the unfolded Duo in landscape, pillarboxed |
+| `output/iphone-duo/clip-unfold.mp4` | 1920×886 | ~18 s preview: Sleep on the cover display, the Duo opening, then the night stack, Temp and Schedule unfolded |
+| `output/social/clip-unfold-duo-1920x1080.mp4` | 1920×1080 | The unfold clip with the device drawn on the store background |
 | `output/social/*-1080x1920.mp4` | 1080×1920 | Each iPhone video letterboxed for social, padded with the app background |
 | `output/artwork/{dark,light}/header-21x9-3840x1646.png` | 3840×1646 | Product-page header creative asset (temperature dial) |
 | `output/artwork/{dark,light}/search-3x2-3840x2560.png` | 3840×2560 | Search-results creative asset (sleep night) |
@@ -56,7 +59,8 @@ generated deliverables are local and ignored by Git.
 | --- | --- | --- | --- | --- |
 | `iphone-6.9` | iPhone 17 Pro Max | 1320×2868, plus a 1284×2778 render | 886×1920 | `phone` |
 | `ipad-13` | iPad Pro 13-inch (M5) | 2064×2752 (`manifest.ipad-13.json`) | 1200×1600 | `tablet`: thicker bezel, tighter corners, front camera |
-| `iphone-duo` | iPhone Duo | 2007×2853 (`manifest.iphone-duo.json`) | 886×1920 | `foldable`: the crease and hinge notches down the middle |
+| `iphone-duo` | iPhone Duo, open | 2853×2007 (`manifest.iphone-duo.json`, `"orientation": "landscape"`) | 1920×886 | `foldable`: the crease and hinge notches down the middle |
+| `iphone-duo-cover` | iPhone Duo, folded | 1398×2034 (`manifest.iphone-duo-cover.json`) | none | `folded`: phone frame with the hinge spine on the left |
 
 Each device gets its own `sleepypod Marketing — <simulator>` simulator on the newest
 iOS runtime that supports that device type (a beta runtime may support only a few).
@@ -64,16 +68,42 @@ Sizes follow Apple's
 [screenshot](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)
 and [app preview](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications)
 specifications (reviewed November 6, 2026): the 13-inch iPad slot takes 2064×2752 and
-1200×1600 previews; the iPhone Duo slot takes its inner display, 2007×2853, or its outer
-display, 1398×2034, and the standard 886×1920 iPhone previews. Apple requires Duo
-screenshots from April 2027 for apps built with the iOS 27.1 SDK or later.
+1200×1600 previews; the iPhone Duo slot takes its inner display in either orientation,
+2853×2007 or 2007×2853, or its outer display, 1398×2034 (or 2034×1398), and the standard
+iPhone preview sizes, 1920×886 in landscape. Apple requires Duo screenshots from April 2027
+for apps built with the iOS 27.1 SDK or later.
 
-simctl has no fold command, so `capture.py` builds `duo_hinge.m` for the simulator SDK into
+The Duo unfolds like a book: held as the folded phone is held, the inner display is
+landscape, so that is the primary set, with the cover display as a second set. simctl has no
+fold command, so `capture.py` builds `duo_hinge.m` for the simulator SDK into
 `build/marketing` and runs it with `simctl spawn`: it posts the HID events Xcode's Device
-Hub sends for its hinge slider and Rotate Left, opening the Duo flat with the inner display
-upright, then checks with `devicectl` that the inner display (`LCD-1`) hosts the UI.
+Hub sends for its hinge slider and orientation, then checks with `devicectl` which display
+(`LCD-1` inner, `LCD` cover) hosts the UI, resending the event if the simulator dropped it.
 Screenshots and recordings name that display. The helper uses private simulator API and
-never ships in the app. The iPad and Duo videos are recorded but not cut for social.
+never ships in the app. The iPad and Duo tours are recorded but not cut for social.
+
+The Duo's status bar is the system's own: the time over a ring that combines Wi-Fi, battery
+and signal dots, at the side of the screen. `simctl status_bar` sets its values (9:41, full
+bars) but cannot turn it into the iPhone's horizontal bar.
+
+### The unfold clip
+
+`testClipUnfold` starts on the folded cover display and prints `unfold`; `capture.py` stops
+recording the cover, opens the hinge, starts recording the inner display, and the test
+carries on from `resume` (scrubbing the night stack, then Temp and Schedule). simctl records
+one display at a time, cutting hard between them, and the simulator draws its device as flat
+chrome with no folding motion to film, so `unfold.py` draws the move: every frame is
+redrawn with the cover panel swinging open around the hinge in perspective (about 1.3 s,
+eased), its face turning from the cover display to the left half of the inner display as it
+passes upright, while the view pans from the folded phone to the open one. The App Store
+preview shows the screens only on the app background; the social cut draws the device on
+the store background. To review the motion, render stills:
+
+```sh
+uv run Marketing/AppStore/unfold.py --cover raw/iphone-duo/video/clip-unfold-cover.mp4 \
+  --inner raw/iphone-duo/video/clip-unfold-inner.mp4 --cover-seconds 4 --inner-start 2 --inner-seconds 4 \
+  --framed --size 1920x1080 --stills /tmp/unfold-stills --output /tmp/unfold.mp4
+```
 
 ## Upload checks (reviewed October 7, 2026)
 
@@ -191,14 +221,15 @@ marketing binary. The upload build remains separate from this Debug capture buil
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.iphone-6.9.json
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.iphone-6.5.json --size 1284x2778
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.ipad-13.json --size 2064x2752
-uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.iphone-duo.json --size 2007x2853
+uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.iphone-duo.json --size 2853x2007
+uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.iphone-duo-cover.json --size 1398x2034
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.example.json --check-config
 uv run Marketing/AppStore/generate.py --manifest Marketing/AppStore/manifest.example.json --self-test
 ```
 
 Captions, eyebrows and both palettes live in the manifests; `{appearance}` in
 a path expands to `dark` or `light`, and `--appearance` renders one set. A manifest
-with `screenshots` renders the portrait sets and one with `artwork` renders the
+with `screenshots` renders the store screenshot sets (portrait, or landscape with `"orientation": "landscape"`) and one with `artwork` renders the
 landscape creative assets. The
 renderer keeps the full screen inside a drawn phone frame under the caption,
 on a night-sky gradient taken from the app icon and the app's `indigo`/`violet`

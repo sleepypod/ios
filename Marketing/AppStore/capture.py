@@ -30,10 +30,13 @@ DEVICES = {
     # 13-inch iPad slot: 2064x2752 screenshots, 1200x1600 previews (4:3).
     'ipad-13': {'simulator': 'iPad Pro 13-inch (M5)', 'preview': (1200, 1600), 'social': False,
                 'renders': [('ipad-13', '2064x2752')]},
-    # iPhone Duo, unfolded: the inner display upright gives 2007x2853 screenshots; previews use
-    # the iPhone 886x1920 size. simctl captures name the inner display, LCD-1.
-    'iphone-duo': {'simulator': 'iPhone Duo', 'preview': (886, 1920), 'social': False, 'display': 'LCD-1',
-                   'unfold': True, 'renders': [('iphone-duo', '2007x2853')]},
+    # iPhone Duo unfolded as it's held: the inner display (LCD-1) in landscape gives 2853x2007 screenshots
+    # and 1920x886 previews, plus the unfold clip, which starts on the cover display.
+    'iphone-duo': {'simulator': 'iPhone Duo', 'preview': (1920, 886), 'social': False, 'display': 'LCD-1',
+                   'posture': 'open', 'unfold_clip': True, 'renders': [('iphone-duo', '2853x2007')]},
+    # The same Duo folded: its cover display (LCD) at Apple's 1398x2034 outer-display size. Screenshots only.
+    'iphone-duo-cover': {'simulator': 'iPhone Duo', 'preview': None, 'social': False, 'display': 'LCD',
+                         'posture': 'folded', 'renders': [('iphone-duo-cover', '1398x2034')]},
 }
 APPEARANCES = {'dark': 'Dark', 'light': 'Light'}
 # Matches the app's `background` colour so letterboxing disappears into the UI.
@@ -60,7 +63,10 @@ TOURS = [
     ('walkthrough-sleepypod', 'testWalkthrough', (60, 120)),
 ]
 SOCIAL = (1080, 1920)
-MARK = re.compile(r'MARKETING_MARK (begin|end) (\d+\.\d+)')
+# The unfold clip: an App Store preview for the Duo's landscape slot and a 16:9 cut with the device drawn.
+UNFOLD = ('clip-unfold', 'testClipUnfold', (15, 30))
+UNFOLD_SOCIAL = (1920, 1080)
+MARK = re.compile(r'MARKETING_MARK (begin|end|unfold|resume) (\d+\.\d+)')
 
 
 def run(*args, check=True, env=None):
@@ -99,8 +105,8 @@ def launch(udid, bundle, appearance, overrides):
     sim('launch', udid, bundle, *[part for key, value in args.items() for part in (f'-{key}', value)])
 
 
-def unfold(udid):
-    """Opens an iPhone Duo flat with its inner display upright, then checks that display hosts the UI."""
+def hinge_helper():
+    """Builds duo_hinge.m for the simulator SDK the first time, or after it changes."""
     source = HERE / 'duo_hinge.m'
     helper = DERIVED / 'duo_hinge'
     if not helper.exists() or helper.stat().st_mtime < source.stat().st_mtime:
@@ -108,17 +114,35 @@ def unfold(udid):
         run('xcrun', '-sdk', 'iphonesimulator', 'clang', '-arch', 'arm64', '-mios-simulator-version-min=17.0', '-O2',
             '-o', helper, source, '-framework', 'IOKit', '-framework', 'CoreFoundation')
         run('codesign', '-f', '-s', '-', helper)
-    sim('spawn', udid, helper, '180')
-    # Device Hub's Rotate Left: with the hinge open this stands the inner display upright.
-    sim('spawn', udid, helper, 'orient', 'landscape-left')
-    for _ in range(40):
-        result = run('xcrun', 'devicectl', 'device', 'info', 'displays', '-d', udid, '-q', '-j', '-', check=False)
-        displays = json.loads(result.stdout or '{}').get('result', {}).get('displays', []) if not result.returncode else []
-        inner = next((d for d in displays if d.get('name') == 'LCD-1'), None)
-        if inner and inner.get('active') and inner.get('currentOrientation') == 'rot0':
-            return
-        time.sleep(0.5)
-    raise RuntimeError('The iPhone Duo did not unfold with its inner display upright')
+    return helper
+
+
+def displays(udid):
+    result = run('xcrun', 'devicectl', 'device', 'info', 'displays', '-d', udid, '-q', '-j', '-', check=False)
+    if result.returncode or not result.stdout:
+        return {}
+    return {d.get('name'): d for d in json.loads(result.stdout).get('result', {}).get('displays', [])}
+
+
+def set_posture(udid, posture):
+    """Opens an iPhone Duo flat with the inner display in landscape (`open`), or closes it onto the cover
+    display (`folded`), then checks with devicectl that the expected display hosts the UI.
+
+    The device stays in portrait, as a folded phone is held, which shows the unfolded inner display in
+    landscape. The simulator now and then drops a hinge event, so the event is resent until it takes.
+    """
+    helper = hinge_helper()
+    angle, name, rotation = ('180', 'LCD-1', 'rot90') if posture == 'open' else ('0', 'LCD', 'rot0')
+    sim('spawn', udid, helper, 'orient', 'portrait')
+    for _ in range(5):
+        sim('spawn', udid, helper, angle)
+        for _ in range(12):
+            target = displays(udid).get(name, {})
+            if target.get('active') and target.get('currentOrientation') == rotation:
+                time.sleep(1.5)  # Let the app finish moving to that display.
+                return
+            time.sleep(0.5)
+    raise RuntimeError(f'The iPhone Duo did not reach the {posture} posture')
 
 
 def png_size(path):
@@ -219,6 +243,73 @@ def record_tour(udid, test, raw, appearance, display=None):
     return 0, seconds
 
 
+def record_unfold(udid, raw, output, look, preview):
+    """The Duo opening: the cover display until the test marks `unfold`, then the inner display from `resume`.
+
+    simctl records one display at a time and the simulator has no 3D chrome to film, so the two recordings
+    are joined by unfold.py, which draws the device opening between them.
+    """
+    name, test, limits = UNFOLD
+    print(f'Recording iphone-duo {look}: {name} ({test})…', flush=True)
+    set_posture(udid, 'folded')
+    cover, inner = raw / f'{name}-cover.mp4', raw / f'{name}-inner.mp4'
+    env = dict(os.environ, TEST_RUNNER_MARKETING_TOUR='1', TEST_RUNNER_MARKETING_APPEARANCE=APPEARANCES[look])
+    command = ['xcodebuild', 'test-without-building', '-xctestrun', str(xctestrun()),
+               '-destination', f'id={udid}', '-parallel-testing-enabled', 'NO',
+               '-collect-test-diagnostics', 'never', f'-only-testing:SleepypodUITests/MarketingTour/{test}']
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
+    recorder, marks, inner_start, times = None, set(), 0.0, {}
+    try:
+        with (raw / f'{name}.log').open('w') as log:
+            for line in process.stdout:
+                log.write(line)
+                log.flush()
+                marker = MARK.search(line)
+                if marker is None:
+                    continue
+                mark, timestamp = marker.group(1), float(marker.group(2))
+                # `resume` is used by its timestamp, so only the recorder boundaries must arrive promptly.
+                if mark in ('begin', 'unfold', 'end') and not 0 <= time.time() - timestamp < 2:
+                    raise RuntimeError('Capture marker delivery was delayed; recapture on an idle simulator')
+                marks.add(mark)
+                times[mark] = timestamp
+                if mark == 'begin':
+                    recorder = Recorder(udid, cover, 'LCD')
+                elif mark == 'unfold':
+                    recorder.stop()
+                    set_posture(udid, 'open')
+                    recorder = Recorder(udid, inner, 'LCD-1')
+                    inner_start = recorder.started
+                elif mark == 'end' and recorder is not None:
+                    recorder.stop()
+                    recorder = None
+            result = process.wait()
+        if result or marks != {'begin', 'unfold', 'resume', 'end'}:
+            raise RuntimeError(f'{test} failed (exit {result}, marks {marks}); see {raw / f"{name}.log"}')
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            process.wait()
+        if recorder is not None:
+            recorder.stop()
+    for variant, size, framed in [('store', preview, False), ('social', UNFOLD_SOCIAL, True)]:
+        joined = raw / f'{name}-{variant}.mp4'
+        composed = run('uv', 'run', HERE / 'unfold.py', '--cover', cover, '--inner', inner,
+                       '--cover-seconds', f'{times["unfold"] - times["begin"]:.3f}',
+                       '--inner-start', f'{max(0.0, times["resume"] - inner_start):.3f}',
+                       '--inner-seconds', f'{times["end"] - times["resume"]:.3f}', '--size', f'{size[0]}x{size[1]}',
+                       '--appearance', look, *(['--framed'] if framed else []), '--output', joined, check=False)
+        if composed.returncode:
+            raise RuntimeError(f'unfold.py failed:\n{composed.stderr}')
+        seconds = float(run('ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                            '-of', 'default=noprint_wrappers=1:nokey=1', joined).stdout)
+        destination = (output / 'iphone-duo' / f'{name}.mp4' if variant == 'store'
+                       else output / 'social' / f'{name}-duo-{size[0]}x{size[1]}.mp4')
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        seconds = encode(joined, destination, size, 0, seconds, PAD[look], limits)
+        print(f'  {destination.relative_to(HERE)} {size[0]}x{size[1]} {seconds:.1f}s', flush=True)
+
+
 def encode(raw, output, size, start, duration, pad, limits):
     """Trim [start, start+duration) of a variable-rate capture to constant 30 fps H.264 with silent stereo AAC."""
     width, height = size
@@ -257,7 +348,7 @@ def main():
     parser.add_argument('--appearance', choices=APPEARANCES, action='append',
                         help='Screenshot appearances (default: dark and light)')
     parser.add_argument('--video-appearance', choices=APPEARANCES, default='dark')
-    parser.add_argument('--only', choices=[name for name, _ in SHOTS] + [name for name, _, _ in TOURS], action='append', help='Only this screenshot or tour name (repeatable)')
+    parser.add_argument('--only', choices=[name for name, _ in SHOTS] + [name for name, _, _ in TOURS] + [UNFOLD[0]], action='append', help='Only this screenshot or tour name (repeatable)')
     parser.add_argument('--keep-booted', action='store_true')
     parser.add_argument('--settle', type=float, default=9,
                         help='Seconds each screenshot launch settles before capture (raise on a busy host)')
@@ -287,8 +378,8 @@ def main():
             if started:
                 sim('boot', udid)
             sim('bootstatus', udid, '-b')
-            if profile.get('unfold'):
-                unfold(udid)
+            if profile.get('posture'):
+                set_posture(udid, profile['posture'])
             display_args = [f'--display={profile["display"]}'] if profile.get('display') else []
             # A clean install drops any notification prompt left pending by an earlier non-capture launch.
             sim('uninstall', udid, bundle, check=False)
@@ -309,7 +400,7 @@ def main():
                     sim('io', udid, 'screenshot', '--type=png', *display_args, path)
                     print(f'  {path.relative_to(HERE)} {"x".join(map(str, png_size(path)))}', flush=True)
                 sim('terminate', udid, bundle, check=False)
-            if args.video:
+            if args.video and profile['preview']:
                 look = args.video_appearance
                 sim('ui', udid, 'appearance', look)
                 (raw / 'video').mkdir(parents=True, exist_ok=True)
@@ -331,6 +422,8 @@ def main():
                     social.parent.mkdir(parents=True, exist_ok=True)
                     encode(source, social, SOCIAL, start, duration, PAD[look], limits)
                     print(f'  {social.relative_to(HERE)} {SOCIAL[0]}x{SOCIAL[1]} {seconds:.1f}s', flush=True)
+                if profile.get('unfold_clip') and wanted(UNFOLD[0]):
+                    record_unfold(udid, raw / 'video', output, look, profile['preview'])
         finally:
             sim('terminate', udid, bundle, check=False)
             sim('status_bar', udid, 'clear', check=False)

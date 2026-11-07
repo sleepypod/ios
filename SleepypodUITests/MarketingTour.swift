@@ -130,7 +130,41 @@ final class MarketingTour: XCTestCase {
         end()
     }
 
+    /// iPhone Duo only: starts on the folded cover display; capture.py opens the hinge when it sees `unfold`,
+    /// then the tour carries on in the unfolded landscape layout from `resume`.
+    func testClipUnfold() throws {
+        launch(control: "dial", route: "sleep")
+        XCTAssertTrue(app.buttons["compareWatch"].waitForExistence(timeout: 15))
+        begin()
+        pause(1.5)
+        mark("unfold")
+        let window = app.windows.firstMatch
+        for _ in 0..<80 where window.frame.width <= window.frame.height { pause(0.5) }
+        XCTAssertGreaterThan(window.frame.width, window.frame.height, "The Duo did not unfold")
+        pause(1.5)
+        mark("resume")
+        pause(3.0)
+        scrubLane("HR", hold: 1.2)
+        tap(tab("Schedule"), hold: 2.0)
+        tap(tab("Temp"), hold: 1.4)
+        dragDial(from: 72, to: 66)
+        pause(1.5)
+        end()
+    }
+
     // MARK: - Helpers
+
+    /// Drags a finger along a night-stack lane so the shared time cursor sweeps every lane.
+    private func scrubLane(_ title: String, hold: TimeInterval) {
+        let lane = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "\(title), average")).firstMatch
+        XCTAssertTrue(lane.exists || lane.waitForExistence(timeout: 10), "Missing \(title) lane")
+        let frame = lane.frame
+        let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+        let start = origin.withOffset(CGVector(dx: frame.minX + 130, dy: frame.midY))
+        let finish = origin.withOffset(CGVector(dx: frame.maxX - 20, dy: frame.midY))
+        start.press(forDuration: 0.3, thenDragTo: finish, withVelocity: XCUIGestureVelocity(160), thenHoldForDuration: 0.6)
+        pause(hold)
+    }
 
     private func launch(control: String, route: String? = nil) {
         let environment = ProcessInfo.processInfo.environment
@@ -188,8 +222,25 @@ final class MarketingTour: XCTestCase {
         tap(app.buttons["Close"], hold: 1.2)
     }
 
+    /// The navigation bar's back button; the unfolded Duo in landscape exposes no navigation bar buttons,
+    /// so there it swipes back from the leading edge.
     private func back(hold: TimeInterval) {
-        tap(app.navigationBars.buttons.element(boundBy: 0), hold: hold)
+        let button = app.navigationBars.buttons.element(boundBy: 0)
+        if button.waitForExistence(timeout: 3) {
+            tap(button, hold: hold)
+            return
+        }
+        // The Duo moves the bar's buttons into its side rail; the back button keeps its identifier.
+        let railBack = app.buttons.matching(NSPredicate(format: "identifier == 'BackButton' OR label == 'Back'")).firstMatch
+        if railBack.exists {
+            tap(railBack, hold: hold)
+            return
+        }
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)),
+                   withVelocity: XCUIGestureVelocity(900), thenHoldForDuration: 0.1)
+        pause(hold)
     }
 
     /// A finger-speed drag that stops before release, so the list settles instead of flinging.

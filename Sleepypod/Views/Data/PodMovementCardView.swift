@@ -70,7 +70,7 @@ struct PodMovementCardView: View {
         }
         let value = !loaded || movement.isEmpty ? "—" : selected.map { "\($0.totalMovement)" } ?? "\(movement.count)"
         return NightLane(title: "MOVEMENT", value: value, unit: selected == nil ? "min" : "score", color: Theme.amber,
-                         note: comparison == nil ? nil : "Watch", noteColor: Theme.cool) {
+                         note: comparison == nil ? nil : "Watch", noteColor: Theme.cool, height: lane.height) {
             if !loaded {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if movement.isEmpty {

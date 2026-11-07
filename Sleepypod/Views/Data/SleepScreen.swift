@@ -19,6 +19,8 @@ struct SleepScreen: View {
     @State private var showStages = false
     @State private var monthRecords: [SleepRecord] = []
     @State private var wideWidth: CGFloat = 0
+    @State private var visibleHeight: CGFloat = 0
+    @State private var stackTop: CGFloat = 0
 
     private var calendar: Calendar { .current }
     // A day can hold several records (naps, getting up and back in); the longest sleep is the night.
@@ -78,6 +80,11 @@ struct SleepScreen: View {
                 .padding(.horizontal, sizeClass == .regular ? 32 : 16)
                 .padding(.bottom, 24)
                 .frame(maxWidth: .infinity)
+                .coordinateSpace(name: "sleepContent")
+            }
+            // The height content can use without scrolling: the container already excludes the title and tab bars.
+            .onScrollGeometryChange(for: CGFloat.self) { $0.containerSize.height } action: {
+                visibleHeight = $1
             }
             // A regular-width Week fits on screen, so only the iPhone capture needs scrolling to the trend.
             .defaultScrollAnchor(DebugRoute.current == "weektrend" && sizeClass != .regular ? .bottom : nil)
@@ -169,32 +176,59 @@ struct SleepScreen: View {
     }
 
     /// Regular width: the summary beside the Watch and model comparisons, then every signal stacked on one time axis.
+    /// A short, wide window (the unfolded Duo in landscape) puts the summary in a side column so the whole stack
+    /// fits on screen.
     @ViewBuilder private var wideNightContent: some View {
         if let record {
+            let shortWide = visibleHeight > 0 && visibleHeight < 760 && wideWidth >= 760
             // The comparisons sit beside the summary when there is room, otherwise under the stack.
             let besideSummary = canCompareWatch && wideWidth >= 800
-            HStack(alignment: .top, spacing: 12) {
-                SleepSummaryCardView(record: record, score: analyzer.qualityScore)
-                if besideSummary {
+            if shortWide {
+                HStack(alignment: .top, spacing: 12) {
                     VStack(spacing: 12) {
-                        watchRow
-                        stagesRow
+                        SleepSummaryCardView(record: record, score: analyzer.qualityScore)
+                        if canCompareWatch {
+                            watchRow
+                            stagesRow
+                        }
+                        if showsHealthReceipt { healthReceipt(record) }
                     }
-                    .frame(width: 400)
+                    .frame(width: 300)
+                    nightStack(record)
                 }
-            }
-            NightStackView(record: record, stages: analyzer.stages, vitals: filteredVitals, side: metrics.selectedSide,
-                           source: analyzer.source, modelName: stageModels.active?.title)
-            if health.hasWriteAuthorization && metrics.selectedSide == profile.defaultSide && !isDemo {
-                healthReceipt(record)
-            }
-            if canCompareWatch && !besideSummary {
-                watchRow
-                stagesRow
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    SleepSummaryCardView(record: record, score: analyzer.qualityScore)
+                    if besideSummary {
+                        VStack(spacing: 12) {
+                            watchRow
+                            stagesRow
+                        }
+                        .frame(width: 400)
+                    }
+                }
+                nightStack(record)
+                if showsHealthReceipt { healthReceipt(record) }
+                if canCompareWatch && !besideSummary {
+                    watchRow
+                    stagesRow
+                }
             }
         } else {
             nightContent
         }
+    }
+
+    private var showsHealthReceipt: Bool {
+        health.hasWriteAuthorization && metrics.selectedSide == profile.defaultSide && !isDemo
+    }
+
+    /// The stack fills what's left of the window below it, so a tall iPad doesn't end in empty space.
+    private func nightStack(_ record: SleepRecord) -> some View {
+        NightStackView(record: record, stages: analyzer.stages, vitals: filteredVitals, side: metrics.selectedSide,
+                       source: analyzer.source, modelName: stageModels.active?.title,
+                       fillHeight: visibleHeight > 0 ? visibleHeight - stackTop - 24 : nil)
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("sleepContent")).minY } action: { stackTop = $0 }
     }
 
     private var filteredVitals: [VitalsRecord] {

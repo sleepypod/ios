@@ -10,13 +10,21 @@ struct NightStackView: View {
     let side: Side
     var source: SleepAnalyzer.StageSource = .rules
     var modelName: String?
+    /// Height the stack may fill on screen; lanes grow into it (within limits) instead of leaving space below.
+    var fillHeight: CGFloat?
     @State private var selection: Date?
 
     private let order: [SleepAnalyzer.SleepStage] = [.wake, .rem, .light, .deep]
     private var domain: ClosedRange<Date> {
         record.enteredBedDate...max(record.enteredBedDate.addingTimeInterval(60), record.leftBedDate)
     }
-    private var lane: NightLaneContext { NightLaneContext(domain: domain, selection: $selection) }
+    private var lane: NightLaneContext { NightLaneContext(domain: domain, selection: $selection, height: laneHeight) }
+
+    /// Card padding, header, gaps and the time axis take about 165pt; the stages lane is a little taller than the rest.
+    private var laneHeight: CGFloat {
+        guard let fillHeight else { return 76 }
+        return min(220, max(56, (fillHeight - 165) / 5.15))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -30,7 +38,7 @@ struct NightStackView: View {
                 legend
                 if source == .model { StageSourceBadge(.model(modelName ?? "model")) }
             }
-            NightLane(title: "STAGES", value: stageValue.value, unit: stageValue.unit, height: 88) { stagesChart }
+            NightLane(title: "STAGES", value: stageValue.value, unit: stageValue.unit, height: laneHeight + 12) { stagesChart }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Stages, \(stageSummary)")
             vitalLane("HR", unit: "bpm", key: \.heartRate, decimals: 0, color: Theme.red)
@@ -110,7 +118,7 @@ struct NightStackView: View {
         let display = shown.map { String(format: "%.\(decimals)f", $0) } ?? "—"
         let low = values.min() ?? 0, high = values.max() ?? 1
         let pad = max((high - low) * 0.15, 1)
-        return NightLane(title: title, value: display, unit: unit, color: color) {
+        return NightLane(title: title, value: display, unit: unit, color: color, height: laneHeight) {
             if points.isEmpty {
                 Text("No data").font(.caption).foregroundStyle(Theme.text3)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -142,6 +150,7 @@ struct NightStackView: View {
 struct NightLaneContext {
     let domain: ClosedRange<Date>
     let selection: Binding<Date?>
+    var height: CGFloat = 76
 }
 
 /// One row of the stack: a fixed-width label column (name, value, unit) and a chart sharing the time axis.

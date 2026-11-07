@@ -7,7 +7,7 @@
 # ///
 """Create App Store marketing screenshots and creative artwork from raw sleepypod captures.
 
-A manifest with `screenshots` renders the portrait store sets; one with `artwork`
+A manifest with `screenshots` renders the store screenshot sets (portrait, or landscape when the manifest says so); one with `artwork`
 renders the landscape product-page header, search-results and universal images
 that App Store Connect calls creative assets.
 All paths in the manifest are resolved relative to the manifest itself.
@@ -32,8 +32,9 @@ DEFAULT_SIZE = (1320, 2868)  # Apple's 6.9-inch portrait screenshot size.
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_MANIFEST = SCRIPT_DIR / "manifest.example.json"
 APPEARANCE_KEYS = ("accent", "text", "muted", "background", "glow", "bezel")
-# Device drawn around the capture: an iPhone, an iPad, or the unfolded iPhone Duo with its hinge.
-FRAMES = ("phone", "tablet", "foldable")
+# Device drawn around the capture: an iPhone, an iPad, the unfolded iPhone Duo with its crease, or the
+# folded Duo (its cover display, with the hinge along one edge).
+FRAMES = ("phone", "tablet", "foldable", "folded")
 
 
 def parse_args() -> argparse.Namespace:
@@ -87,8 +88,8 @@ def parse_size(value: str) -> tuple[int, int]:
         width, height = int(width_text), int(height_text)
     except (ValueError, TypeError) as exc:
         raise ValueError(f"Invalid size {value!r}; expected WIDTHxHEIGHT") from exc
-    if width <= 0 or height <= 0 or width >= height:
-        raise ValueError("Screenshot size must be positive and portrait-oriented")
+    if width <= 0 or height <= 0 or width == height:
+        raise ValueError("Screenshot size must be positive and not square")
     return width, height
 
 
@@ -113,6 +114,8 @@ def load_manifest(path: Path) -> tuple[dict[str, Any], Path]:
             ImageColor.getrgb(value)
     if manifest.get("frame", "phone") not in FRAMES:
         raise ValueError(f"frame must be one of {FRAMES}")
+    if manifest.get("orientation", "portrait") not in ("portrait", "landscape"):
+        raise ValueError("orientation must be portrait or landscape")
     if ("screenshots" in manifest) == ("artwork" in manifest):
         raise ValueError("Manifest must contain exactly one of 'screenshots' or 'artwork'")
     kind = manifest_kind(manifest)
@@ -128,7 +131,7 @@ def load_manifest(path: Path) -> tuple[dict[str, Any], Path]:
 
 
 def manifest_kind(manifest: dict[str, Any]) -> str:
-    """'screenshots' for the portrait store sets, 'artwork' for header/search creative."""
+    """'screenshots' for the store screenshot sets, 'artwork' for header/search creative."""
     return "artwork" if "artwork" in manifest else "screenshots"
 
 
@@ -354,9 +357,13 @@ def render_one(
     draw = ImageDraw.Draw(canvas)
     accent, text_rgb, muted = color(palette["accent"]), color(palette["text"]), color(palette["muted"])
 
+    # Landscape canvases (the unfolded Duo) keep the caption to one line so the device gets the height.
+    landscape = width > height
     margin = round(96 * scale)
     icon_size = round(104 * scale)
-    icon_top = round(92 * scale)
+    icon_top = round((70 if landscape else 92) * scale)
+    eyebrow_top = round((222 if landscape else 262) * scale)
+    caption_top = round((280 if landscape else 330) * scale)
     shadow = Image.new("RGBA", size, (0, 0, 0, 0))
     ImageDraw.Draw(shadow).rounded_rectangle(
         (margin, icon_top + round(10 * scale), margin + icon_size, icon_top + icon_size + round(10 * scale)),
@@ -377,7 +384,6 @@ def render_one(
     )
 
     eyebrow = str(item.get("eyebrow", "")).upper()
-    eyebrow_top = round(262 * scale)
     if eyebrow:
         eyebrow_font = find_font(round(34 * scale), bold=True)
         x = margin
@@ -388,12 +394,10 @@ def render_one(
     caption, caption_font, spacing = fit_caption(
         draw, str(item["caption"]), width - 2 * margin, round(330 * scale), scale
     )
-    draw.multiline_text((margin, round(330 * scale)), caption, font=caption_font, spacing=spacing, fill=text_rgb)
+    draw.multiline_text((margin, caption_top), caption, font=caption_font, spacing=spacing, fill=text_rgb)
+    caption_box = draw.multiline_textbbox((margin, caption_top), caption, font=caption_font, spacing=spacing)
     subtitle = item.get("subtitle")
     if subtitle:
-        caption_box = draw.multiline_textbbox(
-            (margin, round(330 * scale)), caption, font=caption_font, spacing=spacing
-        )
         draw.text(
             (margin, caption_box[3] + round(26 * scale)), subtitle,
             font=find_font(round(38 * scale)), fill=muted,
@@ -403,15 +407,19 @@ def render_one(
         raise FileNotFoundError(f"Raw screenshot not found: {input_path}")
     with Image.open(input_path) as raw:
         raw.load()
-        if raw.width >= raw.height:
-            raise ValueError(f"Raw screenshot must be portrait-oriented: {input_path}")
+        if (raw.width > raw.height) != landscape:
+            raise ValueError(f"Raw screenshot orientation does not match the {width}x{height} canvas: {input_path}")
         screenshot = raw.convert("RGB")
 
     # Device: the full capture inside a dark bezel, centred under the caption.
     bezel_ratio, corner_ratio = FRAME_SHAPES[frame]
     bezel = round(bezel_ratio * scale)
-    # Wider tablet and foldable canvases wrap captions into fewer lines, so the device starts higher.
-    phone_top = round((760 if frame == "phone" else 690) * scale)
+    # Wider tablet and foldable canvases wrap captions into fewer lines, so the device starts higher;
+    # a landscape canvas starts it just under the one-line caption.
+    if landscape:
+        phone_top = caption_box[3] + round(80 * scale)
+    else:
+        phone_top = round((760 if frame == "phone" else 690) * scale)
     available = height - phone_top - round(70 * scale) - 2 * bezel
     screen_height = available
     screen_width = round(screen_height * screenshot.width / screenshot.height)
@@ -450,6 +458,8 @@ def render_one(
     )
     if frame == "foldable":
         rgb = draw_hinge(rgb, outer, (screen_top, screen_top + screen_height), scale, bezel_rgb)
+    elif frame == "folded":
+        rgb = draw_spine(rgb, outer, corner + bezel, scale, bezel_rgb)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     rgb.save(output_path, format="PNG", optimize=True)
@@ -459,11 +469,13 @@ def render_one(
 
 
 # (bezel in layout units, screen corner radius as a fraction of the screen width) per frame.
-FRAME_SHAPES = {"phone": (24, 0.135), "tablet": (34, 0.035), "foldable": (22, 0.06)}
+FRAME_SHAPES = {"phone": (24, 0.135), "tablet": (34, 0.035), "foldable": (22, 0.04), "folded": (24, 0.11)}
 
 
 def layout_scale(size: tuple[int, int], frame: str) -> float:
     """Phones scale with the width, as before; wider tablet and foldable canvases scale with the height."""
+    if size[0] > size[1]:
+        return size[1] / 2007  # Landscape: the unfolded Duo's 2007px height is the reference.
     if frame == "phone":
         return size[0] / DEFAULT_SIZE[0]
     return min(size[0] / DEFAULT_SIZE[0], size[1] / DEFAULT_SIZE[1])
@@ -473,20 +485,56 @@ def draw_hinge(
     rgb: Image.Image, outer: tuple[int, int, int, int], screen_span: tuple[int, int], scale: float,
     bezel_rgb: tuple[int, int, int],
 ) -> Image.Image:
-    """The unfolded Duo: a faint crease down the middle of the screen and hinge notches in the frame."""
-    centre = (outer[0] + outer[2]) // 2
+    """The unfolded Duo: a faint crease across the middle of the long side and hinge notches in the frame.
+
+    The Duo folds like a book, so in landscape the crease runs top to bottom; a portrait inner capture
+    has it running side to side.
+    """
     overlay = Image.new("RGBA", rgb.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     half = max(2, round(10 * scale))
-    for offset in range(-half, half + 1):
-        alpha = round(22 * (1 - abs(offset) / (half + 1)))
-        draw.line((centre + offset, screen_span[0], centre + offset, screen_span[1]), fill=(255, 255, 255, alpha))
-    draw.line((centre, screen_span[0], centre, screen_span[1]), fill=(0, 0, 0, 28), width=max(1, round(2 * scale)))
     notch_w, notch_h = max(4, round(14 * scale)), max(2, round(6 * scale))
     hinge = blend(bezel_rgb, (255, 255, 255), 0.35)
-    for y in (outer[1] - notch_h // 2, outer[3] - notch_h // 2):
-        draw.rounded_rectangle((centre - notch_w, y, centre + notch_w, y + notch_h), radius=notch_h // 2, fill=(*hinge, 255))
+    vertical = (outer[2] - outer[0]) > (outer[3] - outer[1])
+    if vertical:
+        centre = (outer[0] + outer[2]) // 2
+        for offset in range(-half, half + 1):
+            alpha = round(22 * (1 - abs(offset) / (half + 1)))
+            draw.line((centre + offset, screen_span[0], centre + offset, screen_span[1]), fill=(255, 255, 255, alpha))
+        draw.line((centre, screen_span[0], centre, screen_span[1]), fill=(0, 0, 0, 28), width=max(1, round(2 * scale)))
+        for y in (outer[1] - notch_h // 2, outer[3] - notch_h // 2):
+            draw.rounded_rectangle((centre - notch_w, y, centre + notch_w, y + notch_h), radius=notch_h // 2,
+                                   fill=(*hinge, 255))
+    else:
+        centre = (outer[1] + outer[3]) // 2
+        left, right = outer[0] + round(24 * scale), outer[2] - round(24 * scale)
+        for offset in range(-half, half + 1):
+            alpha = round(22 * (1 - abs(offset) / (half + 1)))
+            draw.line((left, centre + offset, right, centre + offset), fill=(255, 255, 255, alpha))
+        draw.line((left, centre, right, centre), fill=(0, 0, 0, 28), width=max(1, round(2 * scale)))
+        for x in (outer[0] - notch_h // 2, outer[2] - notch_h // 2):
+            draw.rounded_rectangle((x, centre - notch_w, x + notch_h, centre + notch_w), radius=notch_h // 2,
+                                   fill=(*hinge, 255))
     return Image.alpha_composite(rgb.convert("RGBA"), overlay).convert("RGB")
+
+
+def draw_spine(
+    rgb: Image.Image, outer: tuple[int, int, int, int], radius: int, scale: float, bezel_rgb: tuple[int, int, int],
+) -> Image.Image:
+    """The folded Duo: the hinge's rounded spine along the left edge, lit from the front."""
+    overlay = Image.new("RGBA", rgb.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    depth = max(6, round(16 * scale))
+    spine = (outer[0] - depth, outer[1] + round(radius * 0.55), outer[0] + depth, outer[3] - round(radius * 0.55))
+    draw.rounded_rectangle(spine, radius=depth, fill=(*blend(bezel_rgb, (255, 255, 255), 0.16), 255))
+    highlight = (spine[0] + depth // 3, spine[1] + depth, spine[0] + depth // 3 + max(2, depth // 4), spine[3] - depth)
+    draw.rounded_rectangle(highlight, radius=depth // 4, fill=(*blend(bezel_rgb, (255, 255, 255), 0.42), 255))
+    composed = Image.alpha_composite(rgb.convert("RGBA"), overlay)
+    # Redraw the frame's own edge over the spine so the screen side stays crisp.
+    edge = ImageDraw.Draw(composed)
+    edge.rounded_rectangle(outer, radius=radius, outline=(*blend(bezel_rgb, (255, 255, 255), 0.28), 255),
+                           width=max(2, round(4 * scale)))
+    return composed.convert("RGB")
 
 
 def draw_phone(
@@ -751,6 +799,8 @@ def run_self_test(manifest: dict[str, Any], base: Path, names: list[str], size: 
         mock_draw.rounded_rectangle((60, 300, 1260, 1300), radius=60, fill="#0F0F11", outline="#26262A", width=3)
         mock_draw.rounded_rectangle((60, 1360, 1260, 2600), radius=60, fill="#0F0F11", outline="#26262A", width=3)
         mock_draw.text((140, 380), "RAW APP SCREENSHOT", font=find_font(62, bold=True), fill="#ECECEC")
+        if size[0] > size[1]:
+            mock = mock.rotate(90, expand=True)
         mock.save(raw_path, format="PNG")
         if kind == "artwork":
             sizes = []
@@ -785,6 +835,9 @@ def main() -> None:
     manifest, base = load_manifest(args.manifest)
     names = appearances(manifest, args.appearance)
     kind = manifest_kind(manifest)
+    orientation = manifest.get("orientation", "portrait")
+    if kind == "screenshots" and (size[0] > size[1]) != (orientation == "landscape"):
+        raise ValueError(f"--size {args.size} does not match the manifest's {orientation} orientation")
     if args.only:
         available = {Path(item['output']).stem for item in manifest[kind]}
         unknown = set(args.only) - available

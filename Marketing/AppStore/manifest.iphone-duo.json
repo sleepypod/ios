@@ -32,6 +32,7 @@
     }
   },
   "frame": "foldable",
+  "orientation": "landscape",
   "output_dir": "output/iphone-duo/{appearance}",
   "screenshots": [
     {

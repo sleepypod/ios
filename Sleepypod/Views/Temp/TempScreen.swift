@@ -204,17 +204,16 @@ struct TempScreen: View {
             contextCards(wide: true).padding(.top, 24)
         }
         .frame(maxWidth: 520)
-        // Centred in the window when it fits, so a tall iPad doesn't leave the lower half empty.
+        // Centred in the window when it fits, so a tall iPad doesn't leave the lower half empty. Two columns need
+        // about 760pt (the unfolded Duo in landscape has ~850pt beside its tab rail); narrower windows get one column.
         return GeometryReader { geo in
+            let side = min(420, geo.size.width - 64 - 360 - 32)
             ScrollView {
                 Group {
-                    if hasContext {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .center, spacing: 40) {
-                                VStack(spacing: 0) { controlStack }.frame(width: 400)
-                                contextCards(wide: true).frame(width: 420)
-                            }
-                            column
+                    if hasContext && side >= 320 {
+                        HStack(alignment: .center, spacing: 32) {
+                            VStack(spacing: 0) { controlStack }.frame(width: 360)
+                            contextCards(wide: true).frame(width: side)
                         }
                     } else {
                         column

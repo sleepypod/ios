@@ -42,7 +42,7 @@ struct SleepypodWatchApp: App {
     }
 }
 
-/// The bed first, the movement recorder a swipe down; an alarm takes over both.
+/// The bed first, the movement recorder a swipe down or a tap on Movement; an alarm takes over both.
 struct RootView: View {
     @Environment(RecordingController.self) private var controller
     @Environment(BedController.self) private var bed
@@ -56,7 +56,7 @@ struct RootView: View {
                 AlarmView()
             } else {
                 TabView(selection: $page) {
-                    BedView().tag(Page.bed)
+                    BedView(showMovement: { withAnimation { page = .recorder } }).tag(Page.bed)
                     RecorderView().tag(Page.recorder)
                 }
                 .tabViewStyle(.verticalPage)
@@ -65,6 +65,10 @@ struct RootView: View {
         .onAppear {
             // A finished night waiting to be sent is the morning's one job.
             if case .finished = controller.phase() { page = .recorder }
+            #if DEBUG
+            // `-previewPage movement` opens on the recorder for screenshots.
+            if UserDefaults.standard.string(forKey: "previewPage") == "movement" { page = .recorder }
+            #endif
         }
     }
 }

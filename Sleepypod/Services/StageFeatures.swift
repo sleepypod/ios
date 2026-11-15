@@ -9,18 +9,22 @@ enum StageFeatures {
         case challenger
         /// Adds what the pod has and a wrist doesn't: HRV, breathing, 15-minute windows.
         case podNative
+        /// podNative plus temporal context, movement bouts and arousal features (core's podContext).
+        case podContext
 
         var id: String { rawValue }
         var title: String {
             switch self {
             case .challenger: "Challenger parity"
             case .podNative: "Pod native"
+            case .podContext: "Pod context"
             }
         }
         var columns: [String] {
             switch self {
             case .challenger: StageChallenger.Features.columns
             case .podNative: StageChallenger.Features.columns + StageFeatures.podNativeColumns
+            case .podContext: Contract.podNative.columns + StageFeatures.podContextColumns
             }
         }
 
@@ -31,6 +35,12 @@ enum StageFeatures {
     }
 
     static let podNativeColumns = ["hrvRel", "hrv15Rel", "hr15StdRel", "br15Std", "motion15", "minutesSinceBed"]
+    static let podContextColumns = [
+        "hrZPrev", "hrZNext", "hrZMean30", "hrStdZPrev", "hrStdZNext", "hrStdZMean30",
+        "motionZPrev", "motionZNext", "motionZMean30", "hrvRelPrev", "hrvRelNext", "hrvRelMean30", "minutesToExit",
+        "activeMinutes", "peakMinuteZ", "minutesFromMove", "stillBoutMinutes", "active15",
+        "hrRise", "hrMaxZ", "brStdEpoch", "brRel", "moveHrCoupling"
+    ]
     /// Half of the 15-minute window, so a window is centred on the epoch midpoint.
     static let windowHalf: TimeInterval = 450
 
@@ -43,6 +53,12 @@ enum StageFeatures {
         case .podNative:
             let extra = podNative(enteredBed: enteredBed, starts: base.map(\.start), vitals: vitals, movement: movement)
             return zip(base, extra).map { epoch, more in
+                StageChallenger.FeatureEpoch(start: epoch.start, values: epoch.values.merging(more) { $1 })
+            }
+        case .podContext:
+            let native = rows(contract: .podNative, enteredBed: enteredBed, leftBed: leftBed, vitals: vitals, movement: movement)
+            let extra = podContext(enteredBed: enteredBed, leftBed: leftBed, rows: native, vitals: vitals, movement: movement)
+            return zip(native, extra).map { epoch, more in
                 StageChallenger.FeatureEpoch(start: epoch.start, values: epoch.values.merging(more) { $1 })
             }
         }
@@ -81,6 +97,88 @@ enum StageFeatures {
                 "minutesSinceBed": start.timeIntervalSince(enteredBed) / 60
             ]
         }
+    }
+
+    /// podContext's extra columns for podNative rows, as core's `stageModelFeatures` computes them on the pod.
+    /// Only readings inside [enteredBed, leftBed) count, and movement is taken in time order, because the
+    /// still-bout edges fall back to the night's first and last movement minute.
+    static func podContext(enteredBed: Date, leftBed: Date, rows: [StageChallenger.FeatureEpoch], vitals: [VitalsRecord],
+                           movement: [MovementRecord]) -> [[String: Double]] {
+        let epoch = StageChallenger.epochSeconds
+        let entered = enteredBed.timeIntervalSince1970
+        let left = leftBed.timeIntervalSince1970
+        func inBed(_ date: Date) -> Bool { date.timeIntervalSince1970 >= entered && date.timeIntervalSince1970 < left }
+        let sorted = vitals.filter { inBed($0.date) }.sorted { $0.date < $1.date }
+        let heartRates = sorted.compactMap { record in record.heartRate.flatMap { $0.isFinite ? (record.date.timeIntervalSince1970, $0) : nil } }
+        let breathing = sorted.compactMap { record in record.breathingRate.flatMap { $0.isFinite ? (record.date.timeIntervalSince1970, $0) : nil } }
+        let moves = movement.filter { inBed($0.date) }.sorted { $0.date < $1.date }
+            .map { ($0.date.timeIntervalSince1970, Double($0.totalMovement)) }
+        let nightHRStd = StageChallenger.populationStd(heartRates.map(\.1))
+        let nightBRMedian = median(breathing.map(\.1))
+        let starts = rows.map(\.start.timeIntervalSince1970)
+        let byStart = Dictionary(zip(starts, rows), uniquingKeysWith: { first, _ in first })
+        func between(_ samples: [(TimeInterval, Double)], _ from: TimeInterval, _ to: TimeInterval) -> [Double] {
+            samples.filter { $0.0 >= from && $0.0 < to }.map(\.1)
+        }
+
+        // Context: neighbours by time, so a skipped epoch falls back to the epoch's own value.
+        var out: [[String: Double]] = rows.enumerated().map { index, row in
+            let start = starts[index]
+            var values: [String: Double] = ["minutesToExit": (left - start) / 60]
+            for column in ["hrZ", "hrStdZ", "motionZ", "hrvRel"] {
+                let own = row.values[column] ?? 0
+                values[column + "Prev"] = byStart[start - epoch]?.values[column] ?? own
+                values[column + "Next"] = byStart[start + epoch]?.values[column] ?? own
+                values[column + "Mean30"] = StageChallenger.mean(rows.filter { abs($0.start.timeIntervalSince1970 - start) <= 3 * epoch }
+                    .map { $0.values[column] ?? 0 })
+            }
+            return values
+        }
+
+        // Movement: minutes clearly above the night's own floor, and the still bout around each epoch.
+        let movementZ = robustZScores(moves.map { log1p($0.1) })
+        let active = zip(moves, movementZ).filter { $0.1 > 3 }.map(\.0.0)
+        var peaks: [Double] = []
+        var hrMax: [Double] = []
+        for index in out.indices {
+            let start = starts[index]
+            let end = start + epoch
+            let mid = start + epoch / 2
+            let last = active.last { $0 <= mid }
+            let next = active.first { $0 > mid }
+            let distances = [last, next].compactMap { $0 }.map { abs(mid - $0) }
+            let boutStart = last ?? moves.first?.0 ?? start
+            let boutEnd = next ?? moves.last?.0 ?? end
+            out[index]["activeMinutes"] = Double(active.filter { $0 >= start && $0 < end }.count)
+            peaks.append(between(moves, start, end).max().map(log1p) ?? 0)
+            out[index]["minutesFromMove"] = distances.min().map { $0 / 60 } ?? 720
+            out[index]["stillBoutMinutes"] = max(boutEnd - boutStart, 0) / 60
+            out[index]["active15"] = Double(active.filter { abs($0 - mid) <= 900 }.count)
+
+            // Arousal: heart-rate rise against the preceding 15 minutes, breathing within the epoch.
+            let beats = between(heartRates, start, end)
+            let prior = between(heartRates, start - 900, start)
+            let breaths = between(breathing, start, end)
+            out[index]["hrRise"] = !beats.isEmpty && !prior.isEmpty && nightHRStd > 0 ? ((beats.max() ?? 0) - median(prior)) / nightHRStd : 0
+            hrMax.append(beats.max() ?? -.infinity)
+            out[index]["brStdEpoch"] = breaths.count > 1 ? StageChallenger.populationStd(breaths) : 0
+            out[index]["brRel"] = !breaths.isEmpty && nightBRMedian > 0 ? StageChallenger.mean(breaths) / nightBRMedian : 0
+        }
+        let peakZ = robustZScores(peaks)
+        let hrMaxZ = StageChallenger.zScores(hrMax)
+        for index in out.indices {
+            out[index]["peakMinuteZ"] = peakZ[index]
+            out[index]["hrMaxZ"] = hrMaxZ[index]
+            out[index]["moveHrCoupling"] = (out[index]["activeMinutes"] ?? 0) * max(out[index]["hrRise"] ?? 0, 0)
+        }
+        return out
+    }
+
+    /// Median-centred, scaled by 1.4826 × MAD; all zeros when the MAD is zero.
+    static func robustZScores(_ values: [Double]) -> [Double] {
+        let center = median(values)
+        let mad = median(values.map { abs($0 - center) }) * 1.4826
+        return values.map { mad > 0 ? ($0 - center) / mad : 0 }
     }
 
     static func median(_ values: [Double]) -> Double {

@@ -1,17 +1,22 @@
 import SwiftUI
+import WatchConnectivity
+import WatchKit
 
 @main
 struct SleepypodWatchApp: App {
-    @State private var controller = Self.makeController()
+    @WKApplicationDelegateAdaptor private var delegate: WatchAppDelegate
+    @State private var controller = WatchAppDelegate.controller
     @State private var bed = Self.makeBed()
+    @Environment(\.scenePhase) private var scenePhase
 
-    private static func makeController() -> RecordingController {
+    static func makeController() -> RecordingController {
         #if DEBUG
         // `-previewPhase ready|recording|finished` shows a screen in the simulator, which has no accelerometer.
         if let phase = UserDefaults.standard.string(forKey: "previewPhase") {
             let defaults = UserDefaults(suiteName: "watch-preview")!
             defaults.removePersistentDomain(forName: "watch-preview")
-            let controller = RecordingController(source: PreviewAccelerometer(), defaults: defaults)
+            let controller = RecordingController(source: PreviewAccelerometer(), defaults: defaults, automatic: false,
+                                                 scheduleWake: { _ in })
             switch phase {
             case "recording": controller.recordTonight(now: .now.addingTimeInterval(-2 * 3600))
             case "finished": controller.recordTonight(now: .now.addingTimeInterval(-10 * 3600))
@@ -38,6 +43,41 @@ struct SleepypodWatchApp: App {
     var body: some Scene {
         WindowGroup {
             RootView().environment(controller).environment(bed)
+        }
+        .onChange(of: scenePhase, initial: true) {
+            if scenePhase == .active { Task { await controller.nightlyWake(foreground: true) } }
+        }
+    }
+}
+
+/// Background wakes: the refreshes the recorder schedules for each night, and WatchConnectivity deliveries such as
+/// new nightly settings from the iPhone.
+final class WatchAppDelegate: NSObject, WKApplicationDelegate {
+    /// Shared with the scene so a background launch, with no window, works on the same recorder.
+    @MainActor static let controller = SleepypodWatchApp.makeController()
+
+    func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+        for task in backgroundTasks {
+            switch task {
+            case let refresh as WKApplicationRefreshBackgroundTask:
+                let work = Task { @MainActor in await Self.controller.nightlyWake(foreground: false) }
+                refresh.expirationHandler = { work.cancel() }
+                Task { @MainActor in
+                    await work.value
+                    refresh.setTaskCompletedWithSnapshot(false)
+                }
+            case let connectivity as WKWatchConnectivityRefreshBackgroundTask:
+                _ = Self.controller
+                Task { @MainActor in
+                    // Completing the task while content is pending would drop the delivery.
+                    for _ in 0..<40 where WCSession.default.activationState != .activated || WCSession.default.hasContentPending {
+                        try? await Task.sleep(for: .milliseconds(250))
+                    }
+                    connectivity.setTaskCompletedWithSnapshot(false)
+                }
+            default:
+                task.setTaskCompletedWithSnapshot(false)
+            }
         }
     }
 }
@@ -125,6 +165,8 @@ private struct ReadyView: View {
             .buttonStyle(.borderedProminent).tint(.red)
             if !controller.status.isEmpty {
                 Text(controller.status).font(.caption2).foregroundStyle(.secondary)
+            } else if let note = controller.nightlyNote(now: now) {
+                Text(note).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
         }
     }
@@ -216,7 +258,9 @@ private struct InfoView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Records wrist movement overnight as labels for the pod's movement classifier.")
                     .font(.footnote)
-                Text("It stays on this Watch until you send it. Your iPhone passes it to your pod with the night's heart rate, HRV, breathing and sleep stages from Health.")
+                Text(controller.nightly.enabled
+                     ? "It records every night around your usual sleep and goes to your iPhone in the morning. Turn this off in sleepypod on iPhone, under Watch movement. Your iPhone passes it to your pod with the night's heart rate, HRV, breathing and sleep stages from Health."
+                     : "It stays on this Watch until you send it. Your iPhone passes it to your pod with the night's heart rate, HRV, breathing and sleep stages from Health.")
                     .font(.footnote).foregroundStyle(.secondary)
                 Toggle("Include raw 50 Hz", isOn: $controller.includeRaw).font(.footnote)
                 Button {

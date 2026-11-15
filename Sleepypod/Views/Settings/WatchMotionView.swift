@@ -10,11 +10,21 @@ struct WatchMotionView: View {
     @State private var exportError: String?
 
     var body: some View {
+        @Bindable var receiver = receiver
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Start a recording on the Watch at bedtime. In the morning, send it from the Watch and it appears here. Open one to compare it with the pod's movement, or share it to a computer to use as movement labels in the training workspace.")
+                Text(receiver.nightlyEnabled
+                     ? "The sleepypod Watch app records every night around your usual sleep and sends it here in the morning. Open one to compare it with the pod's movement, or share it to a computer to use as movement labels in the training workspace."
+                     : "Start a recording on the Watch at bedtime. In the morning, send it from the Watch and it appears here. Open one to compare it with the pod's movement, or share it to a computer to use as movement labels in the training workspace.")
                     .font(.footnote).foregroundStyle(Theme.text2).lineSpacing(3)
                     .padding(.horizontal, 8)
+                GroupedSection("NIGHTLY") {
+                    GroupedCard {
+                        SettingsRow("Record every night", subtitle: nightlySubtitle, height: 56) {
+                            Toggle("Record every night", isOn: $receiver.nightlyEnabled).labelsHidden()
+                        }
+                    }
+                }
                 if let error = receiver.lastError {
                     Text(error).font(.footnote).foregroundStyle(Theme.red).padding(.horizontal, 8)
                 }
@@ -111,11 +121,21 @@ struct WatchMotionView: View {
         return seen
     }
 
+    private var nightlySubtitle: String {
+        let night = receiver.nightly
+        let day = Calendar.current.startOfDay(for: .now)
+        func clock(_ minutes: Int) -> String {
+            day.addingTimeInterval(Double(minutes) * 60).formatted(date: .omitted, time: .shortened)
+        }
+        let source = night.fromHealth ? "from Watch sleep in Health" : "until Health has a night"
+        return "Around \(clock(night.bedMinutes))–\(clock(night.wakeMinutes)), \(source)"
+    }
+
     private func subtitle(_ recording: WatchMotionInbox.Recording) -> String {
         let duration = Duration.seconds(recording.to.timeIntervalSince(recording.from))
             .formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
         let pod = WatchMotionPodUpload.summary(receiver.podUploads[recording.url], sending: receiver.sendingToPod.contains(recording.url))
-        return (["\(duration)", "\(recording.bins) bins"] + [pod].compactMap { $0 }).joined(separator: " · ")
+        return (["\(duration)", "\(recording.bins) bins"] + [recording.capture?.summary, pod].compactMap { $0 }).joined(separator: " · ")
     }
 }
 

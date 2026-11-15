@@ -4,6 +4,23 @@ The sleepypod Watch app records wrist acceleration overnight and sends a summary
 
 ## How a recording happens
 
+### Nightly (default)
+
+**Settings → Watch movement → Record every night** on the iPhone is on by default. The iPhone sends the Watch the usual night, taken from last night's Watch sleep in Health (bed and wake as local clock times; a night under 3 hours is ignored), or 22:30–07:00 until Health has one, together with the toggle, as the WatchConnectivity application context.
+
+The Watch records from 30 minutes before the usual bedtime to an hour after the usual wake, cut at the start to the recorder's 12 hours. Apple's recorder can't be scheduled ahead, so the Watch asks for each night when it wakes inside it (`NightlyCapture.decide`):
+
+- It schedules a background refresh for the night's start, then hourly while the night records, then 10 minutes after its end. The app opening and new settings from the iPhone are wakes too.
+- At a wake inside the night with no recording overlapping it, it calls `recordAccelerometer(forDuration:)` from now to the night's end. A wake with under an hour left does nothing until the next night. A recording started or stopped by hand that night counts as tonight's, so a stopped night isn't restarted.
+- If the Watch restarted after the request (boot time later than the request), it asks again for the rest of the night. A re-armed reading that comes back twice is counted once.
+- In Low Power Mode it skips and checks again every 30 minutes. In the background it arms only with Motion & Fitness already allowed.
+
+Each wake summarizes what the recorder has settled (spans ending at least 10 minutes ago; Apple delays readings by up to 3) in 10-minute spans aligned to Unix time, so the bins equal summarizing the night at once. It saves progress after each span and works for up to 4 seconds in a background refresh and 20 seconds in the foreground. An empty span is read again until 30 minutes after it ends. When the night is complete it queues the file with `transferFile`, as the manual flow does, and a night with no readings is dropped. Unsent nights are kept for the recorder's 3 days and sent oldest first. Nights started by hand are also sent this way while nightly recording is on, unless **Include raw 50 Hz** is on.
+
+Each transfer carries a capture note as `transferFile` metadata (key `capture`, JSON), not in the file, so the format below stays the same: whether the night was nightly or manual, when it was armed, re-arms, and the battery level and charging state when armed and at the last reading off the charger up to 10 minutes after the end. The iPhone keeps it under Application Support/WatchMotion/captures, shows it in the recording's row (for example `Nightly · battery 84% → 61% over 8.2 h`) and writes it to the app log. Export all leaves it out. The battery figure covers the whole Watch, sleep tracking included; to estimate what recording costs, compare it with nights recorded with the toggle off.
+
+### Manual
+
 1. At bedtime, open sleepypod on the Watch, choose a duration (1–12 h) and tap **Record tonight**. The app asks for Motion & Fitness the first time. It calls `CMSensorRecorder.recordAccelerometer(forDuration:)`; the system records at 50 Hz in the background, so the app can close.
 2. In the morning, tap **Send to iPhone**. The Watch reads the recorded span with `accelerometerData(from:to:)`, summarizes it and queues the file with WatchConnectivity `transferFile`, which retries until the iPhone receives it.
 3. On the iPhone, the file appears under **Settings → Watch movement**, stored in Application Support/WatchMotion. Share it to a computer from there.
@@ -48,7 +65,7 @@ The axis means keep wrist orientation, which magnitude discards. The training wo
 
 ## Limits
 
-- Not yet verified on a real Watch overnight: background recording, battery cost and delivery are untested.
+- Not yet verified on a real Watch overnight: nightly arming, background refresh timing, battery cost and delivery are untested. watchOS decides when a background refresh actually runs, so a night can start later than planned; coverage per night shows how often.
 - The system keeps recorded data for about three days; send it the next morning.
 - One request records at most 12 hours.
 - A night of 2 s bins is a few hundred kilobytes; raw 50 Hz readings are tens of megabytes, so raw export is off by default.

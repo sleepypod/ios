@@ -51,6 +51,24 @@ struct StageModelTests {
         #expect(StageFeatures.Contract.matching(StageFeatures.Contract.podNative.columns) == .podNative)
     }
 
+    @Test func podContextAddsMovementBoutsAndIgnoresMovementOrder() throws {
+        // 30 minutes in bed; one clear movement spike at minute 12, inside the third epoch (10–15 min).
+        let vitals = (0..<30).map { vital($0, hr: 60 + Double($0 % 5), hrv: 30, br: 14) }
+        let movement = (0..<30).map { MovementRecord(id: $0, totalMovement: $0 == 12 ? 900 : 10 + $0 % 3, date: t0.addingTimeInterval(Double($0) * 60)) }
+        let leftBed = t0.addingTimeInterval(1800)
+        let rows = StageFeatures.rows(contract: .podContext, enteredBed: t0, leftBed: leftBed, vitals: vitals, movement: movement)
+        #expect(rows.count == 6)
+        for row in rows { #expect(Set(row.values.keys) == Set(StageFeatures.Contract.podContext.columns)) }
+        #expect(rows.map { $0.values["activeMinutes"]! } == [0, 0, 1, 0, 0, 0])
+        // The spike splits the night: the still bout before it runs from the first movement minute to minute 12.
+        #expect(rows[0].values["stillBoutMinutes"] == 12)
+        #expect(rows.map { $0.values["minutesToExit"]! } == [30, 25, 20, 15, 10, 5])
+        // Core reads movement in time order; the phone may hand it over in any order.
+        let reversed = StageFeatures.rows(contract: .podContext, enteredBed: t0, leftBed: leftBed, vitals: vitals, movement: movement.reversed())
+        #expect(reversed == rows)
+        #expect(StageFeatures.Contract.matching(StageFeatures.Contract.podContext.columns) == .podContext)
+    }
+
     @Test func ratiosAreZeroWithoutADenominator() {
         let vitals = (0..<10).map { vital($0, hr: 60) }
         let rows = StageFeatures.rows(contract: .podNative, enteredBed: t0, leftBed: t0.addingTimeInterval(600), vitals: vitals, movement: [])

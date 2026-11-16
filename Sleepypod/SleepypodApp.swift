@@ -124,6 +124,7 @@ struct ContentView: View {
     @Environment(StatusManager.self) private var statusManager
     @Environment(HealthSyncService.self) private var healthSync
     @Environment(UserProfile.self) private var profile
+    @Environment(WatchMotionReceiver.self) private var watchMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = Self.initialTab
     @State private var showWelcome = false
@@ -222,6 +223,12 @@ struct ContentView: View {
                 }
                 do { try await Task.sleep(for: .seconds(60)) } catch { return }
             }
+        }
+        .task(id: "\(scenePhase)-\(healthSync.enabled)-\(healthSync.preferences.readSleep)") {
+            // The Watch records each night around the usual one, taken from last night's Watch sleep.
+            guard scenePhase == .active, !isDemo else { return }
+            let night = await healthSync.inferredSchedule()
+            watchMotion.updateNightly(bed: night?.bed, wake: night?.wake)
         }
         .onChange(of: scenePhase) {
             if scenePhase == .background && healthSync.enabled && !isDemo {

@@ -222,6 +222,19 @@ struct SnoreCaptureServiceTests {
         #expect(source.stops == 1)
     }
 
+    @Test func steadySnoringCountsBeforeTheEventCloses() async {
+        let (service, _, _, _, _) = make()
+        await service.start()
+        for offset in stride(from: 0, to: 30_000, by: 1_500) {
+            service.handle(SnoreWindow(startMs: 1_100_000 + Int64(offset), durationMs: 3_000, confidence: 0.8))
+        }
+        #expect(service.current?.events.isEmpty == true)
+        #expect(service.snoresDetected == 1)
+        service.stop()
+        #expect(service.lastSession?.events.count == 1)
+        #expect(service.snoresDetected == 0)
+    }
+
     @Test func interruptionsPauseListeningAndResume() async {
         let (service, source, clock, _, _) = make()
         await service.start()

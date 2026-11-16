@@ -9,6 +9,7 @@ struct SleepScreen: View {
     @Environment(UserProfile.self) private var profile
     @Environment(HealthSyncService.self) private var health
     @Environment(StageModelStore.self) private var stageModels
+    @Environment(SnoreCaptureService.self) private var snore
     @State private var selectedDate = Calendar.current.startOfDay(for: Date()).addingTimeInterval(-86400)
     @State private var period: Period = ["week", "weektrend"].contains(DebugRoute.current) ? .week : DebugRoute.current == "month" ? .month : .night
     @State private var analyzer = SleepAnalyzer()
@@ -16,6 +17,8 @@ struct SleepScreen: View {
     @State private var nightlyAgreement: [Date: Double] = [:]
     @State private var showWatch = false
     @State private var showStages = false
+    @State private var showWatchMotion = DebugRoute.current == "watchmotion"
+    @State private var showSnore = DebugRoute.current == "snore"
     @State private var monthRecords: [SleepRecord] = []
 
     private var calendar: Calendar { .current }
@@ -63,7 +66,9 @@ struct SleepScreen: View {
                     .padding(.horizontal, 4)
                     .padding(.bottom, 8)
                     switch period {
-                    case .night: nightContent
+                    case .night:
+                        nightContent
+                        recordingRows
                     case .week: weekContent
                     case .month: monthContent
                     }
@@ -99,6 +104,8 @@ struct SleepScreen: View {
             .navigationDestination(isPresented: $showStages) {
                 if let record { StageComparisonView(record: record, side: metrics.selectedSide) }
             }
+            .navigationDestination(isPresented: $showWatchMotion) { WatchMotionView() }
+            .navigationDestination(isPresented: $showSnore) { SnoreCaptureView() }
         }
     }
 
@@ -259,6 +266,30 @@ struct SleepScreen: View {
         .accessibilityHint("Shows the Watch, the pod's rules and an experimental model side by side")
     }
 
+    /// What this iPhone and its Watch record overnight, under the comparisons that use them.
+    private var recordingRows: some View {
+        VStack(spacing: 12) {
+            row("Watch movement", icon: "figure.walk", identifier: "watchMovement") { showWatchMotion = true }
+            row("Snore detection", icon: "waveform.badge.mic", value: snore.isActive ? "Listening" : "Beta",
+                identifier: "snoreDetection") { showSnore = true }
+        }
+    }
+
+    private func row(_ title: String, icon: String, value: String? = nil, identifier: String,
+                     action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            SettingsRow(title, icon: icon, chevron: true, height: 52, titleFont: .subheadline) {
+                if let value { RowValue(value) }
+            }
+            .cardSurface(radius: 18)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+    }
+
     // MARK: Week
 
     private var weekContent: some View {
@@ -368,9 +399,10 @@ struct SleepScreen: View {
         }
         return barsCard(days: monthDays, hours: hours, spacing: 3, radius: 3, height: 140) { _, day in
             let number = calendar.component(.day, from: day)
+            // Zero minimum width so 30 labels never widen the row; each overflows its bar, centred.
             Text("\(number)")
                 .fixedSize()
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 0, maxWidth: .infinity)
                 .foregroundStyle(calendar.isDate(day, inSameDayAs: selectedDate) ? Theme.text1 : Theme.text3)
                 .opacity([1, 8, 15, 22, 29].contains(number) ? 1 : 0)
         }

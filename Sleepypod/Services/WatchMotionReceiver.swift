@@ -94,6 +94,10 @@ final class WatchMotionReceiver: NSObject {
     private(set) var nightly: NightlyMotionSettings
     private let defaults: UserDefaults
     private static let nightlyKey = "watchMotion.nightly"
+    /// Recordings the pod stored, by side and file name, with the file's modification time when it was sent. Kept
+    /// across launches so a send skips them; a redelivered file is rewritten with a new time and goes again.
+    private var sentToPod: [String: Double]
+    private static let sentKey = "watchMotion.sentToPod"
     /// Shortest Health night taken as the usual one, so a nap doesn't move it.
     static let minimumNight: TimeInterval = 3 * 3600
 
@@ -102,6 +106,7 @@ final class WatchMotionReceiver: NSObject {
         self.defaults = defaults
         nightly = defaults.data(forKey: Self.nightlyKey).flatMap { try? JSONDecoder().decode(NightlyMotionSettings.self, from: $0) }
             ?? NightlyMotionSettings()
+        sentToPod = defaults.dictionary(forKey: Self.sentKey) as? [String: Double] ?? [:]
         super.init()
         recordings = inbox.recordings()
     }
@@ -160,24 +165,52 @@ final class WatchMotionReceiver: NSObject {
 
     var canSendToPod: Bool { podDestination() != nil }
 
-    /// Sends recordings one at a time; resending is safe because the pod keys them by side and start.
-    func sendToPod(_ recordings: [WatchMotionInbox.Recording]) async {
+    /// Whether the pod already stored this recording, as it is now, for `side`.
+    func isOnPod(_ recording: WatchMotionInbox.Recording, side: Side) -> Bool {
+        guard let sent = sentToPod[Self.sentKey(recording, side: side)] else { return false }
+        return sent == Self.modified(recording.url)
+    }
+
+    /// The recordings `side` hasn't stored yet.
+    func unsent(side: Side) -> [WatchMotionInbox.Recording] {
+        recordings.filter { !isOnPod($0, side: side) }
+    }
+
+    /// Sends recordings one at a time, skipping those the pod already stored unless `force` is set. Resending is
+    /// safe either way because the pod keys them by side and start.
+    func sendToPod(_ recordings: [WatchMotionInbox.Recording], force: Bool = false) async {
         guard let destination = podDestination() else { return }
         for recording in recordings where !sendingToPod.contains(recording.url) {
+            if !force && isOnPod(recording, side: destination.side) { continue }
             sendingToPod.insert(recording.url)
             let outcome = await WatchMotionPodUpload.send(contentsOf: recording.url, side: destination.side, api: destination.api)
             sendingToPod.remove(recording.url)
             podUploads[recording.url] = outcome
+            if case .stored = outcome, let modified = Self.modified(recording.url) {
+                sentToPod[Self.sentKey(recording, side: destination.side)] = modified
+                defaults.set(sentToPod, forKey: Self.sentKey)
+            }
             podLacksSupport = outcome == .unsupported
             if podLacksSupport { break }
         }
     }
 
-    /// Sends the recordings from the last `days` again and returns what the pod said about each.
+    private static func sentKey(_ recording: WatchMotionInbox.Recording, side: Side) -> String {
+        "\(side.rawValue)/\(recording.url.lastPathComponent)"
+    }
+
+    /// Read from the file system each time: URL resource values are cached per URL and would miss a rewrite.
+    private static func modified(_ url: URL) -> Double? {
+        ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date)?.timeIntervalSince1970
+    }
+
+    /// Sends the recordings from the last `days` the pod doesn't have yet and returns what it said about each.
     func sendRecent(days: Int = 2, now: Date = .now) async -> [WatchMotionPodUpload.Outcome] {
         let recent = recordings.filter { $0.to > now.addingTimeInterval(-Double(days) * 86400) }
-        await sendToPod(recent)
-        return recent.compactMap { podUploads[$0.url] }
+        let destination = podDestination()
+        let unsent = recent.filter { recording in destination.map { !isOnPod(recording, side: $0.side) } ?? true }
+        await sendToPod(unsent)
+        return unsent.compactMap { podUploads[$0.url] }
     }
 }
 

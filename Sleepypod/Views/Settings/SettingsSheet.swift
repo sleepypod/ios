@@ -9,9 +9,7 @@ struct SettingsSheet: View {
     @Environment(StatusManager.self) private var status
     @Environment(HealthSyncService.self) private var health
     @Environment(UserProfile.self) private var profile
-    @Environment(SnoreCaptureService.self) private var snore
     @State private var showAllSettings = DebugRoute.current == "allsettings"
-    @State private var showWatchMotion = DebugRoute.current == "watchmotion"
     @State private var showHealth = DebugRoute.current == "health"
     @State private var confirmPrime = false
     @State private var primeError: String?
@@ -58,14 +56,6 @@ struct SettingsSheet: View {
                                 RowValue(health.enabled ? "On" : "Off")
                             }
                         }
-                        Button { showWatchMotion = true } label: {
-                            SettingsRow("Watch movement", icon: "applewatch", iconColor: Theme.text1, chevron: true)
-                        }
-                        NavigationLink { SnoreCaptureView() } label: {
-                            SettingsRow("Snore detection", icon: "waveform.badge.mic", iconColor: Theme.text1, chevron: true) {
-                                RowValue(snore.isActive ? "Listening" : "Beta")
-                            }
-                        }
                         TempControlMenu(selection: $profile.tempControl, iconColor: Theme.text1, tile: false)
                         if APIBackend.current.isDemo {
                             Button {
@@ -105,16 +95,6 @@ struct SettingsSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .modifier(SettingsSheetBackground())
-        .fullScreenCover(isPresented: $showWatchMotion) {
-            NavigationStack {
-                WatchMotionView()
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button { showWatchMotion = false } label: { Text("Done").fontWeight(.semibold) }
-                        }
-                    }
-            }
-        }
         .fullScreenCover(isPresented: $showAllSettings) {
             NavigationStack {
                 AllSettingsScreen()

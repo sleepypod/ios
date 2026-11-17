@@ -53,6 +53,10 @@ final class SnoreCaptureService {
 
     var isActive: Bool { machine.isActive }
 
+    /// Finished events plus one still in progress, which only closes after two quiet windows,
+    /// so steady snoring shows up while it's happening instead of after it stops.
+    var snoresDetected: Int { (current?.events.count ?? 0) + (tracker?.isOpen == true ? 1 : 0) }
+
     /// Starts listening, asking for microphone access first if needed.
     func start() async {
         guard !machine.isActive, !starting else { return }

@@ -30,8 +30,8 @@ struct SnoreCaptureView: View {
                     GroupedSection("TONIGHT") {
                         GroupedCard {
                             SettingsRow("Status") { RowValue(statusText) }
-                            if let current = snore.current {
-                                SettingsRow("Snores detected") { RowValue("\(current.events.count)") }
+                            if snore.current != nil {
+                                SettingsRow("Snores detected") { RowValue("\(snore.snoresDetected)") }
                             }
                         }
                     }

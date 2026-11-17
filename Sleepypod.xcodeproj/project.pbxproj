@@ -108,6 +108,7 @@
 		8F2A143F9BAFEF496AE6E596 /* WatchMotionNightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B8633E6055104021A6A4C95 /* WatchMotionNightView.swift */; };
 		8F8F8E438E81E6BE59F995CB /* BothSidesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BACCA7BD3D78B0D77B37A536 /* BothSidesView.swift */; };
 		8FE251F5B081255681839A64 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22017869B6697F13244EF76 /* ShareSheet.swift */; };
+		90849D926EA2B8F7D75F9AB8 /* NightVitalsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5026D69FD13338B530611FEB /* NightVitalsCard.swift */; };
 		910535B30A8B5FBB4DE1B33C /* SleepTimeCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FCC5EA8D41BF91BCCFDEA6D /* SleepTimeCardView.swift */; };
 		9134DC5F465DB3F287914037 /* HealthCircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AB3B17FD36D878C2457E20 /* HealthCircleView.swift */; };
 		92B1607F8D33BC281B15AAAE /* RunOnceActiveBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20D1974B2E3BAF1AB09CDAB /* RunOnceActiveBanner.swift */; };
@@ -279,6 +280,7 @@
 		4D36319CCA9F03AAB322E21E /* SleepScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepScreen.swift; sourceTree = "<group>"; };
 		4F4EAF0885B4206D02501DC8 /* StatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusManager.swift; sourceTree = "<group>"; };
 		4FF755316550B89052F80058 /* StageLanesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageLanesTests.swift; sourceTree = "<group>"; };
+		5026D69FD13338B530611FEB /* NightVitalsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightVitalsCard.swift; sourceTree = "<group>"; };
 		50BD72013CAB411F125A77BC /* RawDataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawDataSheet.swift; sourceTree = "<group>"; };
 		51FB8C8210CC0FCB1EC44AEA /* StageComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageComparisonView.swift; sourceTree = "<group>"; };
 		537757144294771A7C1D3386 /* PiezoSweep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiezoSweep.swift; sourceTree = "<group>"; };
@@ -410,6 +412,7 @@
 				0370A4FF64B61475AC0C1125 /* HealthScreen.swift */,
 				0C70BD4A2C786A698DBBD742 /* HeartRateChartView.swift */,
 				452905BE65E698AC3C3419A6 /* MovementCardView.swift */,
+				5026D69FD13338B530611FEB /* NightVitalsCard.swift */,
 				355CB578673C1E0339D45850 /* PodMovementCardView.swift */,
 				50BD72013CAB411F125A77BC /* RawDataSheet.swift */,
 				A22017869B6697F13244EF76 /* ShareSheet.swift */,
@@ -1034,6 +1037,7 @@
 				3F3CA68DBFC6398C218DB8D0 /* MovementRecord.swift in Sources */,
 				B550262B3FAB41694790DA90 /* NightPhases.swift in Sources */,
 				D9706DA4AC4F0D618FF78A16 /* NightPhasesStore.swift in Sources */,
+				90849D926EA2B8F7D75F9AB8 /* NightVitalsCard.swift in Sources */,
 				1600D01CDA70842D10CD8CB0 /* NightlyCapture.swift in Sources */,
 				59D63C6FB621C08C2D068AA7 /* NotificationRelay.swift in Sources */,
 				36740E4A775ACC858FFB9813 /* Onboarding.swift in Sources */,

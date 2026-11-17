@@ -37,8 +37,10 @@ struct TempSliderView: View {
 
     private func pill(height: CGFloat) -> some View {
         let fill = Self.fraction(target) * height
+        let shape = RoundedRectangle(cornerRadius: 40, style: .continuous)
         return ZStack(alignment: .bottom) {
-            Theme.track
+            // See-through so the screen's temperature wash shows behind it; the outline keeps its edge readable.
+            Rectangle().fill(.ultraThinMaterial)
             Rectangle().fill(color.opacity(device.isOn ? 1 : 0.35)).frame(height: fill)
             Rectangle().fill(.clear).frame(height: 1)
                 .overlay(Line().stroke(Theme.text3, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
@@ -47,8 +49,9 @@ struct TempSliderView: View {
                 .offset(y: -min(height - 24, fill + 14))
         }
         .frame(width: 128, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 40, style: .continuous))
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Theme.border1, lineWidth: 1))
+        .contentShape(shape)
         .gesture(DragGesture(minimumDistance: 0).onChanged { drag in
             guard device.isOn else { return }
             let fraction = 1 - min(1, max(0, drag.location.y / height))

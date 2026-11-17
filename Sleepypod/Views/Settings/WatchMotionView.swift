@@ -8,6 +8,9 @@ struct WatchMotionView: View {
     @Environment(SettingsManager.self) private var settings
     @State private var exportURL: URL?
     @State private var exportError: String?
+    @State private var shown = Self.page
+    /// Recordings listed at first and added by each Show older, so a long history doesn't scroll forever.
+    private static let page = 7
 
     var body: some View {
         @Bindable var receiver = receiver
@@ -20,7 +23,7 @@ struct WatchMotionView: View {
                     .padding(.horizontal, 8)
                 GroupedSection("NIGHTLY") {
                     GroupedCard {
-                        SettingsRow("Record every night", subtitle: nightlySubtitle, height: 56) {
+                        SettingsRow("Record every night", subtitle: nightlySubtitle, height: 56, verticalPadding: 10) {
                             Toggle("Record every night", isOn: $receiver.nightlyEnabled).labelsHidden()
                         }
                     }
@@ -33,11 +36,21 @@ struct WatchMotionView: View {
                         if receiver.recordings.isEmpty {
                             SettingsRow("No recordings yet", subtitle: "Recordings from the Watch appear here")
                         }
-                        ForEach(receiver.recordings) { recording in
+                        ForEach(receiver.recordings.prefix(shown)) { recording in
                             NavigationLink { WatchMotionNightView(recording: recording) } label: {
                                 SettingsRow(recording.from.formatted(date: .abbreviated, time: .shortened),
                                             subtitle: subtitle(recording),
                                             icon: "figure.walk", iconColor: Theme.text1, chevron: true)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        if receiver.recordings.count > shown {
+                            Button {
+                                Haptics.tap()
+                                shown += Self.page
+                            } label: {
+                                SettingsRow("Show older", subtitle: "\(receiver.recordings.count - shown) more",
+                                            icon: "clock.arrow.circlepath", iconColor: Theme.text1)
                             }
                             .buttonStyle(.plain)
                         }
@@ -79,25 +92,43 @@ struct WatchMotionView: View {
             if let exportError {
                 Text(exportError).font(.footnote).foregroundStyle(Theme.red).padding(.horizontal, 16)
             }
-            if receiver.canSendToPod { podNotes }
+            if receiver.canSendToPod {
+                podNotes
+                GroupedCard { resendAllButton }
+            }
         }
     }
 
+    private var unsent: [WatchMotionInbox.Recording] { receiver.unsent(side: profile.defaultSide) }
+
     private var sendAllButton: some View {
-        Button {
-            Haptics.light()
-            Task {
-                await receiver.sendToPod(receiver.recordings)
-                let outcomes = receiver.recordings.map { receiver.podUploads[$0.url] }
-                if outcomes.allSatisfy({ if case .stored = $0 { true } else { false } }) { Haptics.success() } else { Haptics.warning() }
-            }
-        } label: {
-            SettingsRow(receiver.sendingToPod.isEmpty ? "Send all to pod" : "Sending…", icon: "arrow.up.circle") {
+        Button { send(unsent, force: false) } label: {
+            SettingsRow(receiver.sendingToPod.isEmpty ? "Send new to pod" : "Sending…",
+                        subtitle: unsent.isEmpty ? "Every recording is on the pod" : "\(unsent.count) not on the pod yet",
+                        icon: "arrow.up.circle") {
                 if !receiver.sendingToPod.isEmpty { ProgressView() }
             }
         }
         .buttonStyle(.plain)
+        .disabled(!receiver.sendingToPod.isEmpty || unsent.isEmpty)
+    }
+
+    /// Sends everything again, including recordings the pod already has, for a pod that was reset or replaced.
+    private var resendAllButton: some View {
+        Button { send(receiver.recordings, force: true) } label: {
+            SettingsRow("Send all again", subtitle: "Includes recordings already on the pod", icon: "arrow.clockwise")
+        }
+        .buttonStyle(.plain)
         .disabled(!receiver.sendingToPod.isEmpty)
+    }
+
+    private func send(_ recordings: [WatchMotionInbox.Recording], force: Bool) {
+        Haptics.light()
+        Task {
+            await receiver.sendToPod(recordings, force: force)
+            let outcomes = recordings.map { receiver.podUploads[$0.url] }
+            if outcomes.allSatisfy({ if case .stored = $0 { true } else { false } }) { Haptics.success() } else { Haptics.warning() }
+        }
     }
 
     @ViewBuilder private var podNotes: some View {
@@ -135,7 +166,8 @@ struct WatchMotionView: View {
         let duration = Duration.seconds(recording.to.timeIntervalSince(recording.from))
             .formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
         let pod = WatchMotionPodUpload.summary(receiver.podUploads[recording.url], sending: receiver.sendingToPod.contains(recording.url))
-        return (["\(duration)", "\(recording.bins) bins"] + [recording.capture?.summary, pod].compactMap { $0 }).joined(separator: " · ")
+            ?? (receiver.isOnPod(recording, side: profile.defaultSide) ? "On pod" : nil)
+        return (["\(duration)", "\(recording.bins.formatted()) bins"] + [recording.capture?.summary, pod].compactMap { $0 }).joined(separator: " · ")
     }
 }
 

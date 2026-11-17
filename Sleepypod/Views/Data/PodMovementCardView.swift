@@ -31,7 +31,7 @@ struct PodMovementCardView: View {
                 }
             }
             if !loaded {
-                ProgressView().frame(maxWidth: .infinity, minHeight: 120)
+                LoadingBlock(height: 120)
             } else if movement.isEmpty {
                 Text(error ?? "No movement recorded for this night")
                     .font(.subheadline).foregroundStyle(Theme.text3)
@@ -60,14 +60,19 @@ struct PodMovementCardView: View {
         // A recording can run past the bed record; only the night shown is drawn and scaled.
         let watchPoints = comparison?.watch.filter { $0.date >= record.enteredBedDate && $0.date <= record.leftBedDate } ?? []
         let watchPeak = WatchMotionComparison.peak(watchPoints.map(\.value))
+        // Trim the axis to the minutes either sensor saw movement, so stillness or missing data at the ends of the
+        // bed record isn't drawn as empty chart.
+        let moving = movement.filter { $0.totalMovement > 0 }.map(\.date) + watchPoints.filter { $0.value > 0 }.map(\.date)
+        let start = moving.min() ?? record.enteredBedDate
+        let end = max(start, (moving.max() ?? record.leftBedDate).addingTimeInterval(60))
         return Chart {
-            ForEach(movement) { minute in
+            ForEach(movement.filter { (start...end).contains($0.date) }) { minute in
                 BarMark(x: .value("Time", minute.date, unit: .minute),
                         y: .value("Movement", min(Double(minute.totalMovement) / podPeak, 1.2)))
                     .foregroundStyle(Theme.amber.opacity(comparison == nil ? 1 : 0.6))
             }
             // One series per run, so gaps without readings stay gaps.
-            ForEach(Array(WatchMotionComparison.runs(watchPoints).enumerated()), id: \.offset) { run, points in
+            ForEach(Array(WatchMotionComparison.runs(watchPoints.filter { (start...end).contains($0.date) }).enumerated()), id: \.offset) { run, points in
                 ForEach(points) { point in
                     LineMark(x: .value("Time", point.date), y: .value("Movement", min(point.value / watchPeak, 1.2)),
                              series: .value("Source", "Watch \(run)"))
@@ -76,7 +81,7 @@ struct PodMovementCardView: View {
                 }
             }
         }
-        .chartXScale(domain: record.enteredBedDate...max(record.enteredBedDate, record.leftBedDate))
+        .chartXScale(domain: start...end)
         .chartYAxis(.hidden)
         .chartXAxis {
             AxisMarks(values: .stride(by: .hour, count: 2)) { value in

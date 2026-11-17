@@ -19,6 +19,7 @@ struct StageFeatureParityTests {
         let movement: [Movement]
         let contractA: [[String: Double]]
         let contractB: [[String: Double]]
+        let contractC: [[String: Double]]
     }
 
     private func load() throws -> Fixture {
@@ -58,5 +59,9 @@ struct StageFeatureParityTests {
                 to: fixture.contractA, columns: StageFeatures.Contract.challenger.columns)
         compare(StageFeatures.rows(contract: .podNative, enteredBed: enteredBed, leftBed: leftBed, vitals: vitals, movement: movement),
                 to: fixture.contractB, columns: StageFeatures.Contract.podNative.columns)
+        // podContext rows come from core's own `stageModelFeatures` (personal-stage-model.ts), which stages the pod's nights.
+        #expect(!fixture.contractC.isEmpty)
+        compare(StageFeatures.rows(contract: .podContext, enteredBed: enteredBed, leftBed: leftBed, vitals: vitals, movement: movement),
+                to: fixture.contractC, columns: StageFeatures.Contract.podContext.columns)
     }
 }

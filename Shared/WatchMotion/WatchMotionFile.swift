@@ -51,6 +51,19 @@ struct WatchMotionFile: Codable, Sendable, Equatable {
                         magnitudeVariance: pick(magnitudeVariance), maxJerk: pick(maxJerk), movingSamples: pick(movingSamples),
                         meanX: meanX.map(pick), meanY: meanY.map(pick), meanZ: meanZ.map(pick))
         }
+
+        /// Adds later bins, as summarized from the next span of the same night.
+        mutating func append(_ other: Bins) {
+            startMs += other.startMs
+            samples += other.samples
+            meanMagnitude += other.meanMagnitude
+            magnitudeVariance += other.magnitudeVariance
+            maxJerk += other.maxJerk
+            movingSamples += other.movingSamples
+            meanX = meanX.map { $0 + (other.meanX ?? []) }
+            meanY = meanY.map { $0 + (other.meanY ?? []) }
+            meanZ = meanZ.map { $0 + (other.meanZ ?? []) }
+        }
     }
 
     enum FormatError: Error, Equatable {
@@ -121,6 +134,11 @@ enum MotionSummarizer {
             var previous: MotionSample?
             while index < sorted.count, sorted[index].time < binEnd {
                 let sample = sorted[index]
+                // Overlapping recorder requests could hand back a reading twice; count it once.
+                if let previous, sample.time == previous.time {
+                    index += 1
+                    continue
+                }
                 if let previous, sample.time > previous.time, sample.time - previous.time <= maxGap {
                     let jerk = abs(sample.magnitude - previous.magnitude) / (sample.time - previous.time)
                     maxJerk = max(maxJerk, jerk)
@@ -153,15 +171,24 @@ enum MotionSummarizer {
                      jerkThreshold: Double = defaultJerkThreshold, includeRaw: Bool = false) -> WatchMotionFile {
         // The recorder can hand back leftovers from an earlier recording; keep only [from, to).
         let samples = samples.filter { $0.time >= from.timeIntervalSince1970 && $0.time < to.timeIntervalSince1970 }
-        return WatchMotionFile(
+        var result = file(bins: summarize(samples, binSeconds: binSeconds, jerkThreshold: jerkThreshold), from: from, to: to,
+                        timeZone: timeZone, device: device, sampleRateHz: sampleRateHz, binSeconds: binSeconds,
+                        jerkThreshold: jerkThreshold)
+        result.raw = includeRaw ? samples.map { [($0.time * 1000).rounded(), $0.x, $0.y, $0.z] } : nil
+        return result
+    }
+
+    /// A file around bins already summarized, such as a night worked through a span at a time.
+    static func file(bins: WatchMotionFile.Bins, from: Date, to: Date, timeZone: TimeZone, device: String,
+                     sampleRateHz: Double = 50, binSeconds: Double = defaultBinSeconds,
+                     jerkThreshold: Double = defaultJerkThreshold) -> WatchMotionFile {
+        WatchMotionFile(
             recordedFromMs: Int64((from.timeIntervalSince1970 * 1000).rounded()),
             recordedToMs: Int64((to.timeIntervalSince1970 * 1000).rounded()),
             timeZone: timeZone.identifier,
             utcOffsetSeconds: timeZone.secondsFromGMT(for: from),
             sampleRateHz: sampleRateHz, binSeconds: binSeconds, jerkThresholdGPerSecond: jerkThreshold,
-            device: device,
-            bins: summarize(samples, binSeconds: binSeconds, jerkThreshold: jerkThreshold),
-            raw: includeRaw ? samples.map { [($0.time * 1000).rounded(), $0.x, $0.y, $0.z] } : nil)
+            device: device, bins: bins, raw: nil)
     }
 }
 
@@ -175,6 +202,12 @@ struct RecordingPlan: Codable, Sendable, Equatable {
     init(start: Date, hours: Double) {
         self.start = start
         duration = min(max(hours, 0.5) * 3600, Self.maximumDuration)
+    }
+
+    /// From `start` to `end`, cut to the recorder's 12 hours.
+    init(start: Date, end: Date) {
+        self.start = start
+        duration = min(max(end.timeIntervalSince(start), 0), Self.maximumDuration)
     }
 
     var end: Date { start.addingTimeInterval(duration) }

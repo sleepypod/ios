@@ -9,6 +9,7 @@ struct SleepScreen: View {
     @Environment(UserProfile.self) private var profile
     @Environment(HealthSyncService.self) private var health
     @Environment(StageModelStore.self) private var stageModels
+    @Environment(SnoreCaptureService.self) private var snore
     @State private var selectedDate = Calendar.current.startOfDay(for: Date()).addingTimeInterval(-86400)
     @State private var period: Period = ["week", "weektrend"].contains(DebugRoute.current) ? .week : DebugRoute.current == "month" ? .month : .night
     @State private var analyzer = SleepAnalyzer()
@@ -16,6 +17,8 @@ struct SleepScreen: View {
     @State private var nightlyAgreement: [Date: Double] = [:]
     @State private var showWatch = false
     @State private var showStages = false
+    @State private var showWatchMotion = DebugRoute.current == "watchmotion"
+    @State private var showSnore = DebugRoute.current == "snore"
     @State private var monthRecords: [SleepRecord] = []
 
     private var calendar: Calendar { .current }
@@ -63,7 +66,9 @@ struct SleepScreen: View {
                     .padding(.horizontal, 4)
                     .padding(.bottom, 8)
                     switch period {
-                    case .night: nightContent
+                    case .night:
+                        nightContent
+                        recordingRows
                     case .week: weekContent
                     case .month: monthContent
                     }
@@ -75,7 +80,7 @@ struct SleepScreen: View {
                 .padding(.bottom, 24)
             }
             .defaultScrollAnchor(DebugRoute.current == "weektrend" ? .bottom : nil)
-            .background(Theme.background)
+            .background { ScreenWash.brand }
             .navigationTitle("Sleep")
             .settingsToolbar()
             .toolbar {
@@ -99,6 +104,8 @@ struct SleepScreen: View {
             .navigationDestination(isPresented: $showStages) {
                 if let record { StageComparisonView(record: record, side: metrics.selectedSide) }
             }
+            .navigationDestination(isPresented: $showWatchMotion) { WatchMotionView() }
+            .navigationDestination(isPresented: $showSnore) { SnoreCaptureView() }
         }
     }
 
@@ -146,6 +153,7 @@ struct SleepScreen: View {
                 vital("HRV", unit: "ms", key: \.hrv, decimals: 0, icon: "waveform.path.ecg", color: Theme.cool)
                 vital("BREATH", unit: "br/min", key: \.breathingRate, decimals: 1, icon: "lungs", color: Theme.green)
             }
+            NightVitalsCard(vitals: filteredVitals)
             PodMovementCardView(record: record, side: metrics.selectedSide)
             if health.hasWriteAuthorization && metrics.selectedSide == profile.defaultSide && !isDemo {
                 healthReceipt(record)
@@ -155,11 +163,46 @@ struct SleepScreen: View {
                 stagesRow
             }
         } else if metrics.isLoading {
-            ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+            nightLoading
         } else {
             ContentUnavailableView("No sleep recorded", systemImage: "moon",
                                    description: Text("Choose another night to see sleep and vitals."))
         }
+    }
+
+    /// The Night view's cards with their content still loading, so the screen keeps its shape while it fetches.
+    @ViewBuilder private var nightLoading: some View {
+        HStack(spacing: 18) {
+            Circle().stroke(Theme.track, lineWidth: 6).padding(6).frame(width: 78, height: 78)
+            VStack(alignment: .leading, spacing: 8) {
+                LoadingBlock(height: 28, width: 120)
+                LoadingBlock(height: 12, width: 150)
+            }
+            Spacer(minLength: 0)
+        }
+        .cardStyle(vertical: 18, horizontal: 18)
+        VStack(alignment: .leading, spacing: 12) {
+            Eyebrow("STAGES")
+            LoadingBlock(height: 88)
+            LoadingBlock(height: 12, width: 180)
+        }
+        .cardStyle()
+        vitalsLayout {
+            ForEach([("HR", "bpm"), ("HRV", "ms"), ("BREATH", "br/min")], id: \.0) { title, unit in
+                VStack(alignment: .leading, spacing: 6) {
+                    Eyebrow(title, size: 10)
+                    LoadingBlock(height: 28, width: 48)
+                    Text(unit).font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3)
+                }
+                .cardStyle(radius: 18, vertical: 14, horizontal: 14)
+            }
+        }
+        NightVitalsCard(vitals: [], loading: true)
+        VStack(alignment: .leading, spacing: 12) {
+            Eyebrow("MOVEMENT")
+            LoadingBlock(height: 120)
+        }
+        .cardStyle()
     }
 
     private var filteredVitals: [VitalsRecord] {
@@ -211,7 +254,11 @@ struct SleepScreen: View {
                     .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
                 Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.green)
             } else {
-                Image(systemName: "heart").font(.system(size: 15)).foregroundStyle(Theme.amber)
+                if health.isSyncing {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "heart").font(.system(size: 15)).foregroundStyle(Theme.amber)
+                }
                 Text(health.isSyncing ? "Saving to Apple Health…" : "Not saved").font(.subheadline)
                 Spacer(minLength: 8)
                 Button("Retry") {
@@ -257,6 +304,30 @@ struct SleepScreen: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("compareStageModels")
         .accessibilityHint("Shows the Watch, the pod's rules and an experimental model side by side")
+    }
+
+    /// What this iPhone and its Watch record overnight, under the comparisons that use them.
+    private var recordingRows: some View {
+        VStack(spacing: 12) {
+            row("Watch movement", icon: "figure.walk", identifier: "watchMovement") { showWatchMotion = true }
+            row("Snore detection", icon: "waveform.badge.mic", value: snore.isActive ? "Listening" : "Beta",
+                identifier: "snoreDetection") { showSnore = true }
+        }
+    }
+
+    private func row(_ title: String, icon: String, value: String? = nil, identifier: String,
+                     action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            SettingsRow(title, icon: icon, chevron: true, height: 52, titleFont: .subheadline) {
+                if let value { RowValue(value) }
+            }
+            .cardSurface(radius: 18)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
     }
 
     // MARK: Week
@@ -368,9 +439,10 @@ struct SleepScreen: View {
         }
         return barsCard(days: monthDays, hours: hours, spacing: 3, radius: 3, height: 140) { _, day in
             let number = calendar.component(.day, from: day)
+            // Zero minimum width so 30 labels never widen the row; each overflows its bar, centred.
             Text("\(number)")
                 .fixedSize()
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 0, maxWidth: .infinity)
                 .foregroundStyle(calendar.isDate(day, inSameDayAs: selectedDate) ? Theme.text1 : Theme.text3)
                 .opacity([1, 8, 15, 22, 29].contains(number) ? 1 : 0)
         }

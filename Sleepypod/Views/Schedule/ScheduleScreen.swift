@@ -69,7 +69,7 @@ struct ScheduleScreen: View {
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
-            .background(Theme.background)
+            .background { ScreenWash.brand }
             .navigationTitle("Schedule")
             .settingsToolbar()
             .toolbar {

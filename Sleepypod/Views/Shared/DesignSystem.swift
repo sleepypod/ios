@@ -133,7 +133,7 @@ struct GlassCircleButton: View {
 }
 
 struct SettingsToolbar: ViewModifier {
-    @State private var presented = ["settings", "allsettings", "health", "watchmotion"].contains(DebugRoute.current)
+    @State private var presented = ["settings", "allsettings", "health"].contains(DebugRoute.current)
     func body(content: Content) -> some View {
         content.toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -207,6 +207,25 @@ struct SegmentedControl<Value: Hashable>: View {
 }
 
 // MARK: - Cards and grouped rows
+
+/// A pulsing block standing in for content that is still loading, so its card keeps its shape.
+struct LoadingBlock: View {
+    var height: CGFloat
+    var width: CGFloat?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        // The pulse animates opacity only; a repeating animation on the whole view would also replay its layout,
+        // sliding the block in from its card's edge on every beat.
+        RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.active)
+            .phaseAnimator(reduceMotion ? [0.7] : [1, 0.45]) { block, opacity in
+                block.opacity(opacity)
+            } animation: { _ in .easeInOut(duration: 0.9) }
+            .frame(width: width, height: height)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+            .accessibilityHidden(true)
+    }
+}
 
 struct CardStyle: ViewModifier {
     var radius: CGFloat = 22
@@ -293,6 +312,8 @@ struct SettingsRow<Trailing: View>: View {
     var chevron = false
     var height: CGFloat = 50
     var titleFont: Font = .callout
+    /// Space above and below the text, for rows whose subtitle wraps past `height`.
+    var verticalPadding: CGFloat = 0
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -317,6 +338,7 @@ struct SettingsRow<Trailing: View>: View {
             }
         }
         .padding(.horizontal, 16)
+        .padding(.vertical, verticalPadding)
         .frame(minHeight: height)
         .contentShape(Rectangle())
     }
@@ -324,18 +346,19 @@ struct SettingsRow<Trailing: View>: View {
 
 extension SettingsRow where Trailing == EmptyView {
     init(_ title: String, subtitle: String? = nil, icon: String? = nil, iconColor: Color = Theme.icon,
-         tile: Bool = false, chevron: Bool = false, height: CGFloat = 50, titleFont: Font = .callout) {
+         tile: Bool = false, chevron: Bool = false, height: CGFloat = 50, titleFont: Font = .callout,
+         verticalPadding: CGFloat = 0) {
         self.init(title: title, subtitle: subtitle, icon: icon, iconColor: iconColor, tile: tile, chevron: chevron,
-                  height: height, titleFont: titleFont) { EmptyView() }
+                  height: height, titleFont: titleFont, verticalPadding: verticalPadding) { EmptyView() }
     }
 }
 
 extension SettingsRow {
     init(_ title: String, subtitle: String? = nil, icon: String? = nil, iconColor: Color = Theme.icon,
          tile: Bool = false, chevron: Bool = false, height: CGFloat = 50, titleFont: Font = .callout,
-         @ViewBuilder trailing: () -> Trailing) {
+         verticalPadding: CGFloat = 0, @ViewBuilder trailing: () -> Trailing) {
         self.init(title: title, subtitle: subtitle, icon: icon, iconColor: iconColor, tile: tile, chevron: chevron,
-                  height: height, titleFont: titleFont, trailing: trailing)
+                  height: height, titleFont: titleFont, verticalPadding: verticalPadding, trailing: trailing)
     }
 }
 

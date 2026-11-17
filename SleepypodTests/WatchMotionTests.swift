@@ -248,7 +248,8 @@ struct WatchMotionTests {
                                              to: Date(timeIntervalSince1970: start + 2), timeZone: .gmt, device: "Watch")
             try file.encoded().write(to: root.appendingPathComponent(file.fileName))
         }
-        let receiver = WatchMotionReceiver(inbox: WatchMotionInbox(directory: root))
+        let receiver = WatchMotionReceiver(inbox: WatchMotionInbox(directory: root),
+                                           defaults: UserDefaults(suiteName: UUID().uuidString)!)
         let api = MockAPIClient()
         #expect(!receiver.canSendToPod)
         await receiver.sendToPod(receiver.recordings)
@@ -265,7 +266,7 @@ struct WatchMotionTests {
 
         // A pod without the route stops the batch and later arrivals, until a manual send.
         api.uploadMotion = { _, _ in throw APIError.notSupported("Watch movement upload") }
-        await receiver.sendToPod(receiver.recordings)
+        await receiver.sendToPod(receiver.recordings, force: true)
         #expect(api.uploadMotionCalls.count == 2)
         #expect(receiver.podLacksSupport)
         #expect(receiver.podUploads[newest.url] == .unsupported)
@@ -274,10 +275,53 @@ struct WatchMotionTests {
         #expect(api.uploadMotionCalls.count == 2)
 
         api.uploadMotion = { _, _ in throw APIError.serverError(message: "disk full") }
-        await receiver.sendToPod(receiver.recordings)
+        await receiver.sendToPod(receiver.recordings, force: true)
         #expect(api.uploadMotionCalls.count == 4)
         #expect(!receiver.podLacksSupport)
         #expect(receiver.recordings.allSatisfy { receiver.podUploads[$0.url] == .failed("Server error: disk full") })
+    }
+
+    @MainActor @Test func receiverSkipsRecordingsThePodAlreadyStoredUntilForced() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        for start in [0.0, 100] {
+            let file = MotionSummarizer.file(samples: [still(start + 1)], from: Date(timeIntervalSince1970: start),
+                                             to: Date(timeIntervalSince1970: start + 2), timeZone: .gmt, device: "Watch")
+            try file.encoded().write(to: root.appendingPathComponent(file.fileName))
+        }
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let api = MockAPIClient()
+        let receiver = WatchMotionReceiver(inbox: WatchMotionInbox(directory: root), defaults: defaults)
+        receiver.podDestination = { (api, .right) }
+        #expect(receiver.unsent(side: .right).count == 2)
+        await receiver.sendToPod(receiver.recordings)
+        #expect(api.uploadMotionCalls.count == 2)
+        #expect(receiver.unsent(side: .right).isEmpty)
+        #expect(receiver.unsent(side: .left).count == 2)
+
+        // A relaunch remembers what the pod has; only a forced send goes again.
+        let relaunched = WatchMotionReceiver(inbox: WatchMotionInbox(directory: root), defaults: defaults)
+        relaunched.podDestination = { (api, .right) }
+        await relaunched.sendToPod(relaunched.recordings)
+        #expect(api.uploadMotionCalls.count == 2)
+        #expect(await relaunched.sendRecent(days: 100_000).isEmpty)
+        #expect(api.uploadMotionCalls.count == 2)
+        await relaunched.sendToPod(relaunched.recordings, force: true)
+        #expect(api.uploadMotionCalls.count == 4)
+
+        // A redelivered file is rewritten, so it goes again.
+        let newest = try #require(relaunched.recordings.first)
+        try FileManager.default.setAttributes([.modificationDate: Date.now.addingTimeInterval(60)], ofItemAtPath: newest.url.path)
+        #expect(relaunched.unsent(side: .right).map(\.url) == [newest.url])
+        await relaunched.sendToPod(relaunched.recordings)
+        #expect(api.uploadMotionCalls.count == 5)
+
+        // A failed send is not remembered.
+        api.uploadMotion = { _, _ in throw APIError.serverError(message: "disk full") }
+        try FileManager.default.setAttributes([.modificationDate: Date.now.addingTimeInterval(120)], ofItemAtPath: newest.url.path)
+        await relaunched.sendToPod(relaunched.recordings)
+        #expect(relaunched.unsent(side: .right).map(\.url) == [newest.url])
     }
 }
 

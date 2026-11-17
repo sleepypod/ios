@@ -208,6 +208,24 @@ struct SegmentedControl<Value: Hashable>: View {
 
 // MARK: - Cards and grouped rows
 
+/// A pulsing block standing in for content that is still loading, so its card keeps its shape.
+struct LoadingBlock: View {
+    var height: CGFloat
+    var width: CGFloat?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dim = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.active)
+            .frame(width: width, height: height)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+            .opacity(dim ? 0.45 : 1)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: dim)
+            .onAppear { dim = true }
+            .accessibilityHidden(true)
+    }
+}
+
 struct CardStyle: ViewModifier {
     var radius: CGFloat = 22
     var vertical: CGFloat = 16

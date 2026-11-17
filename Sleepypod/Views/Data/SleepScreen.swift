@@ -153,6 +153,7 @@ struct SleepScreen: View {
                 vital("HRV", unit: "ms", key: \.hrv, decimals: 0, icon: "waveform.path.ecg", color: Theme.cool)
                 vital("BREATH", unit: "br/min", key: \.breathingRate, decimals: 1, icon: "lungs", color: Theme.green)
             }
+            NightVitalsCard(vitals: filteredVitals)
             PodMovementCardView(record: record, side: metrics.selectedSide)
             if health.hasWriteAuthorization && metrics.selectedSide == profile.defaultSide && !isDemo {
                 healthReceipt(record)
@@ -162,11 +163,46 @@ struct SleepScreen: View {
                 stagesRow
             }
         } else if metrics.isLoading {
-            ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+            nightLoading
         } else {
             ContentUnavailableView("No sleep recorded", systemImage: "moon",
                                    description: Text("Choose another night to see sleep and vitals."))
         }
+    }
+
+    /// The Night view's cards with their content still loading, so the screen keeps its shape while it fetches.
+    @ViewBuilder private var nightLoading: some View {
+        HStack(spacing: 18) {
+            Circle().stroke(Theme.track, lineWidth: 6).padding(6).frame(width: 78, height: 78)
+            VStack(alignment: .leading, spacing: 8) {
+                LoadingBlock(height: 28, width: 120)
+                LoadingBlock(height: 12, width: 150)
+            }
+            Spacer(minLength: 0)
+        }
+        .cardStyle(vertical: 18, horizontal: 18)
+        VStack(alignment: .leading, spacing: 12) {
+            Eyebrow("STAGES")
+            LoadingBlock(height: 88)
+            LoadingBlock(height: 12, width: 180)
+        }
+        .cardStyle()
+        vitalsLayout {
+            ForEach([("HR", "bpm"), ("HRV", "ms"), ("BREATH", "br/min")], id: \.0) { title, unit in
+                VStack(alignment: .leading, spacing: 6) {
+                    Eyebrow(title, size: 10)
+                    LoadingBlock(height: 28, width: 48)
+                    Text(unit).font(.mono(10, relativeTo: .caption2)).foregroundStyle(Theme.text3)
+                }
+                .cardStyle(radius: 18, vertical: 14, horizontal: 14)
+            }
+        }
+        NightVitalsCard(vitals: [], loading: true)
+        VStack(alignment: .leading, spacing: 12) {
+            Eyebrow("MOVEMENT")
+            LoadingBlock(height: 120)
+        }
+        .cardStyle()
     }
 
     private var filteredVitals: [VitalsRecord] {

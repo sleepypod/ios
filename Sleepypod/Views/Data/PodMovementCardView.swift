@@ -31,7 +31,7 @@ struct PodMovementCardView: View {
                 }
             }
             if !loaded {
-                ProgressView().frame(maxWidth: .infinity, minHeight: 120)
+                LoadingBlock(height: 120)
             } else if movement.isEmpty {
                 Text(error ?? "No movement recorded for this night")
                     .font(.subheadline).foregroundStyle(Theme.text3)

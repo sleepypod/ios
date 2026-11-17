@@ -213,15 +213,16 @@ struct LoadingBlock: View {
     var height: CGFloat
     var width: CGFloat?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var dim = false
 
     var body: some View {
+        // The pulse animates opacity only; a repeating animation on the whole view would also replay its layout,
+        // sliding the block in from its card's edge on every beat.
         RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.active)
+            .phaseAnimator(reduceMotion ? [0.7] : [1, 0.45]) { block, opacity in
+                block.opacity(opacity)
+            } animation: { _ in .easeInOut(duration: 0.9) }
             .frame(width: width, height: height)
             .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
-            .opacity(dim ? 0.45 : 1)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: dim)
-            .onAppear { dim = true }
             .accessibilityHidden(true)
     }
 }

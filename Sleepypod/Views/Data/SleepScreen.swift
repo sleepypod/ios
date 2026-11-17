@@ -254,7 +254,11 @@ struct SleepScreen: View {
                     .font(.mono(11, relativeTo: .caption2)).foregroundStyle(Theme.text2)
                 Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.green)
             } else {
-                Image(systemName: "heart").font(.system(size: 15)).foregroundStyle(Theme.amber)
+                if health.isSyncing {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "heart").font(.system(size: 15)).foregroundStyle(Theme.amber)
+                }
                 Text(health.isSyncing ? "Saving to Apple Health…" : "Not saved").font(.subheadline)
                 Spacer(minLength: 8)
                 Button("Retry") {

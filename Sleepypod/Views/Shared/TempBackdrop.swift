@@ -43,15 +43,17 @@ extension Color {
     }
 }
 
-/// The Temp screen's background: a faint wash from the top tinted by the side's target temperature while it's on,
-/// fading to the plain background when it's off.
-struct TempScreenWash: View {
-    let tempF: Int?
-    let on: Bool
+/// A tab's background: a faint wash from the top in one hue, fading to the plain background when `on` is false.
+/// The Temp screen tints it by the side's target temperature; the other tabs use `brand`, the neutral violet.
+struct ScreenWash: View {
+    let hue: Double
+    var on = true
     @Environment(\.colorScheme) private var scheme
 
+    /// The temperature scale's neutral violet, close to the logo's purple.
+    static let brand = ScreenWash(hue: TempHue.temperature(TempHue.neutralF))
+
     var body: some View {
-        let hue = TempHue.temperature(Double(tempF ?? 82))
         let tint = scheme == .dark
             ? Color(hue: hue, saturation: 0.55, lightness: 0.50, opacity: 0.22)
             : Color(hue: hue, saturation: 0.70, lightness: 0.75, opacity: 0.35)
@@ -63,7 +65,7 @@ struct TempScreenWash: View {
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.7), value: on)
-        .animation(.easeInOut(duration: 0.7), value: tempF)
+        .animation(.easeInOut(duration: 0.7), value: hue)
         .accessibilityHidden(true)
     }
 }

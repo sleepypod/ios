@@ -148,7 +148,7 @@ struct TempScreen: View {
                 if profile.tempControl == .sides || !deviceManager.isConnected {
                     Theme.background
                 } else {
-                    TempScreenWash(tempF: deviceManager.currentSideStatus?.targetTemperatureF, on: deviceManager.isOn)
+                    ScreenWash(hue: TempHue.temperature(Double(deviceManager.currentSideStatus?.targetTemperatureF ?? 82)), on: deviceManager.isOn)
                 }
             }
             .navigationTitle(profile.tempControl == .sides ? "Bed" : "")

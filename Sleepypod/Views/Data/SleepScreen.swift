@@ -80,7 +80,7 @@ struct SleepScreen: View {
                 .padding(.bottom, 24)
             }
             .defaultScrollAnchor(DebugRoute.current == "weektrend" ? .bottom : nil)
-            .background(Theme.background)
+            .background { ScreenWash.brand }
             .navigationTitle("Sleep")
             .settingsToolbar()
             .toolbar {

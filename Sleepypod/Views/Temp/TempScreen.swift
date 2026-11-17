@@ -144,7 +144,13 @@ struct TempScreen: View {
                     DisconnectedTabView(tab: "Temp")
                 }
             }
-            .background(Theme.background)
+            .background {
+                if profile.tempControl == .sides || !deviceManager.isConnected {
+                    Theme.background
+                } else {
+                    TempScreenWash(tempF: deviceManager.currentSideStatus?.targetTemperatureF, on: deviceManager.isOn)
+                }
+            }
             .navigationTitle(profile.tempControl == .sides ? "Bed" : "")
             .navigationBarTitleDisplayMode(profile.tempControl == .sides ? .large : .inline)
             .settingsToolbar()

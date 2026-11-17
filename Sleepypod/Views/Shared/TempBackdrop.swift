@@ -43,6 +43,31 @@ extension Color {
     }
 }
 
+/// The Temp screen's background: a faint wash from the top tinted by the side's target temperature while it's on,
+/// fading to the plain background when it's off.
+struct TempScreenWash: View {
+    let tempF: Int?
+    let on: Bool
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let hue = TempHue.temperature(Double(tempF ?? 82))
+        let tint = scheme == .dark
+            ? Color(hue: hue, saturation: 0.55, lightness: 0.50, opacity: 0.22)
+            : Color(hue: hue, saturation: 0.70, lightness: 0.75, opacity: 0.35)
+        ZStack {
+            Theme.background
+            LinearGradient(stops: [.init(color: tint, location: 0), .init(color: .clear, location: 0.7)],
+                           startPoint: .top, endPoint: .bottom)
+                .opacity(on ? 1 : 0)
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.7), value: on)
+        .animation(.easeInOut(duration: 0.7), value: tempF)
+        .accessibilityHidden(true)
+    }
+}
+
 /// The stepper card's backdrop, as in sleepypod-core's TempBackdrop: a wash for the time of day across
 /// the top and a glow rising from below tinted by the temperature. Powered off, both give way to a
 /// flat dark gradient. Both layers ease when their inputs change.

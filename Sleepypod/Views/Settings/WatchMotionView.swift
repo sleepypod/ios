@@ -23,7 +23,7 @@ struct WatchMotionView: View {
                     .padding(.horizontal, 8)
                 GroupedSection("NIGHTLY") {
                     GroupedCard {
-                        SettingsRow("Record every night", subtitle: nightlySubtitle, height: 56) {
+                        SettingsRow("Record every night", subtitle: nightlySubtitle, height: 56, verticalPadding: 10) {
                             Toggle("Record every night", isOn: $receiver.nightlyEnabled).labelsHidden()
                         }
                     }

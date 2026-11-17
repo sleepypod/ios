@@ -293,6 +293,8 @@ struct SettingsRow<Trailing: View>: View {
     var chevron = false
     var height: CGFloat = 50
     var titleFont: Font = .callout
+    /// Space above and below the text, for rows whose subtitle wraps past `height`.
+    var verticalPadding: CGFloat = 0
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -317,6 +319,7 @@ struct SettingsRow<Trailing: View>: View {
             }
         }
         .padding(.horizontal, 16)
+        .padding(.vertical, verticalPadding)
         .frame(minHeight: height)
         .contentShape(Rectangle())
     }
@@ -324,18 +327,19 @@ struct SettingsRow<Trailing: View>: View {
 
 extension SettingsRow where Trailing == EmptyView {
     init(_ title: String, subtitle: String? = nil, icon: String? = nil, iconColor: Color = Theme.icon,
-         tile: Bool = false, chevron: Bool = false, height: CGFloat = 50, titleFont: Font = .callout) {
+         tile: Bool = false, chevron: Bool = false, height: CGFloat = 50, titleFont: Font = .callout,
+         verticalPadding: CGFloat = 0) {
         self.init(title: title, subtitle: subtitle, icon: icon, iconColor: iconColor, tile: tile, chevron: chevron,
-                  height: height, titleFont: titleFont) { EmptyView() }
+                  height: height, titleFont: titleFont, verticalPadding: verticalPadding) { EmptyView() }
     }
 }
 
 extension SettingsRow {
     init(_ title: String, subtitle: String? = nil, icon: String? = nil, iconColor: Color = Theme.icon,
          tile: Bool = false, chevron: Bool = false, height: CGFloat = 50, titleFont: Font = .callout,
-         @ViewBuilder trailing: () -> Trailing) {
+         verticalPadding: CGFloat = 0, @ViewBuilder trailing: () -> Trailing) {
         self.init(title: title, subtitle: subtitle, icon: icon, iconColor: iconColor, tile: tile, chevron: chevron,
-                  height: height, titleFont: titleFont, trailing: trailing)
+                  height: height, titleFont: titleFont, verticalPadding: verticalPadding, trailing: trailing)
     }
 }
 
